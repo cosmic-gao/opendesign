@@ -1,0 +1,27 @@
+{
+  "name": "@opendesign/tsconfig",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./base": "./base.json",
+    "./strict": "./strict.json",
+    "./browser": "./environments/browser.json",
+    "./vite": "./environments/vite.json",
+    "./node": "./environments/node.json",
+    "./node18": "./environments/node18.json",
+    "./react": "./environments/react.json",
+    "./next": "./environments/next.json",
+    "./vue": "./environments/vue.json",
+    "./nuxt": "./environments/nuxt.json",
+    "./electron": "./environments/electron.json",
+    "./lib": "./packages/lib.json",
+    "./app": "./packages/app.json",
+    "./test": "./packages/test.json",
+    "./monorepo": "./packages/monorepo.json",
+    "./modules/commonjs": "./modules/commonjs.json",
+    "./modules/esm": "./modules/esm.json",
+    "./modules/umd": "./modules/umd.json"
+  },
+  "keywords": ["typescript", "tsconfig", "config", "opendesign"],
+  "license": "MIT"
+}

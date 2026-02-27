@@ -4,5 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel run dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

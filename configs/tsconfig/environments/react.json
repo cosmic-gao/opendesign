@@ -1,0 +1,8 @@
+{
+  "extends": "./vite.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["react", "react-dom"]
+  }
+}

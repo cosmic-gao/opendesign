@@ -29,8 +29,11 @@ tsconfig/
 │   ├── node.json           # Node.js 环境
 │   ├── node18.json         # Node.js 18+
 │   ├── browser.json        # 浏览器环境
+│   ├── vite.json           # Vite 构建工具
 │   ├── react.json          # React 项目
+│   ├── next.json           # Next.js 项目
 │   ├── vue.json            # Vue 项目
+│   ├── nuxt.json           # Nuxt.js 项目
 │   └── electron.json       # Electron 项目
 ├── modules/                # 模块系统配置
 │   ├── commonjs.json       # CommonJS 输出
@@ -50,27 +53,157 @@ tsconfig/
 ### 2.2 配置层级
 
 ```
-┌─────────────────────────────────────────────┐
-│              项目 tsconfig.json             │  ← 用户配置层（覆盖）
-├─────────────────────────────────────────────┤
-│              extends 引用链                   │
-├─────────────────────────────────────────────┤
-│  app.json → node.json → base.json → strict  │  ← 基础配置层
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   项目 tsconfig.json                        │  ← 用户配置层（覆盖）
+├─────────────────────────────────────────────────────────────┤
+│                      extends 引用链                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
+│   │   app.json  │     │   lib.json  │     │  test.json  │  │  ← 场景层
+│   └──────┬──────┘     └──────┬──────┘     └──────┬──────┘  │
+│          │                  │                  │          │
+│   ┌──────┴──────┐     ┌──────┴──────┐     ┌──────┴──────┐  │
+│   │ react.json  │     │  vue.json   │     │  node.json  │  │  ← 环境层
+│   │ next.json   │     │  nuxt.json  │     │ electron.json│  │
+│   └──────┬──────┘     └──────┬──────┘     └──────┬──────┘  │
+│          │                  │                  │          │
+│   ┌──────┴──────────────────┴──────────────────┴──────┐  │
+│   │                  vite.json                           │  │  ← Vite 构建层
+│   └──────────────────────┬───────────────────────────────┘  │
+│                          │                                  │
+│   ┌──────────────────────┴───────────────────────────────┐ │
+│   │                  browser.json                        │  │  ← 浏览器基础层
+│   └──────────────────────┬───────────────────────────────┘  │
+│                          │                                  │
+│   ┌──────────────────────┴───────────────────────────────┐ │
+│   │                       base.json                        │  │  ← 通用基础层
+│   └──────────────────────┬───────────────────────────────┘  │
+│                          │                                  │
+│   ┌──────────────────────┴───────────────────────────────┐ │
+│   │                     strict.json                        │ │  ← 严格模式层
+│   └───────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **层级优先级**（从低到高）：
-1. `base/` - 底层基础配置
-2. `environments/` - 环境配置
-3. `modules/` - 模块系统配置
-4. `packages/` - 场景配置
-5. 项目自身配置 - 最高优先级
+
+1. **strict.json** - 严格模式层（最底层）
+2. **base.json** - 通用基础层
+3. **browser.json** - 浏览器基础层
+4. **vite.json** - Vite 构建工具层（继承浏览器基础）
+5. **environments/** - 环境配置层
+   - `node.json` - Node.js 环境
+   - `browser.json` - 浏览器环境（继承通用基础）
+   - `vite.json` - Vite 构建工具（继承浏览器基础）
+   - `react.json` - React + Vite 项目（继承 Vite）
+   - `next.json` - Next.js 项目（继承浏览器基础）
+   - `vue.json` - Vue + Vite 项目（继承 Vite）
+   - `nuxt.json` - Nuxt.js 项目（继承浏览器基础）
+   - `electron.json` - Electron 项目（继承 Node.js）
+6. **modules/** - 模块系统配置
+7. **packages/** - 场景配置层
+8. **项目自身配置** - 最高优先级
+
+> **设计原则**：
+> - React/Vue 项目通常使用 Vite 构建，继承自 vite.json
+> - Next.js/Nuxt.js 是全栈框架，直接继承 browser.json
+> - Node.js/Electron 框架继承自 node.json
+> - 确保配置层次清晰、避免重复
 
 ---
 
-## 三、配置详情
+## 三、包导出配置
 
-### 3.1 基础配置
+### 3.1 package.json 配置
+
+通过 `exports` 字段导出各配置文件，使包可以被其他项目引用：
+
+```json
+{
+  "name": "@opendesign/tsconfig",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./base": "./base.json",
+    "./strict": "./strict.json",
+    "./browser": "./environments/browser.json",
+    "./vite": "./environments/vite.json",
+    "./node": "./environments/node.json",
+    "./node18": "./environments/node18.json",
+    "./react": "./environments/react.json",
+    "./next": "./environments/next.json",
+    "./vue": "./environments/vue.json",
+    "./nuxt": "./environments/nuxt.json",
+    "./electron": "./environments/electron.json",
+    "./lib": "./packages/lib.json",
+    "./app": "./packages/app.json",
+    "./test": "./packages/test.json",
+    "./monorepo": "./packages/monorepo.json",
+    "./modules/commonjs": "./modules/commonjs.json",
+    "./modules/esm": "./modules/esm.json",
+    "./modules/umd": "./modules/umd.json"
+  },
+  "keywords": ["typescript", "tsconfig", "config"],
+  "license": "MIT"
+}
+```
+
+### 3.2 引用方式
+
+安装后，其他项目可通过以下方式引用配置：
+
+```json
+{
+  "extends": "@opendesign/tsconfig/react.json"
+}
+```
+
+### 3.3 组合引用
+
+项目可根据需要组合多个配置：
+
+```json
+{
+  "extends": [
+    "@opendesign/tsconfig/react.json",
+    "@opendesign/tsconfig/lib.json"
+  ]
+}
+```
+
+### 3.4 类型提示支持
+
+可选添加 `index.d.ts` 提供 IDE 类型提示：
+
+```typescript
+import type { TSConfig } from 'typescript';
+
+declare module '@opendesign/tsconfig' {
+  interface PresetConfigs {
+    base: TSConfig;
+    strict: TSConfig;
+    browser: TSConfig;
+    node: TSConfig;
+    node18: TSConfig;
+    react: TSConfig;
+    next: TSConfig;
+    vue: TSConfig;
+    nuxt: TSConfig;
+    electron: TSConfig;
+    lib: TSConfig;
+    app: TSConfig;
+    test: TSConfig;
+    monorepo: TSConfig;
+  }
+}
+```
+
+---
+
+## 四、配置详情
+
+### 4.1 基础配置
 
 #### base.json - 核心编译选项
 
@@ -127,9 +260,11 @@ tsconfig/
 }
 ```
 
-### 3.2 环境配置
+### 4.2 环境配置
 
-#### node.json - Node.js 通用
+#### node.json - Node.js 通用环境
+
+> **定位**：Node.js 项目的基础配置，继承自 base.json，添加 Node.js 类型支持。Electron 主进程等基于 Node 的框架可继承此配置。
 
 ```json
 {
@@ -161,7 +296,9 @@ tsconfig/
 }
 ```
 
-#### browser.json - 浏览器环境
+#### browser.json - 浏览器基础环境
+
+> **定位**：浏览器项目的基础配置，继承自 base.json，添加 DOM 类型支持。所有面向浏览器的框架（React、Vue）应继承此配置。
 
 ```json
 {
@@ -181,9 +318,11 @@ tsconfig/
 
 #### react.json - React 项目
 
+> **定位**：React + Vite 项目配置，继承自 vite.json，添加 React 类型和 JSX 支持。
+
 ```json
 {
-  "extends": "./browser.json",
+  "extends": "./vite.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -194,18 +333,67 @@ tsconfig/
 
 #### vue.json - Vue 项目
 
+> **定位**：Vue + Vite 项目配置，继承自 vite.json，添加 Vue 类型和 JSX 支持。
+
+```json
+{
+  "extends": "./vite.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "@vitejs/plugin-vue"]
+  }
+}
+```
+
+#### nuxt.json - Nuxt.js 项目
+
+> **定位**：Nuxt.js 全栈框架配置，继承自 browser.json，添加 Nuxt 类型和 Vue 支持。Nuxt 同时服务端渲染，需要 Node.js 和浏览器类型。
+
 ```json
 {
   "extends": "./browser.json",
   "compilerOptions": {
     "jsx": "preserve",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["nuxt", "vite/client"]
+  }
+}
+```
+
+#### vite.json - Vite 项目
+
+> **定位**：Vite 构建工具基础配置，继承自 browser.json，添加 Vite 客户端类型支持。Vite 可用于 Vue、React、Svelte 等前端框架项目。
+
+```json
+{
+  "extends": "./browser.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   }
 }
 ```
 
+#### next.json - Next.js 项目
+
+> **定位**：Next.js React 全栈框架配置，继承自 browser.json，添加 Next.js 类型和 React JSX 支持。Next.js 同时支持服务端和客户端渲染。
+
+```json
+{
+  "extends": "./browser.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "target": "ES2017",
+    "types": ["next"]
+  }
+}
+```
+
 #### electron.json - Electron 项目
+
+> **定位**：Electron 桌面应用配置，继承自 node.json，添加 DOM 和 Electron 类型支持。
 
 ```json
 {
@@ -217,7 +405,7 @@ tsconfig/
 }
 ```
 
-### 3.3 模块配置
+### 4.3 模块配置
 
 #### commonjs.json
 
@@ -253,7 +441,7 @@ tsconfig/
 }
 ```
 
-### 3.4 场景配置
+### 4.4 场景配置
 
 #### lib.json - 类库开发
 
@@ -315,9 +503,9 @@ tsconfig/
 
 ---
 
-## 四、使用方式
+## 五、使用方式
 
-### 4.1 安装
+### 5.1 安装
 
 ```bash
 npm install @opendesign/tsconfig --save-dev
@@ -325,7 +513,7 @@ npm install @opendesign/tsconfig --save-dev
 pnpm add @opendesign/tsconfig -D
 ```
 
-### 4.2 项目引用
+### 5.2 项目引用
 
 #### Node.js API 项目
 
@@ -372,7 +560,7 @@ pnpm add @opendesign/tsconfig -D
 }
 ```
 
-### 4.3 组合使用
+### 5.3 组合使用
 
 项目可根据需要组合多个配置：
 
@@ -390,7 +578,7 @@ pnpm add @opendesign/tsconfig -D
 
 ---
 
-## 五、类型定义
+## 六、类型定义
 
 ### index.d.ts
 
@@ -437,7 +625,7 @@ export function resolvePreset(options: PresetOptions): string[];
 
 ---
 
-## 六、最佳实践
+## 七、最佳实践
 
 ### 6.1 Monorepo 最佳实践
 
@@ -456,19 +644,22 @@ export function resolvePreset(options: PresetOptions): string[];
 
 ### 6.3 常见场景组合
 
-| 场景 | 配置组合 |
-|------|---------|
-| Node.js API 服务 | node.json + lib.json |
-| Node.js CLI 工具 | node.json + app.json |
-| React Web 应用 | react.json + app.json |
-| Vue 3 应用 | vue.json + app.json |
-| React 组件库 | react.json + lib.json |
-| Electron 主进程 | electron.json + node.json |
-| 单元测试 | test.json + node.json |
+| 场景 | 配置组合 | 继承链 |
+|------|---------|--------|
+| Node.js API 服务 | node.json + lib.json | lib → node → base → strict |
+| Node.js CLI 工具 | node.json + app.json | app → node → base → strict |
+| Vite 项目 | vite.json + app.json | app → vite → browser → base → strict |
+| React Web 应用 (Vite) | react.json + app.json | app → react → vite → browser → base → strict |
+| Next.js 应用 | next.json + app.json | app → next → browser → base → strict |
+| Vue 3 应用 (Vite) | vue.json + app.json | app → vue → vite → browser → base → strict |
+| Nuxt.js 应用 | nuxt.json + app.json | app → nuxt → browser → base → strict |
+| React 组件库 (Vite) | react.json + lib.json | lib → react → vite → browser → base → strict |
+| Electron 主进程 | electron.json | electron → node → base → strict |
+| 单元测试 | test.json + node.json | test → node → base → strict |
 
 ---
 
-## 七、扩展指南
+## 八、扩展指南
 
 ### 7.1 添加新环境
 
@@ -496,7 +687,7 @@ export function resolvePreset(options: PresetOptions): string[];
 
 ---
 
-## 八、版本兼容性
+## 九、版本兼容性
 
 | Node.js 版本 | 推荐配置 |
 |-------------|---------|
@@ -507,7 +698,7 @@ export function resolvePreset(options: PresetOptions): string[];
 
 ---
 
-## 九、配置验证
+## 十、配置验证
 
 ### CI/CD 集成
 
@@ -521,7 +712,7 @@ npx tsc --noEmit
 
 ---
 
-## 十、总结
+## 十一、总结
 
 本配置包通过分层设计实现了：
 - **灵活性**：按需组合配置
