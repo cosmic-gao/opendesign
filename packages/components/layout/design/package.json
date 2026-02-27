@@ -1,0 +1,25 @@
+{
+  "name": "@openlayout/design",
+  "version": "1.0.0",
+  "description": "OpenDesign Layout 设计层 - CSS Token、主题管理、运行时样式",
+  "type": "module",
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    },
+    "./variables.css": "./variables.css"
+  },
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "goober": "^2.1.0"
+  },
+  "peerDependencies": {
+    "@openlayout/type": "workspace:*"
+  }
+}

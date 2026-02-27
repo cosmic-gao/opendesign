@@ -1,0 +1,15 @@
+{
+  "name": "@openlayout/type",
+  "version": "1.0.0",
+  "description": "OpenDesign Layout TypeScript 类型定义",
+  "type": "module",
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    }
+  }
+}

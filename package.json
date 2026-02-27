@@ -6,6 +6,7 @@
     "dev": "pnpm -r --parallel run dev"
   },
   "devDependencies": {
+    "@opendesign/tsconfig": "workspace:*",
     "typescript": "^5.9.3"
   }
 }

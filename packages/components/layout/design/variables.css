@@ -1,0 +1,40 @@
+/**
+ * OpenDesign Layout CSS 变量
+ * 静态默认值，作为 SSR 和无 JS 场景的回退
+ */
+
+/* CSS Variables */
+:root {
+  /* Layout */
+  --od-header-height: 64px;
+  --od-sidebar-width: 240px;
+  --od-sidebar-collapsed-width: 64px;
+  --od-content-max-width: 1200px;
+  
+  /* Colors - Light Theme (default) */
+  --od-primary: #1890ff;
+  --od-background: #ffffff;
+  --od-surface: #fafafa;
+  --od-text: #333333;
+  --od-border: #e8e8e8;
+  
+  /* Spacing */
+  --od-spacing-xs: 4px;
+  --od-spacing-sm: 8px;
+  --od-spacing-md: 16px;
+  --od-spacing-lg: 24px;
+  --od-spacing-xl: 32px;
+  
+  /* Typography */
+  --od-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+  --od-font-size: 14px;
+  --od-line-height: 1.5;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --od-background: #141414;
+  --od-surface: #1f1f1f;
+  --od-text: #ffffff;
+  --od-border: #303030;
+}

@@ -1,8 +1,19 @@
-# OpenDesign Layout Architecture Design Doc
+# OpenDesign Layout 布局系统架构设计
 
-**Author**: Trae AI
-**Status**: Draft
-**Last Updated**: 2026-02-27
+**项目名称**: OpenDesign Layout
+**文档类型**: 架构设计文档
+**版本**: 1.0.0
+**状态**: 草稿
+
+---
+
+## 修改记录 (Changelog)
+
+| 版本 | 日期 | 修改内容 | 作者 |
+|------|------|----------|------|
+| 1.0.0 | 2026-02-27 | 初始版本：完成整体架构设计 | Trae AI |
+
+---
 
 ## 1. 背景和目标（Background & Goals）
 
@@ -11,7 +22,7 @@
 
 ### 1.2 目标
 - **灵活性（Flexibility）**：支持多种常见布局模式（侧边栏布局、顶部导航布局、混合布局）。
-- **响应式（Responsiveness）**：完美支持移动端、平板和桌面端，自动适配屏幕尺寸。
+- **响应式（Responsiveness）**：完美支持移动端，平板和桌面端，自动适配屏幕尺寸。
 - **可配置性（Configurability）**：支持通过配置或 Props 轻松控制侧边栏折叠、固定头部、固定侧边栏等行为。
 - **无障碍性（Accessibility）**：遵循 WAI-ARIA 标准，确保键盘导航和屏幕阅读器支持。
 - **多框架支持（Multi-Framework Support）**：支持 React、Vue 3、Solid.js 等主流前端框架，保持 API 一致性。
@@ -85,7 +96,7 @@ export interface LayoutConfig {
 }
 
 // 设计令牌
-export interface LayoutTokens {
+export interface DesignTokens {
   colors: {
     primary: string;
     background: string;
@@ -118,27 +129,66 @@ export interface LayoutState {
 }
 ```
 
-#### 2.2.3 默认配置
+### 2.3 设计层（@openlayout/design）
+
+#### 2.3.1 核心职责
+- 定义 CSS 变量（Variables）
+- 定义主题（Themes）
+- 定义设计令牌（Tokens）
+- 运行时样式注入（基于 goober）
+- 依赖 @openlayout/type 包
+
+#### 2.3.2 CSS 变量与主题
+
+静态 CSS 变量，作为 SSR 和无 JS 场景的默认值：
+
+```css
+/* variables.css */
+:root {
+  /* Layout */
+  --od-header-height: 64px;
+  --od-sidebar-width: 240px;
+  --od-sidebar-collapsed-width: 64px;
+  --od-content-max-width: 1200px;
+  
+  /* Colors - Light Theme (default) */
+  --od-primary: #1890ff;
+  --od-background: #ffffff;
+  --od-surface: #fafafa;
+  --od-text: #333333;
+  --od-border: #e8e8e8;
+  
+  /* Spacing */
+  --od-spacing-xs: 4px;
+  --od-spacing-sm: 8px;
+  --od-spacing-md: 16px;
+  --od-spacing-lg: 24px;
+  --od-spacing-xl: 32px;
+  
+  /* Typography */
+  --od-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+  --od-font-size: 14px;
+  --od-line-height: 1.5;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --od-background: #141414;
+  --od-surface: #1f1f1f;
+  --od-text: #ffffff;
+  --od-border: #303030;
+}
+```
+
+#### 2.3.3 DesignTokens 定义
+
+Design 包导出 DesignTokens 类型和默认值：
+
 ```typescript
-// defaults.ts
-import type { LayoutConfig, LayoutTokens } from './types';
+// @openlayout/design/src/tokens.ts
+import type { DesignTokens } from '@openlayout/type';
 
-export const defaultConfig: LayoutConfig = {
-  mode: 'sidebar',
-  defaultCollapsed: false,
-  defaultTheme: 'light',
-  breakpoints: {
-    mobile: 480,
-    tablet: 768,
-    desktop: 1024,
-  },
-  headerHeight: 64,
-  sidebarWidth: 240,
-  sidebarCollapsedWidth: 64,
-  contentMaxWidth: 1200,
-};
-
-export const defaultTokens: LayoutTokens = {
+export const lightTokens: DesignTokens = {
   colors: {
     primary: '#1890ff',
     background: '#ffffff',
@@ -159,63 +209,152 @@ export const defaultTokens: LayoutTokens = {
     lineHeight: 1.5,
   },
 };
+
+export const darkTokens: DesignTokens = {
+  colors: {
+    primary: '#1890ff',
+    background: '#141414',
+    surface: '#1f1f1f',
+    text: '#ffffff',
+    border: '#303030',
+  },
+  spacing: lightTokens.spacing,
+  typography: lightTokens.typography,
+};
 ```
 
-### 2.3 设计层（@openlayout/design）
+#### 2.3.4 运行时样式工具
 
-#### 2.3.1 核心职责
-- 定义 CSS 变量（Variables）
-- 定义主题（Themes）
-- 定义设计令牌（Tokens）
-- 依赖 layout-type 包
+采用 [goober](https://github.com/cristianbote/goober) 处理运行时样式注入。
 
-#### 2.3.2 CSS 变量
-```css
-/* variables.css */
-:root {
-  --layout-header-height: 64px;
-  --layout-sidebar-width: 240px;
-  --layout-sidebar-collapsed-width: 64px;
-  --layout-content-max-width: 1200px;
-  
-  /* Colors */
-  --layout-primary: #1890ff;
-  --layout-background: #ffffff;
-  --layout-surface: #fafafa;
-  --layout-text: #333333;
-  --layout-border: #e8e8e8;
-  
-  /* Spacing */
-  --layout-spacing-xs: 4px;
-  --layout-spacing-sm: 8px;
-  --layout-spacing-md: 16px;
-  --layout-spacing-lg: 24px;
-  --layout-spacing-xl: 32px;
-}
+**为什么选择 goober**：
+- 体积小巧：~1.25kb
+- 零运行时 CSS 生成开销
+- 框架无关：React、Vue、Preact、Vanilla 都能用
+- SSR 支持
+
+**安装依赖**：
+```bash
+npm install goober
+# or
+pnpm add goober
 ```
 
-#### 2.3.3 主题定义
 ```typescript
-// themes/light.css
-:root {
-  --layout-primary: #1890ff;
-  --layout-background: #ffffff;
-  --layout-text: #333333;
+// @openlayout/design/src/style.ts
+import { glob } from 'goober';
+import type { DesignTokens } from '@openlayout/type';
+
+function flattenTokens(obj: Record<string, unknown>, prefix = ''): string {
+  return Object.entries(obj)
+    .map(([key, value]) => {
+      const name = prefix ? `${prefix}-${key}` : key;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return flattenTokens(value as Record<string, unknown>, name);
+      }
+      return `--od-${name}: ${value}`;
+    })
+    .join('; ');
 }
 
-// themes/dark.css
-[data-theme="dark"] {
-  --layout-primary: #1890ff;
-  --layout-background: #141414;
-  --layout-text: #ffffff;
+export function injectTokens(tokens: DesignTokens): void {
+  const cssString = flattenTokens(tokens);
+  glob`:root { ${cssString}; }`;
 }
+
+export function setThemeAttribute(theme: 'light' | 'dark'): void {
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+export function getCssVariable(name: string): string | null {
+  return document.documentElement.style.getPropertyValue(name) || null;
+}
+
+export function removeCssVariable(name: string): void {
+  document.documentElement.style.removeProperty(name);
+}
+```
+
+#### 2.3.5 主题管理器
+
+```typescript
+// @openlayout/design/src/theme.ts
+import { injectTokens, setThemeAttribute } from './style';
+import { lightTokens, darkTokens, type DesignTokens } from '@openlayout/type';
+import { lightTokens as lt, darkTokens as dt } from './tokens';
+
+export type ThemeName = 'light' | 'dark';
+
+export interface Theme {
+  name: ThemeName;
+  tokens: DesignTokens;
+}
+
+export class ThemeManager {
+  private currentTheme: ThemeName = 'light';
+  private themes: Map<ThemeName, Theme> = new Map();
+  
+  registerTheme(theme: Theme): void {
+    this.themes.set(theme.name, theme);
+  }
+  
+  registerDefaultThemes(): void {
+    this.registerTheme({ name: 'light', tokens: lt });
+    this.registerTheme({ name: 'dark', tokens: dt });
+  }
+  
+  applyTheme(name: ThemeName): void {
+    const theme = this.themes.get(name);
+    if (!theme) {
+      console.warn(`Theme "${name}" not found`);
+      return;
+    }
+    
+    setThemeAttribute(name);
+    injectTokens(theme.tokens);
+    this.currentTheme = name;
+  }
+  
+  getCurrentTheme(): ThemeName {
+    return this.currentTheme;
+  }
+  
+  toggleTheme(): ThemeName {
+    const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+    this.applyTheme(newTheme);
+    return newTheme;
+  }
+}
+
+export const themeManager = new ThemeManager();
+```
+
+#### 2.3.6 入口文件
+
+```typescript
+// @openlayout/design/src/index.ts
+export * from './tokens';
+export * from './style';
+export * from './theme';
+```
+
+#### 2.3.7 使用示例
+
+```typescript
+import { themeManager, lightTokens, injectTokens } from '@openlayout/design';
+
+themeManager.registerDefaultThemes();
+themeManager.applyTheme('light');
+themeManager.toggleTheme();
+injectTokens(lightTokens);
 ```
 
 ### 2.4 配置层（@openlayout/config）
 
 #### 2.4.1 核心职责
-- 提供默认配置
-- 依赖 layout-type 包
+- 提供布局配置默认值（LayoutConfig）
+- 仅处理业务配置数据，与样式无关
+- 依赖 @openlayout/type 包
 
 #### 2.4.2 默认配置
 ```typescript
@@ -236,28 +375,11 @@ export const defaultConfig: LayoutConfig = {
   sidebarCollapsedWidth: 64,
   contentMaxWidth: 1200,
 };
+```
 
-export const defaultTokens: LayoutTokens = {
-  colors: {
-    primary: '#1890ff',
-    background: '#ffffff',
-    surface: '#fafafa',
-    text: '#333333',
-    border: '#e8e8e8',
-  },
-  spacing: {
-    xs: '4px',
-    sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
-  },
-  typography: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto',
-    fontSize: 14,
-    lineHeight: 1.5,
-  },
-};
+#### 2.4.3 入口文件
+```typescript
+export * from './defaults';
 ```
 
 ### 2.5 核心层（@openlayout/core）
@@ -268,7 +390,7 @@ export const defaultTokens: LayoutTokens = {
 - 响应式检测（ResizeObserver + matchMedia）
 - 布局尺寸计算
 
-#### 2.4.2 状态管理器
+#### 2.5.2 状态管理器
 ```typescript
 // state/createLayoutState.ts
 import type { LayoutState, LayoutConfig } from '@openlayout/type';
@@ -304,7 +426,7 @@ export function createLayoutState(initialConfig: Partial<LayoutConfig>) {
 }
 ```
 
-#### 2.3.3 响应式检测
+#### 2.5.3 响应式检测
 ```typescript
 // media/useMediaQuery.ts
 export function createMediaQuery(breakpoints: LayoutConfig['breakpoints']) {
@@ -335,7 +457,7 @@ export function createMediaQuery(breakpoints: LayoutConfig['breakpoints']) {
 }
 ```
 
-#### 2.3.4 布局计算
+#### 2.5.4 布局计算
 ```typescript
 // math/layoutMath.ts
 import type { LayoutConfig } from '@openlayout/type';
@@ -351,7 +473,7 @@ export function calculateLayout(config: LayoutConfig, state: { collapsed: boolea
 }
 ```
 
-### 2.4 框架适配层（Framework Adapters）
+### 2.6 框架适配层（Framework Adapters）
 
 每个框架适配器负责：
 1. **引入依赖**：安装 `@openlayout/type`、`@openlayout/config` 和 `@openlayout/core`
@@ -359,7 +481,7 @@ export function calculateLayout(config: LayoutConfig, state: { collapsed: boolea
 3. **UI 组件**：实现各框架的组件库
 4. **Hooks/Composables**：提供框架特有的 API
 
-#### 2.4.1 React 适配器
+#### 2.6.1 React 适配器
 ```typescript
 // @openlayout/react
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -391,7 +513,7 @@ export function useLayout() {
 }
 ```
 
-#### 2.4.2 Vue 3 适配器
+#### 2.6.2 Vue 3 适配器
 ```typescript
 // @openlayout/vue
 import { ref, reactive, provide, onMounted, onUnmounted } from 'vue';
@@ -429,22 +551,6 @@ export function useLayout() {
 }
 ```
 
-### 2.5 样式方案
-
-样式在各框架适配器中实现，使用 CSS Variables 保证一致性：
-
-```css
-/* 基础样式 - 在各框架中共享 */
-:root {
-  --od-header-height: 64px;
-  --od-sidebar-width: 240px;
-  --od-sidebar-collapsed-width: 64px;
-  --od-content-max-width: 1200px;
-  --od-primary: #1890ff;
-  --od-background: #ffffff;
-}
-```
-
 ---
 
 ## 3. 接口与数据结构设计（API & Data Structures）
@@ -477,14 +583,13 @@ packages/components/
 ```
 packages/components/
 └── layout/
-    └── design/                    # 设计层
+    └── design/                    # 设计层（CSS Token + 样式相关）
         ├── src/
-        │   ├── variables.css      # CSS 变量
-        │   ├── themes/           # 主题
-        │   │   ├── light.css
-        │   │   └── dark.css
-        │   ├── tokens.ts         # 设计令牌
-        │   └── index.ts          # 入口文件
+        │   ├── variables.css      # CSS 变量（静态默认值）
+        │   ├── tokens.ts          # DesignTokens 定义
+        │   ├── style.ts           # 运行时样式工具
+        │   ├── theme.ts           # 主题管理器
+        │   └── index.ts           # 入口文件
         ├── package.json
         └── tsconfig.json
 ```
@@ -494,13 +599,10 @@ packages/components/
 ```
 packages/components/
 └── layout/
-    └── config/                    # 配置层
+    └── config/                    # 配置层（业务配置相关）
         ├── src/
-        │   ├── types/                # TypeScript 类型定义
-        │   │   └── index.ts
-        │   ├── defaults.ts          # 默认配置
-        │   ├── tokens.ts            # 设计令牌
-        │   └── index.ts             # 入口文件
+        │   ├── defaults.ts        # 默认配置（LayoutConfig）
+        │   └── index.ts           # 入口文件
         ├── package.json
         └── tsconfig.json
 ```
@@ -523,7 +625,7 @@ packages/components/
         └── tsconfig.json
 ```
 
-#### 3.1.5 React 适配器目录结构（@openlayout/react）
+#### 3.1适配器目录结构（@openlayout.5 React /react）
 
 ```
 packages/components/
@@ -748,8 +850,10 @@ const Content = { /* ... */ };
 ## 7. 验收标准
 
 - [ ] `@openlayout/type` 提供完整 TypeScript 类型定义
-- [ ] `@openlayout/design` 提供完整 CSS 变量、主题和设计令牌
-- [ ] `@openlayout/config` 提供完整默认配置
+- [ ] `@openlayout/design` 提供完整 CSS 变量、DesignTokens 和主题
+- [ ] `@openlayout/design` 基于 goober 实现运行时 CSS 变量动态注入
+- [ ] `@openlayout/design` 支持主题切换（light/dark）
+- [ ] `@openlayout/config` 提供完整默认配置（LayoutConfig）
 - [ ] `@openlayout/core` 可在 Node.js 环境正常运行（无浏览器 API 依赖）
 - [ ] React 和 Vue 3 适配器的 API 签名一致（概念上对等）
 - [ ] 侧边栏折叠、响应式切换无明显卡顿（< 16ms）

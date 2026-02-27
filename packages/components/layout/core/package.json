@@ -1,0 +1,21 @@
+{
+  "name": "@openlayout/core",
+  "version": "1.0.0",
+  "description": "OpenDesign Layout 核心层 - 状态管理、响应式检测、布局计算",
+  "type": "module",
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@openlayout/type": "workspace:*"
+  }
+}

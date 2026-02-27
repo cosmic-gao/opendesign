@@ -8,13 +8,47 @@ importers:
 
   .:
     devDependencies:
+      '@opendesign/tsconfig':
+        specifier: workspace:*
+        version: link:configs/tsconfig
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
 
   configs/tsconfig: {}
 
+  packages/components/layout/config:
+    dependencies:
+      '@openlayout/type':
+        specifier: workspace:*
+        version: link:../type
+
+  packages/components/layout/core:
+    dependencies:
+      '@openlayout/type':
+        specifier: workspace:*
+        version: link:../type
+
+  packages/components/layout/design:
+    dependencies:
+      '@openlayout/type':
+        specifier: workspace:*
+        version: link:../type
+      goober:
+        specifier: ^2.1.0
+        version: 2.1.18(csstype@3.2.3)
+
+  packages/components/layout/type: {}
+
 packages:
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  goober@2.1.18:
+    resolution: {integrity: sha512-2vFqsaDVIT9Gz7N6kAL++pLpp41l3PfDuusHcjnGLfR6+huZkl6ziX+zgVC3ZxpqWhzH6pyDdGrCeDhMIvwaxw==}
+    peerDependencies:
+      csstype: ^3.0.10
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -22,5 +56,11 @@ packages:
     hasBin: true
 
 snapshots:
+
+  csstype@3.2.3: {}
+
+  goober@2.1.18(csstype@3.2.3):
+    dependencies:
+      csstype: 3.2.3
 
   typescript@5.9.3: {}
