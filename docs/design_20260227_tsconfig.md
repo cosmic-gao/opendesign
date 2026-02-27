@@ -1,5 +1,19 @@
 # TypeScript 配置包设计方案
 
+- **版本**: 1.0.0
+- **更新日期**: 2026-02-27
+- **状态**: 草稿
+
+---
+
+## 修改记录 (Changelog)
+
+| 版本 | 日期 | 修改内容 | 作者 |
+|------|------|----------|------|
+| 1.0.0 | 2026-02-27 | 初始版本 | - |
+
+---
+
 ## 一、概述
 
 本方案旨在构建一个通用、可扩展的 TypeScript 配置包，支持 monorepo 架构下的多环境、多场景需求。通过分层配置和组合机制，实现一次定义、多处复用的目标。
@@ -44,8 +58,6 @@ tsconfig/
 │   ├── app.json            # 应用开发
 │   ├── test.json           # 测试配置
 │   └── monorepo.json       # Monorepo 根项目
-├── index.json              # 入口配置（组合所有基础配置）
-├── index.d.ts              # 类型定义
 ├── package.json            # 包配置
 └── README.md               # 使用说明
 ```
@@ -169,33 +181,6 @@ tsconfig/
     "@opendesign/tsconfig/react.json",
     "@opendesign/tsconfig/lib.json"
   ]
-}
-```
-
-### 3.4 类型提示支持
-
-可选添加 `index.d.ts` 提供 IDE 类型提示：
-
-```typescript
-import type { TSConfig } from 'typescript';
-
-declare module '@opendesign/tsconfig' {
-  interface PresetConfigs {
-    base: TSConfig;
-    strict: TSConfig;
-    browser: TSConfig;
-    node: TSConfig;
-    node18: TSConfig;
-    react: TSConfig;
-    next: TSConfig;
-    vue: TSConfig;
-    nuxt: TSConfig;
-    electron: TSConfig;
-    lib: TSConfig;
-    app: TSConfig;
-    test: TSConfig;
-    monorepo: TSConfig;
-  }
 }
 ```
 
@@ -580,85 +565,9 @@ pnpm add @opendesign/tsconfig -D
 
 ## 六、类型定义
 
-### index.d.ts
+无需额外类型定义，使用 `resolveJsonModule` 可直接导入 JSON 配置。
 
-```typescript
-declare module '@opendesign/tsconfig' {
-  const presets: {
-    base: Record<string, unknown>;
-    strict: Record<string, unknown>;
-    browser: Record<string, unknown>;
-    vite: Record<string, unknown>;
-    node: Record<string, unknown>;
-    node18: Record<string, unknown>;
-    react: Record<string, unknown>;
-    next: Record<string, unknown>;
-    vue: Record<string, unknown>;
-    nuxt: Record<string, unknown>;
-    electron: Record<string, unknown>;
-    lib: Record<string, unknown>;
-    app: Record<string, unknown>;
-    test: Record<string, unknown>;
-    monorepo: Record<string, unknown>;
-    commonjs: Record<string, unknown>;
-    esm: Record<string, unknown>;
-    umd: Record<string, unknown>;
-  };
-
-  export default presets;
-  export const base: Record<string, unknown>;
-  export const strict: Record<string, unknown>;
-  export const browser: Record<string, unknown>;
-  export const vite: Record<string, unknown>;
-  export const node: Record<string, unknown>;
-  export const node18: Record<string, unknown>;
-  export const react: Record<string, unknown>;
-  export const next: Record<string, unknown>;
-  export const vue: Record<string, unknown>;
-  export const nuxt: Record<string, unknown>;
-  export const electron: Record<string, unknown>;
-  export const lib: Record<string, unknown>;
-  export const app: Record<string, unknown>;
-  export const test: Record<string, unknown>;
-  export const monorepo: Record<string, unknown>;
-  export const commonjs: Record<string, unknown>;
-  export const esm: Record<string, unknown>;
-  export const umd: Record<string, unknown>;
-}
-```
-
-### 预设类型
-
-```typescript
-export type EnvironmentPreset = 
-  | 'node' 
-  | 'node18' 
-  | 'browser'
-  | 'vite'
-  | 'react' 
-  | 'next'
-  | 'vue' 
-  | 'nuxt'
-  | 'electron';
-
-export type ModulePreset = 
-  | 'commonjs' 
-  | 'esm' 
-  | 'umd';
-
-export type PackagePreset = 
-  | 'lib' 
-  | 'app' 
-  | 'test' 
-  | 'monorepo';
-
-export interface PresetOptions {
-  environment?: EnvironmentPreset;
-  module?: ModulePreset;
-  package?: PackagePreset;
-  strict?: boolean;
-}
-```
+---
 
 ---
 
