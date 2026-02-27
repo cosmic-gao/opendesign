@@ -2,41 +2,35 @@
 
 **项目名称**: OpenDesign Layout
 **文档类型**: 架构设计文档
-**版本**: 1.0.0
+**版本**: 1.1.0
 **状态**: 草稿
-
----
-
-## 修改记录 (Changelog)
-
-| 版本 | 日期 | 修改内容 | 作者 |
-|------|------|----------|------|
-| 1.0.0 | 2026-02-27 | 初始版本：完成整体架构设计 | Trae AI |
 
 ---
 
 ## 1. 背景和目标（Background & Goals）
 
 ### 1.1 背景
-在现代企业级应用开发中，页面布局（Layout）是所有应用的基础骨架。目前 OpenDesign 项目缺乏一套统一、灵活且可复用的布局系统。为了提高开发效率，确保 UI 一致性，并支持多种业务场景（如后台管理系统、文档站点、SaaS 应用），我们需要设计一套通用的页面布局架构。
+Layout 是所有应用的基础骨架，负责控制页面主要区域的布局结构。
 
 ### 1.2 目标
-- **灵活性（Flexibility）**：支持多种常见布局模式（侧边栏布局、顶部导航布局、混合布局）。
-- **响应式（Responsiveness）**：完美支持移动端，平板和桌面端，自动适配屏幕尺寸。
-- **可配置性（Configurability）**：支持通过配置或 Props 轻松控制侧边栏折叠、固定头部、固定侧边栏等行为。
-- **无障碍性（Accessibility）**：遵循 WAI-ARIA 标准，确保键盘导航和屏幕阅读器支持。
-- **多框架支持（Multi-Framework Support）**：支持 React、Vue 3、Solid.js 等主流前端框架，保持 API 一致性。
+- **纯粹性（Pure Layout）**：仅控制 header/footer/aside/content 布局，不涉及主题、颜色
+- **灵活性（Flexibility）**：支持多种常见布局模式（侧边栏布局、顶部导航布局、混合布局）
+- **响应式（Responsiveness）**：完美支持移动端，平板和桌面端
+- **CSS 可扩展**：通过 CSS 变量供外部框架（如 TailwindCSS）扩展
+- **零依赖**：核心层无运行时依赖，支持 SSR
 
-### 1.3 非目标（Non-Goals）
-- 不包含具体的业务组件（如用户头像、通知中心），仅提供插槽（Slots）。
-- 不绑定特定的路由库，但需兼容常见的路由方案（如 React Router, Next.js App Router）。
+### 1.3 非目标
+- ❌ 不包含主题管理（颜色、字体）
+- ❌ 不包含 DesignTokens
+- ❌ 不绑定特定 CSS 框架
+- ❌ Core 层不泄漏 UI 实现细节
 
 ---
 
 ## 2. 技术方案（Technical Approach）
 
 ### 2.1 整体架构
-采用 **"Config + Logic + Adapter" 三层架构**：
+采用 **"Type + Config + Core" 三层架构**：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -46,817 +40,393 @@
 │                    Framework Adapters                        │
 │         (React Hooks/Context, Vue Composables)              │
 ├─────────────────────────────────────────────────────────────┤
-│                    @openlayout/core                  │
-│         (State Manager + Responsive + Layout Math)          │
+│                    @openlayout/core                         │
+│    (State + Media + Layout + Inject)                        │
 ├─────────────────────────────────────────────────────────────┤
-│                    @openlayout/config                 │
-│         (Default Config)                                     │
+│                    @openlayout/config                       │
+│                    (Default Config)                         │
 ├─────────────────────────────────────────────────────────────┤
-│                    @openlayout/design                 │
-│         (CSS Variables + Themes + Tokens)                   │
-├─────────────────────────────────────────────────────────────┤
-│                    @openlayout/type                  │
-│         (TypeScript Types)                                 │
+│                    @openlayout/type                         │
+│                    (TypeScript Types)                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 类型层（@openlayout/type）
 
-#### 2.2.1 核心职责
+#### 核心职责
 - 定义 TypeScript 类型接口
 - 纯类型定义，无运行时依赖
 
-#### 2.2.2 类型定义
+#### 类型定义
 ```typescript
-// types/index.ts
-
 // 布局模式
 export type LayoutMode = 'sidebar' | 'top' | 'mixed';
 
-// 主题
-export type Theme = 'light' | 'dark';
-
-// 响应式断点
+// 响应式断点（支持任意自定义命名）
 export interface Breakpoints {
-  mobile: number;
-  tablet: number;
-  desktop: number;
+  xs?: number;
+  sm?: number;
+  md?: number;
+  lg?: number;
+  [key: string]: number | undefined;
+}
+
+// 当前激活的断点（互斥模型）
+export type ActiveBreakpoint = string | null;
+
+// 单个区域的大小配置（支持简写和完整写法）
+export interface LayoutSize {
+  min?: number;   // 最小值
+  max?: number;   // 最大值
+}
+
+// 简写类型：number = { min: n, max: n }
+export type LayoutSizeValue = number | LayoutSize;
+
+// 布局尺寸配置
+export interface LayoutSizes {
+  header?: LayoutSizeValue;
+  footer?: LayoutSizeValue;
+  aside?: LayoutSizeValue;
 }
 
 // 布局配置
 export interface LayoutConfig {
   mode: LayoutMode;
   defaultCollapsed: boolean;
-  defaultTheme: Theme;
   breakpoints: Breakpoints;
-  headerHeight: number;
-  sidebarWidth: number;
-  sidebarCollapsedWidth: number;
-  contentMaxWidth: number;
+  sizes: LayoutSizes;
 }
 
-// 设计令牌
-export interface DesignTokens {
-  colors: {
-    primary: string;
-    background: string;
-    surface: string;
-    text: string;
-    border: string;
-  };
-  spacing: {
-    xs: string;
-    sm: string;
-    md: string;
-    lg: string;
-    xl: string;
-  };
-  typography: {
-    fontFamily: string;
-    fontSize: number;
-    lineHeight: number;
-  };
-}
-
-// 布局状态
+// 布局状态（Core 内部状态，不包含 UI 语义）
 export interface LayoutState {
   collapsed: boolean;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-  theme: Theme;
-  activeRoute: string;
+  activeBreakpoint: ActiveBreakpoint;
 }
 ```
 
-### 2.3 设计层（@openlayout/design）
+### 2.3 配置层（@openlayout/config）
 
-#### 2.3.1 核心职责
-- 定义 CSS 变量（Variables）
-- 定义主题（Themes）
-- 定义设计令牌（Tokens）
-- 运行时样式注入（基于 goober）
-- 依赖 @openlayout/type 包
+#### 核心职责
+- 提供布局配置默认值
+- 仅处理业务配置数据
 
-#### 2.3.2 CSS 变量与主题
-
-静态 CSS 变量，作为 SSR 和无 JS 场景的默认值：
-
-```css
-/* variables.css */
-:root {
-  /* Layout */
-  --od-header-height: 64px;
-  --od-sidebar-width: 240px;
-  --od-sidebar-collapsed-width: 64px;
-  --od-content-max-width: 1200px;
-  
-  /* Colors - Light Theme (default) */
-  --od-primary: #1890ff;
-  --od-background: #ffffff;
-  --od-surface: #fafafa;
-  --od-text: #333333;
-  --od-border: #e8e8e8;
-  
-  /* Spacing */
-  --od-spacing-xs: 4px;
-  --od-spacing-sm: 8px;
-  --od-spacing-md: 16px;
-  --od-spacing-lg: 24px;
-  --od-spacing-xl: 32px;
-  
-  /* Typography */
-  --od-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-  --od-font-size: 14px;
-  --od-line-height: 1.5;
-}
-
-/* Dark Theme */
-[data-theme="dark"] {
-  --od-background: #141414;
-  --od-surface: #1f1f1f;
-  --od-text: #ffffff;
-  --od-border: #303030;
-}
-```
-
-#### 2.3.3 DesignTokens 定义
-
-Design 包导出 DesignTokens 类型和默认值：
-
+#### 默认配置
 ```typescript
-// @openlayout/design/src/tokens.ts
-import type { DesignTokens } from '@openlayout/type';
-
-export const lightTokens: DesignTokens = {
-  colors: {
-    primary: '#1890ff',
-    background: '#ffffff',
-    surface: '#fafafa',
-    text: '#333333',
-    border: '#e8e8e8',
-  },
-  spacing: {
-    xs: '4px',
-    sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
-  },
-  typography: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto',
-    fontSize: 14,
-    lineHeight: 1.5,
-  },
-};
-
-export const darkTokens: DesignTokens = {
-  colors: {
-    primary: '#1890ff',
-    background: '#141414',
-    surface: '#1f1f1f',
-    text: '#ffffff',
-    border: '#303030',
-  },
-  spacing: lightTokens.spacing,
-  typography: lightTokens.typography,
-};
-```
-
-#### 2.3.4 运行时样式工具
-
-采用 [goober](https://github.com/cristianbote/goober) 处理运行时样式注入。
-
-**为什么选择 goober**：
-- 体积小巧：~1.25kb
-- 零运行时 CSS 生成开销
-- 框架无关：React、Vue、Preact、Vanilla 都能用
-- SSR 支持
-
-**安装依赖**：
-```bash
-npm install goober
-# or
-pnpm add goober
-```
-
-```typescript
-// @openlayout/design/src/style.ts
-import { glob } from 'goober';
-import type { DesignTokens } from '@openlayout/type';
-
-function flattenTokens(obj: Record<string, unknown>, prefix = ''): string {
-  return Object.entries(obj)
-    .map(([key, value]) => {
-      const name = prefix ? `${prefix}-${key}` : key;
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        return flattenTokens(value as Record<string, unknown>, name);
-      }
-      return `--od-${name}: ${value}`;
-    })
-    .join('; ');
-}
-
-export function injectTokens(tokens: DesignTokens): void {
-  const cssString = flattenTokens(tokens);
-  glob`:root { ${cssString}; }`;
-}
-
-export function setThemeAttribute(theme: 'light' | 'dark'): void {
-  document.documentElement.setAttribute('data-theme', theme);
-}
-
-export function getCssVariable(name: string): string | null {
-  return document.documentElement.style.getPropertyValue(name) || null;
-}
-
-export function removeCssVariable(name: string): void {
-  document.documentElement.style.removeProperty(name);
-}
-```
-
-#### 2.3.5 主题管理器
-
-```typescript
-// @openlayout/design/src/theme.ts
-import { injectTokens, setThemeAttribute } from './style';
-import { lightTokens, darkTokens, type DesignTokens } from '@openlayout/type';
-import { lightTokens as lt, darkTokens as dt } from './tokens';
-
-export type ThemeName = 'light' | 'dark';
-
-export interface Theme {
-  name: ThemeName;
-  tokens: DesignTokens;
-}
-
-export class ThemeManager {
-  private currentTheme: ThemeName = 'light';
-  private themes: Map<ThemeName, Theme> = new Map();
-  
-  registerTheme(theme: Theme): void {
-    this.themes.set(theme.name, theme);
-  }
-  
-  registerDefaultThemes(): void {
-    this.registerTheme({ name: 'light', tokens: lt });
-    this.registerTheme({ name: 'dark', tokens: dt });
-  }
-  
-  applyTheme(name: ThemeName): void {
-    const theme = this.themes.get(name);
-    if (!theme) {
-      console.warn(`Theme "${name}" not found`);
-      return;
-    }
-    
-    setThemeAttribute(name);
-    injectTokens(theme.tokens);
-    this.currentTheme = name;
-  }
-  
-  getCurrentTheme(): ThemeName {
-    return this.currentTheme;
-  }
-  
-  toggleTheme(): ThemeName {
-    const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
-    this.applyTheme(newTheme);
-    return newTheme;
-  }
-}
-
-export const themeManager = new ThemeManager();
-```
-
-#### 2.3.6 入口文件
-
-```typescript
-// @openlayout/design/src/index.ts
-export * from './tokens';
-export * from './style';
-export * from './theme';
-```
-
-#### 2.3.7 使用示例
-
-```typescript
-import { themeManager, lightTokens, injectTokens } from '@openlayout/design';
-
-themeManager.registerDefaultThemes();
-themeManager.applyTheme('light');
-themeManager.toggleTheme();
-injectTokens(lightTokens);
-```
-
-### 2.4 配置层（@openlayout/config）
-
-#### 2.4.1 核心职责
-- 提供布局配置默认值（LayoutConfig）
-- 仅处理业务配置数据，与样式无关
-- 依赖 @openlayout/type 包
-
-#### 2.4.2 默认配置
-```typescript
-// defaults.ts
-import type { LayoutConfig } from '@openlayout/type';
-
 export const defaultConfig: LayoutConfig = {
   mode: 'sidebar',
   defaultCollapsed: false,
-  defaultTheme: 'light',
   breakpoints: {
-    mobile: 480,
-    tablet: 768,
-    desktop: 1024,
+    xs: 480,
+    sm: 768,
+    md: 1024,
   },
-  headerHeight: 64,
-  sidebarWidth: 240,
-  sidebarCollapsedWidth: 64,
-  contentMaxWidth: 1200,
+  sizes: {
+    header: 64,
+    footer: 48,
+    aside: 240,
+  },
 };
 ```
 
-#### 2.4.3 入口文件
+#### 使用示例
 ```typescript
-export * from './defaults';
+// 固定值（简写）
+aside: 240
+
+// 范围限制
+aside: { min: 200, max: 400 }
+
+// 仅最大高度
+header: { max: 100 }
+
+// 自动撑开（无限制）
+aside: { }
 ```
 
-### 2.5 核心层（@openlayout/core）
+### 2.4 核心层（@openlayout/core）
 
-#### 2.5.1 核心职责
+#### 核心职责
 - 纯 JavaScript/TypeScript 逻辑，无框架依赖
-- 状态管理（响应式）
-- 响应式检测（ResizeObserver + matchMedia）
-- 布局尺寸计算
+- 不可变状态管理（createState）
+- 互斥断点检测（createMedia）
+- 尺寸计算（createLayout）
+- CSS 变量注入（inject）
+- 支持 SSR
 
-#### 2.5.2 状态管理器
+#### 状态管理器（不可变）
 ```typescript
-// state/createLayoutState.ts
-import type { LayoutState, LayoutConfig } from '@openlayout/type';
+// state.ts
+import type { LayoutState, LayoutConfig, ActiveBreakpoint } from '@openlayout/type';
 
 type Listener = (state: LayoutState) => void;
 
-export function createLayoutState(initialConfig: Partial<LayoutConfig>) {
-  const state: LayoutState = {
+export function createState(initialConfig: Partial<LayoutConfig>) {
+  let state: LayoutState = {
     collapsed: initialConfig.defaultCollapsed ?? false,
-    isMobile: false,
-    isTablet: false,
-    isDesktop: true,
-    theme: initialConfig.defaultTheme ?? 'light',
-    activeRoute: '/',
+    activeBreakpoint: null,
   };
 
   const listeners = new Set<Listener>();
 
   return {
-    getState: () => state,
-    setState: (partial: Partial<LayoutState>) => {
-      Object.assign(state, partial);
+    getState: (): Readonly<LayoutState> => state,
+    
+    setCollapsed: (collapsed: boolean) => {
+      state = { ...state, collapsed };
       listeners.forEach(fn => fn(state));
     },
+    
+    setBreakpoint: (breakpoint: ActiveBreakpoint) => {
+      state = { ...state, activeBreakpoint: breakpoint };
+      listeners.forEach(fn => fn(state));
+    },
+    
     subscribe: (fn: Listener) => {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
-    // Actions
-    toggleCollapsed: () => state.collapsed = !state.collapsed,
-    setTheme: (theme: 'light' | 'dark') => state.theme = theme,
-  };
-}
-```
-
-#### 2.5.3 响应式检测
-```typescript
-// media/useMediaQuery.ts
-export function createMediaQuery(breakpoints: LayoutConfig['breakpoints']) {
-  const queries = {
-    mobile: window.matchMedia(`(max-width: ${breakpoints.mobile}px)`),
-    tablet: window.matchMedia(`(min-width: ${breakpoints.mobile}px) and (max-width: ${breakpoints.tablet}px)`),
-    desktop: window.matchMedia(`(min-width: ${breakpoints.tablet}px)`),
-  };
-
-  return {
-    getMatches: () => ({
-      isMobile: queries.mobile.matches,
-      isTablet: queries.tablet.matches,
-      isDesktop: queries.desktop.matches,
-    }),
-    subscribe: (callback: (matches: { isMobile: boolean; isTablet: boolean; isDesktop: boolean }) => void) => {
-      const handler = () => callback(getMatches());
-      queries.mobile.addEventListener('change', handler);
-      queries.tablet.addEventListener('change', handler);
-      queries.desktop.addEventListener('change', handler);
-      return () => {
-        queries.mobile.removeEventListener('change', handler);
-        queries.tablet.removeEventListener('change', handler);
-        queries.desktop.removeEventListener('change', handler);
-      };
+    
+    toggleCollapsed: () => {
+      state = { ...state, collapsed: !state.collapsed };
+      listeners.forEach(fn => fn(state));
     },
   };
 }
 ```
 
-#### 2.5.4 布局计算
+#### 互斥断点检测
 ```typescript
-// math/layoutMath.ts
-import type { LayoutConfig } from '@openlayout/type';
+// media.ts
+import type { Breakpoints, ActiveBreakpoint } from '@openlayout/type';
 
-export function calculateLayout(config: LayoutConfig, state: { collapsed: boolean; isMobile: boolean }) {
-  const sidebarWidth = state.isMobile ? 0 : (state.collapsed ? config.sidebarCollapsedWidth : config.sidebarWidth);
-
-  return {
-    sidebarWidth,
-    contentWidth: `calc(100% - ${sidebarWidth}px)`,
-    contentMarginLeft: `${sidebarWidth}px`,
-  };
-}
-```
-
-### 2.6 框架适配层（Framework Adapters）
-
-每个框架适配器负责：
-1. **引入依赖**：安装 `@openlayout/type`、`@openlayout/config` 和 `@openlayout/core`
-2. **状态桥接**：将纯 JS 状态桥接到框架响应式系统
-3. **UI 组件**：实现各框架的组件库
-4. **Hooks/Composables**：提供框架特有的 API
-
-#### 2.6.1 React 适配器
-```typescript
-// @openlayout/react
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { createLayoutState } from '@openlayout/core';
-import { defaultConfig, type LayoutConfig } from '@openlayout/config';
-
-const LayoutContext = createContext(null);
-
-export function LayoutProvider({ config, children }) {
-  const state = useMemo(() => createLayoutState({ ...defaultConfig, ...config }), [config]);
-  const [layoutState, setLayoutState] = useState(state.getState());
-
-  useEffect(() => state.subscribe(setLayoutState), [state]);
-
-  const value = useMemo(() => ({
-    state: layoutState,
-    config: { ...defaultConfig, ...config },
-    actions: {
-      toggleCollapsed: state.toggleCollapsed,
-      setTheme: state.setTheme,
-    }
-  }), [layoutState, config, state]);
-
-  return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;
+interface MediaResult {
+  getBreakpoint: () => ActiveBreakpoint;
+  subscribe: (callback: (breakpoint: ActiveBreakpoint) => void) => () => void;
 }
 
-export function useLayout() {
-  return useContext(LayoutContext);
-}
-```
+export function createMedia(breakpoints: Breakpoints): MediaResult {
+  function isBrowser(): boolean {
+    return typeof window !== 'undefined';
+  }
 
-#### 2.6.2 Vue 3 适配器
-```typescript
-// @openlayout/vue
-import { ref, reactive, provide, onMounted, onUnmounted } from 'vue';
-import { createLayoutState } from '@openlayout/core';
-import { defaultConfig, type LayoutConfig } from '@openlayout/config';
-
-const layoutKey = Symbol('layout');
-
-export function createLayout(config: LayoutConfig) {
-  const state = createLayoutState({ ...defaultConfig, ...config });
-  const layoutState = ref(state.getState());
-
-  let unsubscribe: (() => void) | null = null;
-
-  onMounted(() => {
-    unsubscribe = state.subscribe((newState) => {
-      layoutState.value = { ...newState };
+  // 构建互斥断点区间（无重叠，无空隙）
+  function buildQueries(bp: Breakpoints) {
+    const keys = Object.keys(bp)
+      .filter(k => bp[k] !== undefined)
+      .sort((a, b) => bp[a]! - bp[b]!);
+    
+    // 添加 sentinel 键用于 SSR fallback
+    const withSentinel = [':desktop', ...keys];
+    
+    return withSentinel.map((key, index) => {
+      const value = bp[key === ':desktop' ? keys[keys.length - 1]! : key];
+      const isFirst = index === 0;
+      const isLast = index === withSentinel.length - 1;
+      
+      let query: string;
+      if (isFirst) {
+        // xs 及以下
+        query = `(max-width: ${value}px)`;
+      } else if (isLast) {
+        // 最大断点以上
+        query = `(min-width: ${value}px)`;
+      } else {
+        // 中间区间
+        const prevKey = withSentinel[index - 1];
+        const prevValue = bp[prevKey === ':desktop' ? keys[keys.length - 1]! : prevKey!]!;
+        query = `(min-width: ${prevValue + 1}px) and (max-width: ${value}px)`;
+      }
+      
+      return { key: key === ':desktop' ? keys[keys.length - 1]! : key, query };
     });
-  });
+  }
 
-  onUnmounted(() => unsubscribe?.());
+  let queries: { key: string; mql: MediaQueryList }[] | null = null;
+  let currentBreakpoint: ActiveBreakpoint = null;
+
+  const initQueries = () => {
+    if (queries || !isBrowser()) return;
+    
+    const sorted = Object.keys(breakpoints).sort((a, b) => breakpoints[a]! - breakpoints[b]!);
+    const largest = sorted[sorted.length - 1];
+    
+    // 初始计算当前断点
+    for (const key of sorted) {
+      const mql = window.matchMedia(`(max-width: ${breakpoints[key]!}px)`);
+      if (mql.matches) {
+        currentBreakpoint = key;
+        break;
+      }
+    }
+    if (!currentBreakpoint) {
+      currentBreakpoint = largest;
+    }
+
+    queries = buildQueries(breakpoints).map(({ key, query }) => ({
+      key,
+      mql: window.matchMedia(query),
+    }));
+  };
 
   return {
-    state: layoutState,
-    config: { ...defaultConfig, ...config },
-    actions: {
-      toggleCollapsed: state.toggleCollapsed,
-      setTheme: state.setTheme,
-    }
+    getBreakpoint: (): ActiveBreakpoint => {
+      initQueries();
+      // SSR fallback：返回最大断点
+      if (!queries) {
+        const sorted = Object.keys(breakpoints).sort((a, b) => breakpoints[a]! - breakpoints[b]!);
+        return sorted[sorted.length - 1] || null;
+      }
+      return currentBreakpoint;
+    },
+    subscribe: (callback: (breakpoint: ActiveBreakpoint) => void) => {
+      initQueries();
+      if (!queries) return () => {};
+      
+      const handler = (e: MediaQueryListEvent) => {
+        if (e.matches) {
+          const matched = queries!.find(q => q.mql === e.media);
+          if (matched) {
+            currentBreakpoint = matched.key;
+            callback(currentBreakpoint);
+          }
+        }
+      };
+      
+      queries.forEach(({ mql }) => mql.addEventListener('change', handler));
+      return () => queries!.forEach(({ mql }) => mql.removeEventListener('change', handler));
+    },
   };
 }
+```
 
-export function useLayout() {
-  return inject(layoutKey);
+#### 布局计算
+```typescript
+// layout.ts
+import type { LayoutConfig, LayoutState, LayoutSize, LayoutSizeValue } from '@openlayout/type';
+
+// Core 层仅输出尺寸信息，不泄漏 UI 实现细节
+export interface LayoutDimensions {
+  header: LayoutSize;
+  footer: LayoutSize;
+  aside: LayoutSize;
+}
+
+// 校验并规范化尺寸配置
+function normalizeSize(value?: LayoutSizeValue): LayoutSize {
+  if (value === undefined) return {};
+  
+  let size: LayoutSize;
+  if (typeof value === 'number') {
+    size = { min: value, max: value };
+  } else {
+    size = { ...value };
+  }
+  
+  // 负值保护
+  if (size.min !== undefined && size.min < 0) size.min = 0;
+  if (size.max !== undefined && size.max < 0) size.max = 0;
+  
+  // min > max 修正
+  if (size.min !== undefined && size.max !== undefined && size.min > size.max) {
+    [size.min, size.max] = [size.max, size.min!];
+  }
+  
+  // 默认值
+  if (size.min === undefined) size.min = 0;
+  if (size.max === undefined) size.max = size.min;
+  
+  return size;
+}
+
+export function createLayout(
+  config: LayoutConfig,
+  state: LayoutState
+): LayoutDimensions {
+  const header = normalizeSize(config.sizes.header);
+  const footer = normalizeSize(config.sizes.footer);
+  const aside = normalizeSize(config.sizes.aside);
+  
+  // 根据断点判断是否移动端（可由外部配置阈值）
+  const breakpointValues = Object.values(config.breakpoints);
+  const isMobile = state.activeBreakpoint && 
+    config.breakpoints[state.activeBreakpoint] !== undefined &&
+    breakpointValues.indexOf(config.breakpoints[state.activeBreakpoint]!) === 0;
+  
+  // 计算 aside 实际宽度
+  let asideWidth = aside.min;
+  if (isMobile) {
+    asideWidth = 0; // 移动端隐藏侧边栏
+  } else if (state.collapsed) {
+    asideWidth = 0; // 折叠状态
+  }
+  
+  return {
+    header: { min: header.min, max: header.max },
+    footer: { min: footer.min, max: footer.max },
+    aside: { min: asideWidth, max: aside.max },
+  };
+}
+```
+
+#### CSS 变量注入
+```typescript
+// inject.ts
+import type { LayoutSizes, LayoutSizeValue } from '@openlayout/type';
+
+function normalize(v?: LayoutSizeValue): LayoutSize {
+  if (!v) return { min: 0, max: 0 };
+  return typeof v === 'number' ? { min: v, max: v } : v;
+}
+
+export function inject(sizes: LayoutSizes): void {
+  const h = normalize(sizes.header);
+  const f = normalize(sizes.footer);
+  const a = normalize(sizes.aside);
+
+  const css = `
+    :root {
+      --od-header-height: ${h.min}px;
+      --od-footer-height: ${f.min}px;
+      --od-aside-width: ${a.min}px;
+    }
+  `;
+
+  if (typeof document !== 'undefined') {
+    const id = 'od-layout-variables';
+    let style = document.getElementById(id);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = id;
+      document.head.appendChild(style);
+    }
+    style.textContent = css;
+  }
 }
 ```
 
 ---
 
-## 3. 接口与数据结构设计（API & Data Structures）
-
-### 3.1 包结构
+## 3. 包结构
 
 ```
 @openlayout/type       # 类型层（TypeScript 类型定义）
-@openlayout/design     # 设计层（CSS 变量 + 主题 + 令牌）
-@openlayout/config     # 配置层（默认配置）
-@openlayout/core       # 核心层（状态管理 + 响应式检测 + 布局计算）
-@openlayout/react      # React 适配器
-@openlayout/vue        # Vue 3 适配器
-```
-
-#### 3.1.1 类型层目录结构（@openlayout/type）
-
-```
-packages/components/
-└── layout/
-    └── type/                      # 类型层
-        ├── src/
-        │   └── index.ts           # 类型定义
-        ├── package.json
-        └── tsconfig.json
-```
-
-#### 3.1.2 设计层目录结构（@openlayout/design）
-
-```
-packages/components/
-└── layout/
-    └── design/                    # 设计层（CSS Token + 样式相关）
-        ├── src/
-        │   ├── variables.css      # CSS 变量（静态默认值）
-        │   ├── tokens.ts          # DesignTokens 定义
-        │   ├── style.ts           # 运行时样式工具
-        │   ├── theme.ts           # 主题管理器
-        │   └── index.ts           # 入口文件
-        ├── package.json
-        └── tsconfig.json
-```
-
-#### 3.1.3 配置层目录结构（@openlayout/config）
-
-```
-packages/components/
-└── layout/
-    └── config/                    # 配置层（业务配置相关）
-        ├── src/
-        │   ├── defaults.ts        # 默认配置（LayoutConfig）
-        │   └── index.ts           # 入口文件
-        ├── package.json
-        └── tsconfig.json
-```
-
-#### 3.1.4 核心层目录结构（@openlayout/core）
-
-```
-packages/components/
-└── layout/
-    └── core/                      # 核心层
-        ├── src/
-        │   ├── state/               # 状态管理
-        │   │   └── createLayoutState.ts
-        │   ├── media/              # 响应式检测
-        │   │   └── useMediaQuery.ts
-        │   ├── math/               # 布局计算
-        │   │   └── layoutMath.ts
-        │   ├── index.ts            # 入口文件
-        ├── package.json
-        └── tsconfig.json
-```
-
-#### 3.1适配器目录结构（@openlayout.5 React /react）
-
-```
-packages/components/
-└── layout/
-    └── react/                     # React 适配器
-        ├── src/
-        │   ├── components/           # React 组件
-        │   │   ├── Layout.tsx
-        │   │   ├── Sidebar.tsx
-        │   │   ├── Header.tsx
-        │   │   ├── Content.tsx
-        │   │   └── Footer.tsx
-        │   ├── hooks/                # 自定义 Hooks
-        │   │   ├── useLayout.ts
-        │   │   ├── useSidebar.ts
-        │   │   └── useHeader.ts
-        │   ├── context/              # Context API
-        │   │   └── LayoutContext.tsx
-        │   ├── styles/               # React 专用样式
-        │   │   └── index.css
-        │   ├── types/                # 类型定义
-        │   │   └── index.ts
-        │   └── index.ts              # 入口文件
-        ├── package.json
-        └── tsconfig.json
-```
-
-#### 3.1.6 Vue 3 适配器目录结构（@openlayout/vue）
-
-```
-packages/components/
-└── layout/
-    └── vue/                        # Vue 3 适配器
-        ├── src/
-        │   ├── components/           # Vue 组件
-        │   │   ├── Layout.vue
-        │   │   ├── Sidebar.vue
-        │   │   ├── Header.vue
-        │   │   ├── Content.vue
-        │   │   └── Footer.vue
-        │   ├── composables/          # Vue Composables
-        │   │   ├── useLayout.ts
-        │   │   ├── useSidebar.ts
-        │   │   └── useHeader.ts
-        │   ├── styles/               # Vue 专用样式
-        │   │   └── index.css
-        │   ├── types/                # 类型定义
-        │   │   └── index.ts
-        │   └── index.ts              # 入口文件
-        ├── package.json
-        └── tsconfig.json
-```
-
-#### 3.1.7 Monorepo 工作区结构
-
-```
-opendesign/
-├── pnpm-workspace.yaml
-├── package.json
-├── packages/
-│   └── components/
-│       └── layout/
-│           ├── type/                # 类型层
-│           ├── design/              # 设计层
-│           ├── config/             # 配置层
-│           ├── core/               # 核心层
-│           ├── react/              # React 适配器
-│           └── vue/                # Vue 3 适配器
-└── configs/
-    └── tsconfig/                # 已有 tsconfig 预设
-```
-
-### 3.2 类型定义（所有框架通用）
-
-```typescript
-interface LayoutConfig {
-  mode: 'sidebar' | 'top' | 'mixed';  // 布局模式
-  defaultCollapsed: boolean;          // 默认折叠状态
-  defaultTheme: 'light' | 'dark';      // 默认主题
-  breakpoints: {                       // 响应式断点
-    mobile: number;
-    tablet: number;
-    desktop: number;
-  };
-  i18n: boolean;                      // 是否启用 RTL 支持
-}
-```
-
-### 3.3 React API（@openlayout/react）
-
-```typescript
-// 主组件
-function Layout(props: {
-  config?: Partial<LayoutConfig>;
-  children: React.ReactNode;
-}): JSX.Element;
-
-// 布局区域组件
-function Sidebar(props: {
-  collapsed?: boolean;
-  collapsible?: boolean;
-  width?: number;
-  children: React.ReactNode;
-}): JSX.Element;
-
-function Header(props: {
-  fixed?: boolean;
-  children: React.ReactNode;
-}): JSX.Element;
-
-function Content(props: {
-  maxWidth?: number | string;
-  children: React.ReactNode;
-}): JSX.Element;
-
-// Hooks
-function useLayout(): LayoutContextValue;
-
-function useSidebar(): {
-  collapsed: boolean;
-  toggle: () => void;
-  setCollapsed: (v: boolean) => void;
-};
-
-function useHeader(): {
-  height: number;
-  fixed: boolean;
-};
-```
-
-### 3.4 Vue 3 API（@openlayout/vue）
-
-```typescript
-// Composables
-function useLayout(config?: Partial<LayoutConfig>): {
-  collapsed: Ref<boolean>;
-  isMobile: Ref<boolean>;
-  theme: Ref<'light' | 'dark'>;
-  toggleSidebar: () => void;
-};
-
-// 组件
-const Layout = { /* ... */ };
-const Sidebar = { /* ... */ };
-const Header = { /* ... */ };
-const Content = { /* ... */ };
+@openlayout/config     # 配置层（默认布局配置）
+@openlayout/core       # 核心层（State + Media + Layout + Inject）
+@openlayout/react      # React 适配器（后续开发）
+@openlayout/vue        # Vue 3 适配器（后续开发）
 ```
 
 ---
 
-## 4. 潜在风险与应对措施（Risks & Mitigations）
-
-| 风险点 | 描述 | 应对措施 |
-|---|---|---|
-| **多框架同步维护成本** | 维护多个适配器可能导致 API 不一致或 bug 传播。 | 1. 所有适配器依赖统一的 `layout-type`、`layout-config` 和 `layout-core`。<br>2. 建立统一的 E2E 测试套件，覆盖所有框架。<br>3. 核心逻辑变更只需更新 `layout-core`，自动同步到所有适配器。 |
-| **逻辑层与 UI 层状态同步** | 纯 JS 状态与框架响应式系统可能存在同步延迟。 | 1. 框架适配器使用 `useSyncExternalStore` (React) / `watchEffect` (Vue) 保证同步。<br>2. 状态更新使用不可变数据模式。 |
-| **SSR 支持** | 逻辑层的 `window.matchMedia` 在服务端不可用。 | 1. 默认渲染桌面端布局。<br>2. 使用 CSS Media Queries 处理初始样式。<br>3. 客户端 `useEffect` 后订阅媒体查询变化。 |
-| **类型共享** | 需要在多个包之间共享 TypeScript 类型。 | 1. `layout-config` 作为类型定义包，被其他所有包依赖。<br>2. 使用 `pnpm workspace` 优化类型引用。 |
-
----
-
-## 5. 备选方案与权衡（Alternatives & Trade-offs）
-
-### 5.1 方案 A：Config + Logic + Adapter（推荐）
-- **实现**：配置层定义类型和默认值，逻辑层处理状态和计算，各框架适配器负责 UI。
-- **优点**：
-  - 完全 SSR 友好（无浏览器 API 依赖）。
-  - 逻辑层纯 JS，可被任何框架复用。
-  - 类型定义集中管理，保证 API 一致性。
-- **缺点**：
-  - 需要为每个框架编写适配器。
-
-### 5.2 方案 B：Web Components 驱动
-- **实现**：核心逻辑在 Web Components 中，各框架仅做浅层封装。
-- **优点**：真正的跨框架复用，Vanilla JS 可直接使用。
-- **缺点**：SSR 支持复杂，需要额外处理 Hydration。
-
-### 5.3 方案 C：每个框架独立实现
-- **实现**：为每个框架完全重写，共享设计规范。
-- **优点**：开发体验最符合框架习惯。
-- **缺点**：代码重复率高，维护成本高。
-
-### 结论
-选择 **方案 A（Config + Logic + Adapter）**，该方案 SSR 友好，架构清晰，易于维护。
-
----
-
-## 6. 实施计划
-
-### Phase 1: 类型层 + 设计层 + 配置层 + 核心层（2 周）
-1. 开发 `@openlayout/type`
-   - 定义 TypeScript 类型接口
-2. 开发 `@openlayout/design`
-   - 定义 CSS 变量和主题
-   - 定义设计令牌（Tokens）
-3. 开发 `@openlayout/config`
-   - 实现默认配置
-4. 开发 `@openlayout/core`
-   - 实现状态管理器（createLayoutState）
-   - 实现响应式检测（useMediaQuery）
-   - 实现布局计算（layoutMath）
-
-### Phase 2: React 适配器（1 周）
-1. 开发 `@openlayout/react`
-2. 实现 Context API 和 Hooks（useLayout, useSidebar, useHeader）
-3. 开发基础 UI 组件（Layout, Sidebar, Header, Content, Footer）
-4. Storybook 文档
-
-### Phase 3: Vue 3 适配器（1 周）
-1. 开发 `@openlayout/vue`
-2. 实现 Composables（useLayout, useSidebar, useHeader）
-3. 开发基础 UI 组件
-4. Storybook 文档
-
-### Phase 4: 测试与优化（1 周）
-1. E2E 测试覆盖（跨框架一致性验证）
-2. 性能优化
-3. 文档完善
-
----
-
-## 7. 验收标准
+## 4. 验收标准
 
 - [ ] `@openlayout/type` 提供完整 TypeScript 类型定义
-- [ ] `@openlayout/design` 提供完整 CSS 变量、DesignTokens 和主题
-- [ ] `@openlayout/design` 基于 goober 实现运行时 CSS 变量动态注入
-- [ ] `@openlayout/design` 支持主题切换（light/dark）
-- [ ] `@openlayout/config` 提供完整默认配置（LayoutConfig）
-- [ ] `@openlayout/core` 可在 Node.js 环境正常运行（无浏览器 API 依赖）
-- [ ] React 和 Vue 3 适配器的 API 签名一致（概念上对等）
-- [ ] 侧边栏折叠、响应式切换无明显卡顿（< 16ms）
-- [ ] 移动端支持 Drawer 模式
-- [ ] 支持 RTL 布局
-- [ ] 通过 Storybook 展示所有布局模式
+- [ ] `@openlayout/config` 提供默认配置
+- [ ] `@openlayout/core` 可在 Node.js 环境运行
+- [ ] 断点系统为互斥模型，保证同时只有一个 active breakpoint
+- [ ] 断点区间无重叠、无空隙
+- [ ] SSR fallback 使用最大断点而非硬编码
+- [ ] Core 层不泄漏 UI 实现细节（定位、边距等）
+- [ ] 状态管理为不可变（Immutable）
+- [ ] 尺寸计算包含完整的校验逻辑（负值、min>max）
