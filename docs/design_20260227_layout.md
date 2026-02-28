@@ -2,24 +2,85 @@
 
 **项目名称**: OpenDesign Layout
 **文档类型**: 架构设计文档
-**版本**: 1.1.0
+**版本**: 1.2.0
 **状态**: 草稿
+
+---
+
+## 修改记录 (Changelog)
+
+| 版本 | 日期 | 修改内容 | 作者 |
+|------|------|----------|------|
+| 1.2.0 | 2026-02-28 | 架构升级：合并 type/config 到 core；增加设计原则；明确 Core 不知道 UI 原则；使用 Nanostores + @nanostores/media 管理状态 | - |
 
 ---
 
 ## 1. 背景和目标（Background & Goals）
 
-### 1.1 背景
+### 1.1 核心定位
+
+OpenDesign Layout 是一个：
+
+- ✅ **纯结构布局内核**
+- ✅ **零运行时依赖**
+- ✅ **强类型 + 可预测**
+- ✅ **可扩展 + SSR 友好**
+- ✅ **超轻量（Core ≤ 3kb gzip 目标）**
+
+它只解决：
+
+> header / footer / aside / content 的结构布局与尺寸控制问题。
+
+### 1.2 设计原则
+
+#### 1️⃣ 单一职责原则（SRP）
+
+| 模块 | 职责 |
+|------|------|
+| state | 纯状态管理 |
+| media | 断点系统 |
+| layout | 尺寸计算 |
+| inject | CSS 变量注入 |
+| config | 默认配置 |
+
+每个模块必须：
+
+- 无副作用（除 inject）
+- 可独立测试
+- 不互相循环依赖
+
+#### 2️⃣ Core 不知道 UI
+
+Core 层：
+
+- ❌ 不知道 React
+- ❌ 不知道 Vue
+- ❌ 不知道 DOM 结构
+- ❌ 不输出 className
+- ❌ 不输出样式对象
+
+Core 只输出：
+
+```ts
+LayoutState
+LayoutDimensions
+string | null  // breakpoint
+```
+
+### 1.3 背景
+
 Layout 是所有应用的基础骨架，负责控制页面主要区域的布局结构。
 
-### 1.2 目标
+### 1.4 目标
+
 - **纯粹性（Pure Layout）**：仅控制 header/footer/aside/content 布局，不涉及主题、颜色
 - **灵活性（Flexibility）**：支持多种常见布局模式（侧边栏布局、顶部导航布局、混合布局）
 - **响应式（Responsiveness）**：完美支持移动端，平板和桌面端
 - **CSS 可扩展**：通过 CSS 变量供外部框架（如 TailwindCSS）扩展
 - **零依赖**：核心层无运行时依赖，支持 SSR
 
-### 1.3 非目标
+### 1.5 非目标
+
 - ❌ 不包含主题管理（颜色、字体）
 - ❌ 不包含 DesignTokens
 - ❌ 不绑定特定 CSS 框架
@@ -30,7 +91,8 @@ Layout 是所有应用的基础骨架，负责控制页面主要区域的布局�
 ## 2. 技术方案（Technical Approach）
 
 ### 2.1 整体架构
-采用 **"Type + Config + Core" 三层架构**：
+
+采用 **"Core + Adapter" 两层架构**：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -41,26 +103,28 @@ Layout 是所有应用的基础骨架，负责控制页面主要区域的布局�
 │         (React Hooks/Context, Vue Composables)              │
 ├─────────────────────────────────────────────────────────────┤
 │                    @openlayout/core                         │
-│    (State + Media + Layout + Inject)                        │
-├─────────────────────────────────────────────────────────────┤
-│                    @openlayout/config                       │
-│                    (Default Config)                         │
-├─────────────────────────────────────────────────────────────┤
-│                    @openlayout/type                         │
-│                    (TypeScript Types)                       │
+│    (Types + Config + State + Media + Layout + Inject)       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 类型层（@openlayout/type）
+### 2.2 核心层（@openlayout/core）
 
 #### 核心职责
+
 - 定义 TypeScript 类型接口
-- 纯类型定义，无运行时依赖
+- 提供布局配置默认值
+- 纯 JavaScript/TypeScript 逻辑，无框架依赖
+- 不可变状态管理（createState）
+- 互斥断点检测（createMedia）
+- 尺寸计算（createLayout）
+- CSS 变量注入（inject）
+- 支持 SSR
 
 #### 类型定义
+
 ```typescript
 // 布局模式
-export type LayoutMode = 'sidebar' | 'top' | 'mixed';
+export type LayoutMode = "sidebar" | "top" | "mixed";
 
 // 响应式断点（支持任意自定义命名）
 export interface Breakpoints {
@@ -71,17 +135,17 @@ export interface Breakpoints {
   [key: string]: number | undefined;
 }
 
-// 当前激活的断点（互斥模型）
-export type ActiveBreakpoint = string | null;
+// 当前激活的断点（字符串键名）
 
-// 单个区域的大小配置（支持简写和完整写法）
+// 单个区域的大小配置（支持简写、范围和自动）
 export interface LayoutSize {
-  min?: number;   // 最小值
-  max?: number;   // 最大值
+  min?: number; // 最小值
+  max?: number; // 最大值
+  auto?: boolean; // 自动撑开（无限制）
 }
 
 // 简写类型：number = { min: n, max: n }
-export type LayoutSizeValue = number | LayoutSize;
+export type LayoutSizeValue = number | LayoutSize | "auto";
 
 // 布局尺寸配置
 export interface LayoutSizes {
@@ -101,20 +165,15 @@ export interface LayoutConfig {
 // 布局状态（Core 内部状态，不包含 UI 语义）
 export interface LayoutState {
   collapsed: boolean;
-  activeBreakpoint: ActiveBreakpoint;
+  breakpoint: string | null;
 }
 ```
 
-### 2.3 配置层（@openlayout/config）
-
-#### 核心职责
-- 提供布局配置默认值
-- 仅处理业务配置数据
-
 #### 默认配置
+
 ```typescript
 export const defaultConfig: LayoutConfig = {
-  mode: 'sidebar',
+  mode: "sidebar",
   defaultCollapsed: false,
   breakpoints: {
     xs: 480,
@@ -130,6 +189,7 @@ export const defaultConfig: LayoutConfig = {
 ```
 
 #### 使用示例
+
 ```typescript
 // 固定值（简写）
 aside: 240
@@ -141,242 +201,215 @@ aside: { min: 200, max: 400 }
 header: { max: 100 }
 
 // 自动撑开（无限制）
-aside: { }
+aside: 'auto'
 ```
 
-### 2.4 核心层（@openlayout/core）
+#### 状态管理器（使用 Nanostores）
 
-#### 核心职责
-- 纯 JavaScript/TypeScript 逻辑，无框架依赖
-- 不可变状态管理（createState）
-- 互斥断点检测（createMedia）
-- 尺寸计算（createLayout）
-- CSS 变量注入（inject）
-- 支持 SSR
-
-#### 状态管理器（不可变）
 ```typescript
 // state.ts
-import type { LayoutState, LayoutConfig, ActiveBreakpoint } from '@openlayout/type';
+import { atom, task } from "nanostores";
+import type { LayoutConfig, LayoutState } from "@openlayout/core";
 
-type Listener = (state: LayoutState) => void;
+// 创建原子状态
+export const $layoutState = atom<LayoutState>({
+  collapsed: false,
+  breakpoint: null,
+});
 
-export function createState(initialConfig: Partial<LayoutConfig>) {
-  let state: LayoutState = {
-    collapsed: initialConfig.defaultCollapsed ?? false,
-    activeBreakpoint: null,
-  };
+// 初始化状态
+export function initState(config: LayoutConfig): void {
+  $layoutState.set({
+    collapsed: config.defaultCollapsed ?? false,
+    breakpoint: null,
+  });
+}
 
-  const listeners = new Set<Listener>();
+// 设置折叠状态
+export function setCollapsed(collapsed: boolean): void {
+  $layoutState.set({ ...$layoutState.get(), collapsed });
+}
 
-  return {
-    getState: (): Readonly<LayoutState> => state,
-    
-    setCollapsed: (collapsed: boolean) => {
-      state = { ...state, collapsed };
-      listeners.forEach(fn => fn(state));
-    },
-    
-    setBreakpoint: (breakpoint: ActiveBreakpoint) => {
-      state = { ...state, activeBreakpoint: breakpoint };
-      listeners.forEach(fn => fn(state));
-    },
-    
-    subscribe: (fn: Listener) => {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
-    },
-    
-    toggleCollapsed: () => {
-      state = { ...state, collapsed: !state.collapsed };
-      listeners.forEach(fn => fn(state));
-    },
-  };
+// 切换折叠状态
+export function toggleCollapsed(): void {
+  const current = $layoutState.get();
+  $layoutState.set({ ...current, collapsed: !current.collapsed });
+}
+
+// 设置断点
+export function setBreakpoint(breakpoint: string | null): void {
+  $layoutState.set({ ...$layoutState.get(), breakpoint });
+}
+
+// 订阅状态变化（用于框架适配器）
+export function useLayoutState(): LayoutState {
+  return $layoutState.get();
 }
 ```
 
-#### 互斥断点检测
+**使用 Nanostores 的优势**：
+- 🏈 **超小**: 265-797 bytes (gzip)
+- 🌳 **Tree-shakable**: 只导入使用的功能
+- 🌍 **框架无关**: React / Vue / Svelte / Vanilla JS
+- 📦 **零依赖**
+- 🛠️ **优秀 TypeScript 支持**
+- 🧪 **经过生产验证** (Evil Martians 开发，PostCSS 作者)
+
+#### 断点检测（使用 @nanostores/media）
+
 ```typescript
 // media.ts
-import type { Breakpoints, ActiveBreakpoint } from '@openlayout/type';
+import { mapMedia } from "@nanostores/media";
+import type { Breakpoints } from "@openlayout/core";
 
-interface MediaResult {
-  getBreakpoint: () => ActiveBreakpoint;
-  subscribe: (callback: (breakpoint: ActiveBreakpoint) => void) => () => void;
+// 构建互斥断点查询（无重叠、无空隙）
+function buildQueries(bp: Breakpoints): Record<string, string> {
+  const keys = (Object.keys(bp) as (keyof typeof bp)[])
+    .filter((k) => bp[k] !== undefined)
+    .sort((a, b) => (bp[a] ?? 0) - (bp[b] ?? 0));
+
+  if (keys.length === 0) return {};
+
+  const queries: Record<string, string> = {};
+
+  // 第一个区间：xs 及以下
+  queries[keys[0]] = `(max-width: ${bp[keys[0]]}px)`;
+
+  // 中间区间
+  for (let i = 1; i < keys.length - 1; i++) {
+    queries[keys[i]] = `(min-width: ${bp[keys[i - 1]]! + 1}px) and (max-width: ${bp[keys[i]]}px)`;
+  }
+
+  // 最后一个区间
+  if (keys.length > 1) {
+    const lastKey = keys[keys.length - 1]!;
+    queries[lastKey] = `(min-width: ${bp[lastKey]}px)`;
+  }
+
+  return queries;
 }
 
-export function createMedia(breakpoints: Breakpoints): MediaResult {
-  function isBrowser(): boolean {
-    return typeof window !== 'undefined';
-  }
+// 创建媒体查询状态
+export function createMedia(breakpoints: Breakpoints) {
+  const queries = buildQueries(breakpoints);
+  const $media = mapMedia(queries);
 
-  // 构建互斥断点区间（无重叠，无空隙）
-  function buildQueries(bp: Breakpoints) {
-    const keys = Object.keys(bp)
-      .filter(k => bp[k] !== undefined)
-      .sort((a, b) => bp[a]! - bp[b]!);
-    
-    // 添加 sentinel 键用于 SSR fallback
-    const withSentinel = [':desktop', ...keys];
-    
-    return withSentinel.map((key, index) => {
-      const value = bp[key === ':desktop' ? keys[keys.length - 1]! : key];
-      const isFirst = index === 0;
-      const isLast = index === withSentinel.length - 1;
-      
-      let query: string;
-      if (isFirst) {
-        // xs 及以下
-        query = `(max-width: ${value}px)`;
-      } else if (isLast) {
-        // 最大断点以上
-        query = `(min-width: ${value}px)`;
-      } else {
-        // 中间区间
-        const prevKey = withSentinel[index - 1];
-        const prevValue = bp[prevKey === ':desktop' ? keys[keys.length - 1]! : prevKey!]!;
-        query = `(min-width: ${prevValue + 1}px) and (max-width: ${value}px)`;
-      }
-      
-      return { key: key === ':desktop' ? keys[keys.length - 1]! : key, query };
-    });
-  }
-
-  let queries: { key: string; mql: MediaQueryList }[] | null = null;
-  let currentBreakpoint: ActiveBreakpoint = null;
-
-  const initQueries = () => {
-    if (queries || !isBrowser()) return;
-    
-    const sorted = Object.keys(breakpoints).sort((a, b) => breakpoints[a]! - breakpoints[b]!);
-    const largest = sorted[sorted.length - 1];
-    
-    // 初始计算当前断点
-    for (const key of sorted) {
-      const mql = window.matchMedia(`(max-width: ${breakpoints[key]!}px)`);
-      if (mql.matches) {
-        currentBreakpoint = key;
-        break;
+  // 获取当前断点
+  function getBreakpoint(): string | null {
+    const keys = Object.keys(queries) as (keyof typeof queries)[];
+    for (const key of keys) {
+      if ($media.get()[key as keyof typeof $media.get()]) {
+        return key as string | null;
       }
     }
-    if (!currentBreakpoint) {
-      currentBreakpoint = largest;
-    }
-
-    queries = buildQueries(breakpoints).map(({ key, query }) => ({
-      key,
-      mql: window.matchMedia(query),
-    }));
-  };
+    // SSR fallback: 返回最大断点
+    const sortedKeys = keys.sort((a, b) => (breakpoints[b] ?? 0) - (breakpoints[a] ?? 0));
+    return sortedKeys[0] ?? null;
+  }
 
   return {
-    getBreakpoint: (): ActiveBreakpoint => {
-      initQueries();
-      // SSR fallback：返回最大断点
-      if (!queries) {
-        const sorted = Object.keys(breakpoints).sort((a, b) => breakpoints[a]! - breakpoints[b]!);
-        return sorted[sorted.length - 1] || null;
-      }
-      return currentBreakpoint;
-    },
-    subscribe: (callback: (breakpoint: ActiveBreakpoint) => void) => {
-      initQueries();
-      if (!queries) return () => {};
-      
-      const handler = (e: MediaQueryListEvent) => {
-        if (e.matches) {
-          const matched = queries!.find(q => q.mql === e.media);
-          if (matched) {
-            currentBreakpoint = matched.key;
-            callback(currentBreakpoint);
-          }
-        }
-      };
-      
-      queries.forEach(({ mql }) => mql.addEventListener('change', handler));
-      return () => queries!.forEach(({ mql }) => mql.removeEventListener('change', handler));
-    },
+    $media,
+    getBreakpoint,
   };
 }
 ```
 
+**使用 @nanostores/media 的优势**：
+- 🏈 **超小**: ~500 bytes
+- 🌍 **框架无关**: React / Vue / Svelte / Vanilla
+- 🛠️ **SSR 支持**: 服务端返回空对象
+- ✅ **零依赖**: Nanostores 官方扩展
+
 #### 布局计算
+
 ```typescript
 // layout.ts
-import type { LayoutConfig, LayoutState, LayoutSize, LayoutSizeValue } from '@openlayout/type';
-
-// Core 层仅输出尺寸信息，不泄漏 UI 实现细节
-export interface LayoutDimensions {
-  header: LayoutSize;
-  footer: LayoutSize;
-  aside: LayoutSize;
-}
+import type {
+  LayoutConfig,
+  LayoutDimensions,
+  LayoutSize,
+  LayoutSizeValue,
+  LayoutState,
+} from "@openlayout/core";
 
 // 校验并规范化尺寸配置
+// 纯函数，无副作用
 function normalizeSize(value?: LayoutSizeValue): LayoutSize {
-  if (value === undefined) return {};
-  
-  let size: LayoutSize;
-  if (typeof value === 'number') {
-    size = { min: value, max: value };
-  } else {
-    size = { ...value };
+  if (value === undefined || value === "auto") {
+    return Object.freeze({ auto: true });
   }
-  
+
+  if (typeof value === "number") {
+    return Object.freeze({ min: value, max: value });
+  }
+
+  const size: LayoutSize = { ...value };
+
   // 负值保护
   if (size.min !== undefined && size.min < 0) size.min = 0;
   if (size.max !== undefined && size.max < 0) size.max = 0;
-  
+
   // min > max 修正
   if (size.min !== undefined && size.max !== undefined && size.min > size.max) {
     [size.min, size.max] = [size.max, size.min!];
   }
-  
-  // 默认值
+
+  // 默认值（非 auto 模式下）
   if (size.min === undefined) size.min = 0;
   if (size.max === undefined) size.max = size.min;
-  
-  return size;
+
+  return Object.freeze(size);
 }
 
+// 判断是否为移动端（基于最小断点）
+function isMobileState(
+  breakpoint: string | null,
+  breakpoints: LayoutConfig["breakpoints"]
+): boolean {
+  if (!breakpoint) return false;
+  
+  const breakpointValues = Object.values(breakpoints);
+  const minValue = Math.min(...breakpointValues.filter((v): v is number => typeof v === "number"));
+  const currentValue = breakpoints[breakpoint];
+  
+  return currentValue === minValue;
+}
+
+// 主布局计算函数
+// 纯函数，给定相同输入必定产生相同输出
 export function createLayout(
   config: LayoutConfig,
   state: LayoutState
 ): LayoutDimensions {
+  // 规范化各区域尺寸
   const header = normalizeSize(config.sizes.header);
   const footer = normalizeSize(config.sizes.footer);
   const aside = normalizeSize(config.sizes.aside);
-  
-  // 根据断点判断是否移动端（可由外部配置阈值）
-  const breakpointValues = Object.values(config.breakpoints);
-  const isMobile = state.activeBreakpoint && 
-    config.breakpoints[state.activeBreakpoint] !== undefined &&
-    breakpointValues.indexOf(config.breakpoints[state.activeBreakpoint]!) === 0;
-  
-  // 计算 aside 实际宽度
-  let asideWidth = aside.min;
-  if (isMobile) {
-    asideWidth = 0; // 移动端隐藏侧边栏
-  } else if (state.collapsed) {
-    asideWidth = 0; // 折叠状态
-  }
-  
-  return {
+
+  // 判断移动端状态
+  const mobile = isMobileState(state.breakpoint, config.breakpoints);
+
+  // 计算侧边栏宽度
+  // 移动端或折叠状态时宽度为 0
+  const asideWidth = mobile || state.collapsed ? 0 : aside.min;
+
+  return Object.freeze({
     header: { min: header.min, max: header.max },
     footer: { min: footer.min, max: footer.max },
     aside: { min: asideWidth, max: aside.max },
-  };
+  });
 }
 ```
 
 #### CSS 变量注入
+
 ```typescript
 // inject.ts
-import type { LayoutSizes, LayoutSizeValue } from '@openlayout/type';
+import type { LayoutSizes, LayoutSizeValue } from "@openlayout/core";
 
 function normalize(v?: LayoutSizeValue): LayoutSize {
   if (!v) return { min: 0, max: 0 };
-  return typeof v === 'number' ? { min: v, max: v } : v;
+  return typeof v === "number" ? { min: v, max: v } : v;
 }
 
 export function inject(sizes: LayoutSizes): void {
@@ -392,11 +425,11 @@ export function inject(sizes: LayoutSizes): void {
     }
   `;
 
-  if (typeof document !== 'undefined') {
-    const id = 'od-layout-variables';
+  if (typeof document !== "undefined") {
+    const id = "od-layout-variables";
     let style = document.getElementById(id);
     if (!style) {
-      style = document.createElement('style');
+      style = document.createElement("style");
       style.id = id;
       document.head.appendChild(style);
     }
@@ -410,20 +443,105 @@ export function inject(sizes: LayoutSizes): void {
 ## 3. 包结构
 
 ```
-@openlayout/type       # 类型层（TypeScript 类型定义）
-@openlayout/config     # 配置层（默认布局配置）
-@openlayout/core       # 核心层（State + Media + Layout + Inject）
-@openlayout/react      # React 适配器（后续开发）
-@openlayout/vue        # Vue 3 适配器（后续开发）
+@openlayout/core       # 核心层（Types + Config + State + Media + Layout + Inject）
+@openlayout/react     # React 适配器
+@openlayout/vue       # Vue 3 适配器
+```
+
+**依赖**：
+- `nanostores` - 状态管理
+- `@nanostores/media` - 断点检测
+
+---
+
+## 4. API 设计
+
+### 4.1 核心 API（一站式创建）
+
+```typescript
+import { createLayout } from "@openlayout/core";
+
+// 一站式创建布局实例
+const layout = createLayout({
+  mode: "sidebar",
+  breakpoints: { xs: 480, sm: 768, md: 1024 },
+  sizes: { header: 64, aside: 240 },
+});
+
+// 获取状态
+layout.getState();      // { collapsed: false, breakpoint: 'md' }
+
+// 获取布局尺寸
+layout.getDimensions();  // { header: { min: 64, max: 64 }, aside: { min: 240, max: 240 } }
+
+// 订阅状态变化
+layout.subscribe((state) => {
+  console.log("状态变化:", state);
+});
+```
+
+### 4.2 React Hooks API
+
+```typescript
+import { useLayout, useCollapsed, useBreakpoint, useDimensions } from "@openlayout/react";
+
+function App() {
+  // 完整布局状态
+  const { collapsed, breakpoint, toggleCollapsed } = useLayout();
+  
+  // 单一状态（更精确的订阅）
+  const collapsed = useCollapsed();
+  const breakpoint = useBreakpoint();
+  const dimensions = useDimensions();
+  
+  return (
+    <div>
+      <Header height={dimensions.header.min} />
+      <div style={{ display: "flex" }}>
+        <Sidebar width={dimensions.aside.min} collapsed={collapsed} />
+        <Content />
+      </div>
+    </div>
+  );
+}
+```
+
+### 4.3 Vue 3 Composables API
+
+```typescript
+import { useLayout, useCollapsed, useBreakpoint, useDimensions } from "@openlayout/vue";
+
+<script setup>
+const { collapsed, breakpoint, toggleCollapsed } = useLayout();
+const collapsed = useCollapsed();
+const breakpoint = useBreakpoint();
+const dimensions = useDimensions();
+</script>
+```
+
+### 4.4 状态操作 API
+
+```typescript
+// 切换折叠
+layout.toggleCollapsed();
+
+// 设置折叠状态
+layout.setCollapsed(true);
+
+// 设置断点（内部自动调用）
+layout.setBreakpoint("md");
 ```
 
 ---
 
-## 4. 验收标准
+## 5. 验收标准
 
-- [ ] `@openlayout/type` 提供完整 TypeScript 类型定义
-- [ ] `@openlayout/config` 提供默认配置
+- [ ] `@openlayout/core` 提供完整 TypeScript 类型定义
+- [ ] `@openlayout/core` 提供默认配置
 - [ ] `@openlayout/core` 可在 Node.js 环境运行
+- [ ] **API 友好**：一站式 `createLayout()` 创建
+- [ ] **React Hooks**：提供 `useLayout`、`useCollapsed`、`useBreakpoint`、`useDimensions`
+- [ ] **Vue Composables**：提供 `useLayout`、`useCollapsed`、`useBreakpoint`、`useDimensions`
 - [ ] 断点系统为互斥模型，保证同时只有一个 active breakpoint
 - [ ] 断点区间无重叠、无空隙
 - [ ] SSR fallback 使用最大断点而非硬编码
