@@ -21,7 +21,7 @@ import { defaultConfig } from '@openlayout/config';
 const state = createState(defaultConfig);
 
 // 获取状态
-const { collapsed, activeBreakpoint } = state.getState();
+const { collapsed, breakpoint } = state.getState();
 
 // 订阅状态变更
 const unsubscribe = state.subscribe((newState) => {
@@ -83,7 +83,7 @@ const config = {
 
 const state = {
   collapsed: false,
-  activeBreakpoint: 'md',
+  breakpoint: 'md',
 };
 
 const layout = createLayout(config, state);

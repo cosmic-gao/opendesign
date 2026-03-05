@@ -88,5 +88,5 @@ export interface LayoutState {
   /** 当前是否折叠 */
   collapsed: boolean;
   /** 当前激活的断点 */
-  activeBreakpoint: ActiveBreakpoint;
+  breakpoint: ActiveBreakpoint;
 }

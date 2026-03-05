@@ -16,7 +16,7 @@ describe('createLayout', () => {
 
   const defaultState: LayoutState = {
     collapsed: false,
-    activeBreakpoint: 'md',
+    breakpoint: 'md',
   };
 
   describe('固定值处理', () => {

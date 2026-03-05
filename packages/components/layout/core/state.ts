@@ -15,7 +15,7 @@ type Listener = (state: LayoutState) => void;
 export function createState(initialConfig: Partial<LayoutConfig>) {
   let state: LayoutState = {
     collapsed: initialConfig.defaultCollapsed ?? false,
-    activeBreakpoint: null,
+    breakpoint: null,
   };
 
   const listeners = new Set<Listener>();
@@ -41,7 +41,7 @@ export function createState(initialConfig: Partial<LayoutConfig>) {
      * @param breakpoint - 当前激活的断点名称或 null
      */
     setBreakpoint: (breakpoint: ActiveBreakpoint) => {
-      state = { ...state, activeBreakpoint: breakpoint };
+      state = { ...state, breakpoint };
       listeners.forEach(fn => fn(state));
     },
     
