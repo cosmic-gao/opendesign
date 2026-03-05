@@ -11,8 +11,10 @@ import type { LayoutSizes, LayoutSizeValue, LayoutSize } from '@openlayout/type'
  * @returns 规范化后的尺寸对象
  */
 function createSize(v?: LayoutSizeValue): LayoutSize {
-  if (!v) return { min: 0, max: 0 };
-  return typeof v === 'number' ? { min: v, max: v } : v;
+  if (v === undefined) return {};
+  if (v === 'auto') return { auto: true };
+  if (typeof v === 'number') return { min: v, max: v };
+  return v;
 }
 
 /**
@@ -58,9 +60,9 @@ export function inject(sizes: LayoutSizes, doc?: Document): void {
 
   const css = `
     :root {
-      --od-header-height: ${h.min}px;
-      --od-footer-height: ${f.min}px;
-      --od-sidebar-width: ${s.min}px;
+      --od-header-height: ${h.auto ? 'auto' : (h.min ?? 0) + 'px'};
+      --od-footer-height: ${f.auto ? 'auto' : (f.min ?? 0) + 'px'};
+      --od-sidebar-width: ${s.auto ? 'auto' : (s.min ?? 0) + 'px'};
     }
   `;
 

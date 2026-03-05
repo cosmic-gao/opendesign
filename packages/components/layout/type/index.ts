@@ -42,13 +42,15 @@ export interface LayoutSize {
   min?: number;
   /** 最大值 */
   max?: number;
+  /** 自动撑开（不设置固定值） */
+  auto?: boolean;
 }
 
 /**
- * 简写类型：number = { min: n, max: n }
- * @typedef {number | LayoutSize} LayoutSizeValue
+ * 简写类型：number = { min: n, max: n }，或 'auto'
+ * @typedef {number | LayoutSize | 'auto'} LayoutSizeValue
  */
-export type LayoutSizeValue = number | LayoutSize;
+export type LayoutSizeValue = number | LayoutSize | 'auto';
 
 /**
  * 布局尺寸配置

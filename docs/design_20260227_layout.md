@@ -189,7 +189,6 @@ export const defaultConfig: LayoutConfig = {
 ```
 
 #### 使用示例
-
 ```typescript
 // 固定值（简写）
 sidebar: 240
@@ -200,8 +199,8 @@ sidebar: { min: 200, max: 400 }
 // 仅最大高度
 header: { max: 100 }
 
-// 自动撑开（无限制）
-sidebar: { }
+// 自动撑开
+sidebar: 'auto'
 ```
 
 #### 状态管理器（使用 Nanostores）
