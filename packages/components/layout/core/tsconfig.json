@@ -2,7 +2,9 @@
   "extends": "@opendesign/tsconfig/lib",
   "compilerOptions": {
     "composite": true,
-    "lib": ["ESNext", "DOM"]
+    "lib": ["ESNext", "DOM"],
+    "jsx": "react-jsx",
+    "types": ["vitest/globals"]
   },
   "exclude": ["node_modules"]
 }

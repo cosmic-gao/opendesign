@@ -4,7 +4,12 @@
   "type": "module",
   "main": "./index.ts",
   "scripts": {
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "jsdom": "^25.0.0"
   },
   "peerDependencies": {
     "@openlayout/type": "workspace:*"

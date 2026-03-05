@@ -20,11 +20,12 @@ export interface LayoutDimensions {
  * @returns 规范化后的尺寸对象
  */
 function createSize(value?: LayoutSizeValue): LayoutSize {
-  if (value === undefined) return {};
+  // 处理 undefined 或空对象
+  if (value === undefined) return { min: 0, max: 0 };
   
   // 处理 'auto' 简写形式
   if (value === 'auto') {
-    return { auto: true };
+    return { auto: true, min: undefined, max: undefined };
   }
   
   let size: LayoutSize;
@@ -42,6 +43,10 @@ function createSize(value?: LayoutSizeValue): LayoutSize {
   if (size.min !== undefined && size.max !== undefined && size.min > size.max) {
     [size.min, size.max] = [size.max, size.min!];
   }
+  
+  // 默认值
+  if (size.min === undefined) size.min = 0;
+  if (size.max === undefined) size.max = size.min;
   
   return size;
 }
@@ -69,8 +74,8 @@ export function createLayout(
   }
   
   return {
-    header: { min: header.auto ? undefined : header.min, max: header.max },
-    footer: { min: footer.auto ? undefined : footer.min, max: footer.max },
+    header: { min: header.auto ? undefined : header.min, max: header.max, auto: header.auto },
+    footer: { min: footer.auto ? undefined : footer.min, max: footer.max, auto: footer.auto },
     sidebar: { min: sidebarMin, max: sidebar.max, auto: sidebar.auto },
   };
 }
