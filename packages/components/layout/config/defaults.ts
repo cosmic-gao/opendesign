@@ -11,14 +11,14 @@ import type { LayoutConfig } from '@openlayout/type';
 export const defaultConfig: LayoutConfig = {
   mode: 'sidebar',
   defaultCollapsed: false,
-  defaultTheme: 'light',
   breakpoints: {
-    mobile: 480,
-    tablet: 768,
-    desktop: 1024,
+    xs: 480,
+    sm: 768,
+    md: 1024,
   },
-  headerHeight: 64,
-  sidebarWidth: 240,
-  sidebarCollapsedWidth: 64,
-  contentMaxWidth: 1200,
+  sizes: {
+    header: 64,
+    footer: 48,
+    sidebar: 240,
+  },
 };

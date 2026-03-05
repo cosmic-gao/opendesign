@@ -87,7 +87,7 @@ export type LayoutSizeValue = number | LayoutSize;
 export interface LayoutSizes {
   header?: LayoutSizeValue;
   footer?: LayoutSizeValue;
-  aside?: LayoutSizeValue;
+  sidebar?: LayoutSizeValue;
 }
 
 // 布局配置
@@ -124,7 +124,7 @@ export const defaultConfig: LayoutConfig = {
   sizes: {
     header: 64,
     footer: 48,
-    aside: 240,
+    sidebar: 240,
   },
 };
 ```
@@ -132,16 +132,16 @@ export const defaultConfig: LayoutConfig = {
 #### 使用示例
 ```typescript
 // 固定值（简写）
-aside: 240
+sidebar: 240
 
 // 范围限制
-aside: { min: 200, max: 400 }
+sidebar: { min: 200, max: 400 }
 
 // 仅最大高度
 header: { max: 100 }
 
 // 自动撑开（无限制）
-aside: { }
+sidebar: { }
 ```
 
 ### 2.4 核心层（@openlayout/core）
@@ -309,7 +309,7 @@ import type { LayoutConfig, LayoutState, LayoutSize, LayoutSizeValue } from '@op
 export interface LayoutDimensions {
   header: LayoutSize;
   footer: LayoutSize;
-  aside: LayoutSize;
+  sidebar: LayoutSize;
 }
 
 // 校验并规范化尺寸配置
@@ -345,26 +345,19 @@ export function createLayout(
 ): LayoutDimensions {
   const header = normalizeSize(config.sizes.header);
   const footer = normalizeSize(config.sizes.footer);
-  const aside = normalizeSize(config.sizes.aside);
+  const sidebar = normalizeSize(config.sizes.sidebar);
   
-  // 根据断点判断是否移动端（可由外部配置阈值）
-  const breakpointValues = Object.values(config.breakpoints);
-  const isMobile = state.activeBreakpoint && 
-    config.breakpoints[state.activeBreakpoint] !== undefined &&
-    breakpointValues.indexOf(config.breakpoints[state.activeBreakpoint]!) === 0;
-  
-  // 计算 aside 实际宽度
-  let asideWidth = aside.min;
-  if (isMobile) {
-    asideWidth = 0; // 移动端隐藏侧边栏
-  } else if (state.collapsed) {
-    asideWidth = 0; // 折叠状态
+  // 计算 sidebar 实际宽度
+  // Core 层不预设 "Mobile" 概念，仅根据 collapsed 状态计算
+  let sidebarWidth = sidebar.min;
+  if (state.collapsed) {
+    sidebarWidth = 0; // 折叠状态
   }
   
   return {
     header: { min: header.min, max: header.max },
     footer: { min: footer.min, max: footer.max },
-    aside: { min: asideWidth, max: aside.max },
+    sidebar: { min: sidebarWidth, max: sidebar.max },
   };
 }
 ```
@@ -382,13 +375,13 @@ function normalize(v?: LayoutSizeValue): LayoutSize {
 export function inject(sizes: LayoutSizes): void {
   const h = normalize(sizes.header);
   const f = normalize(sizes.footer);
-  const a = normalize(sizes.aside);
+  const s = normalize(sizes.sidebar);
 
   const css = `
     :root {
       --od-header-height: ${h.min}px;
       --od-footer-height: ${f.min}px;
-      --od-aside-width: ${a.min}px;
+      --od-sidebar-width: ${s.min}px;
     }
   `;
 

@@ -1,21 +1,13 @@
 {
   "name": "@openlayout/config",
   "version": "1.0.0",
-  "description": "OpenDesign Layout 配置层 - 布局配置默认值",
   "type": "module",
   "main": "./index.ts",
-  "module": "./index.ts",
-  "types": "./index.ts",
-  "exports": {
-    ".": {
-      "types": "./index.ts",
-      "import": "./index.ts"
-    }
-  },
-  "scripts": {
-    "build": "tsc --noEmit"
-  },
   "peerDependencies": {
     "@openlayout/type": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

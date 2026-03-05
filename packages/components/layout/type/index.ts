@@ -9,17 +9,41 @@
 export type LayoutMode = 'sidebar' | 'top' | 'mixed';
 
 /**
- * 主题
- */
-export type Theme = 'light' | 'dark';
-
-/**
- * 响应式断点
+ * 响应式断点（支持任意自定义命名）
  */
 export interface Breakpoints {
-  mobile: number;
-  tablet: number;
-  desktop: number;
+  xs?: number;
+  sm?: number;
+  md?: number;
+  lg?: number;
+  [key: string]: number | undefined;
+}
+
+/**
+ * 当前激活的断点（互斥模型）
+ */
+export type ActiveBreakpoint = string | null;
+
+/**
+ * 单个区域的大小配置（支持简写和完整写法）
+ */
+export interface LayoutSize {
+  min?: number;   // 最小值
+  max?: number;   // 最大值
+}
+
+/**
+ * 简写类型：number = { min: n, max: n }
+ */
+export type LayoutSizeValue = number | LayoutSize;
+
+/**
+ * 布局尺寸配置
+ */
+export interface LayoutSizes {
+  header?: LayoutSizeValue;
+  footer?: LayoutSizeValue;
+  sidebar?: LayoutSizeValue;
 }
 
 /**
@@ -28,47 +52,14 @@ export interface Breakpoints {
 export interface LayoutConfig {
   mode: LayoutMode;
   defaultCollapsed: boolean;
-  defaultTheme: Theme;
   breakpoints: Breakpoints;
-  headerHeight: number;
-  sidebarWidth: number;
-  sidebarCollapsedWidth: number;
-  contentMaxWidth: number;
+  sizes: LayoutSizes;
 }
 
 /**
- * 设计令牌
- */
-export interface DesignTokens {
-  colors: {
-    primary: string;
-    background: string;
-    surface: string;
-    text: string;
-    border: string;
-  };
-  spacing: {
-    xs: string;
-    sm: string;
-    md: string;
-    lg: string;
-    xl: string;
-  };
-  typography: {
-    fontFamily: string;
-    fontSize: number;
-    lineHeight: number;
-  };
-}
-
-/**
- * 布局状态
+ * 布局状态（Core 内部状态，不包含 UI 语义）
  */
 export interface LayoutState {
   collapsed: boolean;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-  theme: Theme;
-  activeRoute: string;
+  activeBreakpoint: ActiveBreakpoint;
 }
