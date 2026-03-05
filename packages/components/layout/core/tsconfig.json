@@ -1,8 +1,8 @@
 {
   "extends": "@opendesign/tsconfig/lib",
   "compilerOptions": {
-    "composite": true
+    "composite": true,
+    "lib": ["ESNext", "DOM"]
   },
-  "include": ["src/**/*"],
   "exclude": ["node_modules"]
 }

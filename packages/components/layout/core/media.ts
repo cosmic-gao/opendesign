@@ -12,8 +12,8 @@ interface MediaResult {
 
 /**
  * 创建断点检测器
- * @param breakpoints - 断点配置
- * @returns 断点检测对象
+ * @param breakpoints - 断点配置对象
+ * @returns 断点检测对象，包含 getBreakpoint 和 subscribe 方法
  */
 export function createMedia(breakpoints: Breakpoints): MediaResult {
   function isBrowser(): boolean {
@@ -95,7 +95,8 @@ export function createMedia(breakpoints: Breakpoints): MediaResult {
       
       const handler = (e: MediaQueryListEvent) => {
         if (e.matches) {
-          const matched = queries!.find(q => q.mql === e.media);
+          // 通过 media 字符串匹配
+          const matched = queries!.find(q => q.mql.media === e.media);
           if (matched) {
             currentBreakpoint = matched.key;
             callback(currentBreakpoint);

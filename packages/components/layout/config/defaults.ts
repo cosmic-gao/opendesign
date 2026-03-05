@@ -7,6 +7,8 @@ import type { LayoutConfig } from '@openlayout/type';
 
 /**
  * 默认布局配置
+ * @constant
+ * @type {LayoutConfig}
  */
 export const defaultConfig: LayoutConfig = {
   mode: 'sidebar',

@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "main": "./index.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
