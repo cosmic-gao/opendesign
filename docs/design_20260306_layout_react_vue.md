@@ -319,23 +319,23 @@ const useLayout = createLayout(config);
 // 返回值（基础）- 所有值均为 Ref
 const { 
   collapsed,        // Ref<boolean> - 当前折叠状态
-  breakpoint,       // Ref<Breakpoint> - 当前断点
+  breakpoint,      // Ref<Breakpoint> - 当前断点
   toggleCollapsed, // () => void - 切换折叠
-  setCollapsed,     // (v: boolean) => void - 设置折叠
+  setCollapsed,    // (v: boolean) => void - 设置折叠
 } = useLayout();
 
-// 返回值（快捷属性）- 自动解包为原始类型
+// 返回值（快捷属性）- Ref 类型
 const { 
-  headerHeight,    // number - 头部高度
-  footerHeight,    // number - 底部高度  
-  sidebarWidth,    // number - 侧边栏宽度
-  isMobile,        // boolean - 是否移动端 (xs | sm)
-  isDesktop,       // boolean - 是否桌面端 (lg)
+  headerHeight,    // Ref<number> - 头部高度
+  footerHeight,    // Ref<number> - 底部高度  
+  sidebarWidth,    // Ref<number> - 侧边栏宽度
+  isMobile,       // Ref<boolean> - 是否移动端 (xs | sm)
+  isDesktop,      // Ref<boolean> - 是否桌面端 (lg)
 } = useLayout();
 
 // 完整尺寸（进阶）
 const { 
-  dimensions       // { header, footer, sidebar } - 完整尺寸对象
+  dimensions       // Ref<LayoutDimensions> - 完整尺寸对象
 } = useLayout();
 ```
 
@@ -446,7 +446,7 @@ interface LayoutConfig {
 │   ├── useLayout.ts     # useLayout 主 Composable（含快捷属性）
 │   ├── useCollapsed.ts  # useCollapsed
 │   ├── useBreakpoint.ts # useBreakpoint
-│   ├── LayoutProvider.vue # 组件式 Provider
+│   ├── LayoutProvider.ts # 组件式 Provider (函数式组件)
 │   └── ssr.ts          # SSR 辅助
 └── tests/
     └── *.test.ts

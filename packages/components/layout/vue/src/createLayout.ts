@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { useStore } from '@nanostores/vue';
+import { useStore as useNanoStore } from '@nanostores/vue';
 import { 
   $layoutState, 
   initState, 
@@ -56,20 +56,49 @@ function normalizeConfig(options?: CreateLayoutOptions): LayoutConfig {
 // 已初始化的配置缓存
 let cachedConfig: LayoutConfig | null = null;
 
+// 存储 unsubscribe 函数
+let unsubscribeMedia: (() => void) | null = null;
+
 /**
- * 创建布局 Composable 的工厂函数
+ * Layout Store 类型
+ * 参考 Zustand/Nano Stores 设计
+ */
+export interface LayoutStore {
+  /**
+   * 使用布局的 Hook/Composable
+   */
+  useStore: () => UseLayoutReturn;
+  /**
+   * 获取同步状态（非响应式，仅用于初始化）
+   */
+  getState: () => { collapsed: boolean; breakpoint: string | null };
+  /**
+   * 清理函数
+   */
+  cleanup: () => void;
+}
+
+/**
+ * 创建布局 Store 的工厂函数
+ * 参考 Zustand 的 create 函数设计
  * @param options - 可选的布局配置
- * @returns useLayout Composable
+ * @returns LayoutStore
  * 
  * @example
- * // 零配置（使用默认值）
- * import { useLayout } from '@openlayout/vue';
+ * // 解构使用（推荐）
+ * const { useStore, getState, cleanup } = createLayout({ breakpoints: { xs: 480 } });
  * 
- * // 自定义配置
- * import { createLayout } from '@openlayout/vue';
- * const useLayout = createLayout({ breakpoints: { xs: 480, sm: 768 } });
+ * function App() {
+ *   const { collapsed, headerHeight } = useStore();
+ *   // ...
+ * }
+ * 
+ * // 或直接使用
+ * const layout = createLayout({ breakpoints: { xs: 480 } });
+ * const { collapsed, headerHeight } = layout.useStore();
+ * layout.cleanup();
  */
-export function createLayout(options?: CreateLayoutOptions): () => UseLayoutReturn {
+export function createLayout(options?: CreateLayoutOptions): LayoutStore {
   // 规范化配置
   const config = normalizeConfig(options);
   
@@ -80,7 +109,7 @@ export function createLayout(options?: CreateLayoutOptions): () => UseLayoutRetu
     
     // 创建断点检测并订阅变化
     const media = createMedia(config.breakpoints);
-    media.subscribe((bp) => {
+    unsubscribeMedia = media.subscribe((bp: string | null) => {
       coreSetBreakpoint(bp);
     });
     
@@ -92,12 +121,30 @@ export function createLayout(options?: CreateLayoutOptions): () => UseLayoutRetu
   }
   
   /**
-   * 主 Layout Composable
-   * 返回布局状态、快捷属性和操作方法
+   * 获取同步状态（非响应式）
+   * 参考 Zustand.getState()
    */
-  function useLayout(): UseLayoutReturn {
+  function getState(): { collapsed: boolean; breakpoint: string | null } {
+    return $layoutState.get();
+  }
+  
+  /**
+   * 清理函数
+   */
+  function cleanup(): void {
+    if (unsubscribeMedia) {
+      unsubscribeMedia();
+      unsubscribeMedia = null;
+    }
+    cachedConfig = null;
+  }
+  
+  /**
+   * 主 Layout Composable - 箭头函数
+   */
+  const useStore = (): UseLayoutReturn => {
     // 订阅 Core 层状态
-    const state = useStore($layoutState);
+    const state = useNanoStore($layoutState);
     
     // 计算布局尺寸（响应式）
     const dimensions = computed(() => computeLayout(config, state.value));
@@ -130,7 +177,11 @@ export function createLayout(options?: CreateLayoutOptions): () => UseLayoutRetu
       // 完整尺寸（Ref）
       dimensions,
     };
-  }
+  };
   
-  return useLayout;
+  return {
+    useStore,
+    getState,
+    cleanup,
+  };
 }

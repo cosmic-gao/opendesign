@@ -7,7 +7,7 @@ import type { CreateLayoutOptions } from './types';
  * Layout Provider 注入键
  */
 const LayoutProviderKey: InjectionKey<{
-  useLayout: () => UseLayoutReturn;
+  useStore: () => UseLayoutReturn;
 }> = Symbol('LayoutProvider');
 
 /**
@@ -42,10 +42,10 @@ export const LayoutProvider: Component<LayoutProviderProps> = {
     },
   },
   setup(props: LayoutProviderProps) {
-    const useLayout = createLayout(props.config);
+    const { useStore } = createLayout(props.config);
     
     provide(LayoutProviderKey, {
-      useLayout,
+      useStore,
     });
     
     return () => h('div', { style: { display: 'contents' } });
@@ -68,5 +68,5 @@ export function useLayoutContext(): () => UseLayoutReturn {
     throw new Error('useLayoutContext must be used within LayoutProvider');
   }
   
-  return context.useLayout;
+  return context.useStore;
 }

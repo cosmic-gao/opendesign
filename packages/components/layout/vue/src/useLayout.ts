@@ -1,5 +1,6 @@
 import { createLayout } from './createLayout';
-import type { UseLayoutReturn } from './types';
+
+const defaultLayoutStore = createLayout();
 
 /**
  * 默认布局 Composable（零配置）
@@ -18,6 +19,7 @@ import type { UseLayoutReturn } from './types';
  *   </div>
  * </template>
  */
-export const useLayout = createLayout();
+export const useLayout = defaultLayoutStore.useStore;
 
-export type { UseLayoutReturn };
+export const getState = defaultLayoutStore.getState;
+export const cleanup = defaultLayoutStore.cleanup;

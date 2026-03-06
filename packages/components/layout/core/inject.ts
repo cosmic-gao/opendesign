@@ -3,37 +3,8 @@
  * 将布局配置注入到 CSS 变量中
  */
 
-import type { LayoutSizes, LayoutSizeValue, LayoutSize } from '@openlayout/type';
-
-/**
- * 校验并规范化数字范围
- */
-function range(min?: number, max?: number): [number, number] {
-  let lo = min ?? 0;
-  let hi = max ?? lo;
-
-  if (lo < 0) lo = 0;
-  if (hi < 0) hi = 0;
-  if (lo > hi) [lo, hi] = [hi, lo];
-
-  return [lo, hi];
-}
-
-/**
- * 校验并规范化尺寸配置
- */
-function createSize(v?: LayoutSizeValue): LayoutSize {
-  if (v === undefined) return { auto: true };
-  if (v === 'auto') return { auto: true };
-
-  if (typeof v === 'number') {
-    const [min, max] = range(v, v);
-    return { min, max };
-  }
-
-  const [min, max] = range(v.min, v.max);
-  return { min, max, auto: v.auto };
-}
+import { createSize } from './utils';
+import type { LayoutSizes, LayoutSizeValue } from '@openlayout/type';
 
 /**
  * 解析 Document 对象
@@ -67,9 +38,9 @@ export function inject(sizes: LayoutSizes, doc?: Document): void {
   const d = root(doc);
   if (!d) return;
 
-  const h = createSize(sizes.header);
-  const f = createSize(sizes.footer);
-  const s = createSize(sizes.sidebar);
+  const h = createSize(sizes.header as LayoutSizeValue);
+  const f = createSize(sizes.footer as LayoutSizeValue);
+  const s = createSize(sizes.sidebar as LayoutSizeValue);
 
   const css = `
     :root {

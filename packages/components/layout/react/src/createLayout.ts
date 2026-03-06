@@ -1,4 +1,4 @@
-import { useStore } from '@nanostores/react';
+import { useStore as useNanoStore } from '@nanostores/react';
 import { 
   $layoutState, 
   initState, 
@@ -36,7 +36,7 @@ const DEFAULT_SIZES: Required<{
 /**
  * 规范化用户配置为完整配置
  */
-function normalizeConfig(options?: CreateLayoutOptions): LayoutConfig {
+function useConfig(options?: CreateLayoutOptions): LayoutConfig {
   const breakpoints = { ...DEFAULT_BREAKPOINTS, ...options?.breakpoints };
   const sizes = {
     header: options?.sizes?.header ?? DEFAULT_SIZES.header,
@@ -55,22 +55,51 @@ function normalizeConfig(options?: CreateLayoutOptions): LayoutConfig {
 // 已初始化的配置缓存
 let cachedConfig: LayoutConfig | null = null;
 
+// 存储 unsubscribe 函数
+let unsubscribeMedia: (() => void) | null = null;
+
 /**
- * 创建布局 Hook 的工厂函数
+ * Layout Store 类型
+ * 参考 Zustand/Nano Stores 设计
+ */
+export interface LayoutStore {
+  /**
+   * 使用布局的 Hook
+   */
+  useStore: () => UseLayoutReturn;
+  /**
+   * 获取同步状态（非响应式，仅用于初始化）
+   */
+  getState: () => { collapsed: boolean; breakpoint: string | null };
+  /**
+   * 清理函数
+   */
+  cleanup: () => void;
+}
+
+/**
+ * 创建布局 Store 的工厂函数
+ * 参考 Zustand 的 create 函数设计
  * @param options - 可选的布局配置
- * @returns useLayout Hook
+ * @returns LayoutStore
  * 
  * @example
- * // 零配置（使用默认值）
- * import { useLayout } from '@openlayout/react';
+ * // 解构使用（推荐）
+ * const { useStore, getState, cleanup } = createLayout({ breakpoints: { xs: 480 } });
  * 
- * // 自定义配置
- * import { createLayout } from '@openlayout/react';
- * const useLayout = createLayout({ breakpoints: { xs: 480, sm: 768 } });
+ * function App() {
+ *   const { collapsed, headerHeight } = useStore();
+ *   // ...
+ * }
+ * 
+ * // 或直接使用
+ * const layout = createLayout({ breakpoints: { xs: 480 } });
+ * const { collapsed, headerHeight } = layout.useStore();
+ * layout.cleanup();
  */
-export function createLayout(options?: CreateLayoutOptions): () => UseLayoutReturn {
+export function createLayout(options?: CreateLayoutOptions): LayoutStore {
   // 规范化配置
-  const config = normalizeConfig(options);
+  const config = useConfig(options);
   
   // 初始化 Core 层状态（仅执行一次）
   if (!cachedConfig) {
@@ -79,7 +108,7 @@ export function createLayout(options?: CreateLayoutOptions): () => UseLayoutRetu
     
     // 创建断点检测并订阅变化
     const media = createMedia(config.breakpoints);
-    media.subscribe((bp: string | null) => {
+    unsubscribeMedia = media.subscribe((bp: string | null) => {
       coreSetBreakpoint(bp);
     });
     
@@ -91,12 +120,30 @@ export function createLayout(options?: CreateLayoutOptions): () => UseLayoutRetu
   }
   
   /**
-   * 主 Layout Hook
-   * 返回布局状态、快捷属性和操作方法
+   * 获取同步状态（非响应式）
+   * 参考 Zustand.getState()
    */
-  function useLayout(): UseLayoutReturn {
+  function getState(): { collapsed: boolean; breakpoint: string | null } {
+    return $layoutState.get();
+  }
+  
+  /**
+   * 清理函数
+   */
+  function cleanup(): void {
+    if (unsubscribeMedia) {
+      unsubscribeMedia();
+      unsubscribeMedia = null;
+    }
+    cachedConfig = null;
+  }
+  
+  /**
+   * 主 Layout Hook - 箭头函数
+   */
+  const useStore = (): UseLayoutReturn => {
     // 订阅 Core 层状态
-    const state = useStore($layoutState);
+    const state = useNanoStore($layoutState);
     
     // 计算布局尺寸
     const dimensions = computeLayout(config, state);
@@ -127,7 +174,11 @@ export function createLayout(options?: CreateLayoutOptions): () => UseLayoutRetu
       // 完整尺寸
       dimensions,
     };
-  }
+  };
   
-  return useLayout;
+  return {
+    useStore,
+    getState,
+    cleanup,
+  };
 }

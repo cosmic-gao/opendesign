@@ -7,7 +7,7 @@ import type { CreateLayoutOptions } from './types';
  * Layout Context 类型
  */
 interface LayoutContextValue {
-  useLayout: () => UseLayoutReturn;
+  useStore: () => UseLayoutReturn;
 }
 
 /**
@@ -46,10 +46,10 @@ interface LayoutProviderProps {
  * }
  */
 export function LayoutProvider({ children, config }: LayoutProviderProps) {
-  const useLayout = createLayout(config);
+  const { useStore } = createLayout(config);
   
   const value: LayoutContextValue = {
-    useLayout,
+    useStore,
   };
   
   return (
@@ -75,5 +75,5 @@ export function useLayoutContext(): UseLayoutReturn {
     throw new Error('useLayoutContext must be used within LayoutProvider');
   }
   
-  return context.useLayout();
+  return context.useStore();
 }

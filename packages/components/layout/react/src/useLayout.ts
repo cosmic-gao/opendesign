@@ -1,5 +1,6 @@
 import { createLayout } from './createLayout';
-import type { UseLayoutReturn } from './types';
+
+const store = createLayout();
 
 /**
  * 默认布局 Hook（零配置）
@@ -13,6 +14,7 @@ import type { UseLayoutReturn } from './types';
  *   // ...
  * }
  */
-export const useLayout = createLayout();
+export const useLayout = store.useStore;
 
-export type { UseLayoutReturn };
+export const getState = store.getState;
+export const cleanup = store.cleanup;
