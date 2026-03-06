@@ -6,21 +6,37 @@
 import type { LayoutSizes, LayoutSizeValue, LayoutSize } from '@openlayout/type';
 
 /**
+ * 校验并规范化数字范围
+ */
+function range(min?: number, max?: number): [number, number] {
+  let lo = min ?? 0;
+  let hi = max ?? lo;
+
+  if (lo < 0) lo = 0;
+  if (hi < 0) hi = 0;
+  if (lo > hi) [lo, hi] = [hi, lo];
+
+  return [lo, hi];
+}
+
+/**
  * 校验并规范化尺寸配置
- * @param v - 布局尺寸值
- * @returns 规范化后的尺寸对象
  */
 function createSize(v?: LayoutSizeValue): LayoutSize {
-  if (v === undefined) return {};
+  if (v === undefined) return { auto: true };
   if (v === 'auto') return { auto: true };
-  if (typeof v === 'number') return { min: v, max: v };
-  return v;
+
+  if (typeof v === 'number') {
+    const [min, max] = range(v, v);
+    return { min, max };
+  }
+
+  const [min, max] = range(v.min, v.max);
+  return { min, max, auto: v.auto };
 }
 
 /**
  * 解析 Document 对象
- * @param doc - 可选的传入 Document 对象
- * @returns Document 对象或 null
  */
 function root(doc?: Document): Document | null {
   if (doc) return doc;
@@ -30,9 +46,6 @@ function root(doc?: Document): Document | null {
 
 /**
  * 确保 stylesheet 元素存在，不存在则创建
- * @param id - style 元素 ID
- * @param doc - Document 对象
- * @returns HTMLStyleElement
  */
 function style(id: string, doc: Document): HTMLStyleElement {
   let el = doc.getElementById(id) as HTMLStyleElement;

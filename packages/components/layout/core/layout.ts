@@ -15,40 +15,38 @@ export interface LayoutDimensions {
 }
 
 /**
+ * 校验并规范化数字范围
+ * @param min - 最小值
+ * @param max - 最大值
+ * @returns 校验后的 min/max
+ */
+function range(min?: number, max?: number): [number, number] {
+  let lo = min ?? 0;
+  let hi = max ?? lo;
+
+  if (lo < 0) lo = 0;
+  if (hi < 0) hi = 0;
+  if (lo > hi) [lo, hi] = [hi, lo];
+
+  return [lo, hi];
+}
+
+/**
  * 校验并规范化尺寸配置
  * @param value - 布局尺寸值（数值、对象或 'auto'）
  * @returns 规范化后的尺寸对象
  */
 function createSize(value?: LayoutSizeValue): LayoutSize {
-  // 处理 undefined 或空对象 - 默认 auto
   if (value === undefined) return { auto: true };
-  
-  // 处理 'auto' 简写形式
-  if (value === 'auto') {
-    return { auto: true };
-  }
-  
-  let size: LayoutSize;
+  if (value === 'auto') return { auto: true };
+
   if (typeof value === 'number') {
-    size = { min: value, max: value };
-  } else {
-    size = { ...value };
+    const [min, max] = range(value, value);
+    return { min, max };
   }
-  
-  // 负值保护
-  if (size.min !== undefined && size.min < 0) size.min = 0;
-  if (size.max !== undefined && size.max < 0) size.max = 0;
-  
-  // min > max 修正
-  if (size.min !== undefined && size.max !== undefined && size.min > size.max) {
-    [size.min, size.max] = [size.max, size.min!];
-  }
-  
-  // 默认值
-  if (size.min === undefined) size.min = 0;
-  if (size.max === undefined) size.max = size.min;
-  
-  return size;
+
+  const [min, max] = range(value.min, value.max);
+  return { min, max, auto: value.auto };
 }
 
 /**
@@ -64,15 +62,12 @@ export function createLayout(
   const header = createSize(config.sizes.header);
   const footer = createSize(config.sizes.footer);
   const sidebar = createSize(config.sizes.sidebar);
-  
-  // 计算 sidebar 实际宽度
-  // Core 层不预设 "Mobile" 概念，仅根据 collapsed 状态计算
-  // 上层应用应通过配置（如设置 mobile 断点下的 collapsed 默认值）或在外部处理移动端逻辑
+
   let sidebarMin = sidebar.auto ? undefined : sidebar.min;
   if (state.collapsed) {
-    sidebarMin = 0; // 折叠状态
+    sidebarMin = 0;
   }
-  
+
   return {
     header: { min: header.auto ? undefined : header.min, max: header.max, auto: header.auto },
     footer: { min: footer.auto ? undefined : footer.min, max: footer.max, auto: footer.auto },
