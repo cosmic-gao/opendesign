@@ -1,0 +1,9 @@
+{
+  "extends": "@opendesign/tsconfig/vue",
+  "compilerOptions": {
+    "composite": true,
+    "types": ["vitest"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

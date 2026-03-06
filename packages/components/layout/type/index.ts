@@ -84,3 +84,13 @@ export interface LayoutState {
   /** 当前激活的断点 */
   breakpoint: string | null
 }
+
+/**
+ * 布局尺寸计算结果
+ * @interface
+ */
+export interface LayoutDimensions {
+  header: LayoutSize;
+  footer: LayoutSize;
+  sidebar: LayoutSize;
+}
