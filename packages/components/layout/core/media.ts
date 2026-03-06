@@ -11,7 +11,7 @@ interface MediaResult {
   subscribe: (callback: (breakpoint: string | null) => void) => () => void;
 }
 
-function buildQueries(bp: Breakpoints): Record<string, string> {
+function createQueries(bp: Breakpoints): Record<string, string> {
   const keys = Object.keys(bp)
     .filter(k => bp[k] !== undefined)
     .sort((a, b) => (bp[a] ?? 0) - (bp[b] ?? 0));
@@ -35,7 +35,7 @@ function buildQueries(bp: Breakpoints): Record<string, string> {
 }
 
 export function createMedia(breakpoints: Breakpoints): MediaResult {
-  const queries = buildQueries(breakpoints);
+  const queries = createQueries(breakpoints);
   const stores = Object.entries(queries).map(([key, query]) => ({
     key,
     store: fromMediaQuery(query),

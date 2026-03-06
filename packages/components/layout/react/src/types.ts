@@ -17,7 +17,7 @@ export interface UseLayoutReturn {
   // 基础状态
   collapsed: boolean;
   breakpoint: Breakpoint;
-  layoutMode: LayoutMode; // 新增：当前生效的布局模式
+  layoutMode: LayoutMode | undefined;
   toggleCollapsed: () => void;
   setCollapsed: (value: boolean) => void;
   
@@ -36,7 +36,7 @@ export interface UseLayoutReturn {
  * createLayout 配置选项（简化版）
  */
 export interface CreateLayoutOptions {
-  /** 布局模式，默认 'sidebar' */
+  /** 布局模式 */
   mode?: LayoutMode;
   /** 断点配置，默认 { xs: 480, sm: 768, md: 1024 } */
   breakpoints?: Breakpoints;
@@ -44,4 +44,8 @@ export interface CreateLayoutOptions {
   sizes?: Partial<LayoutSizes>;
   /** 默认折叠状态，默认 false */
   defaultCollapsed?: boolean;
+  /** Header 是否全宽 */
+  headerFullWidth?: boolean;
+  /** Footer 是否全宽 */
+  footerFullWidth?: boolean;
 }
