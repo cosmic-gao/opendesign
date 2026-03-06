@@ -9,7 +9,7 @@ describe('useLayout', () => {
       mode: 'sidebar',
       defaultCollapsed: false,
       breakpoints: { xs: 480, sm: 768, md: 1024 },
-      sizes: { header: 64, footer: 48, sidebar: 240 },
+      sizes: { header: 64, footer: 48, sidebar: 240, topbar: 56 },
     });
   });
 
@@ -35,6 +35,11 @@ describe('useLayout', () => {
   it('应返回快捷属性 sidebarWidth Ref', () => {
     const layout = useLayout();
     expect(layout.sidebarWidth.value).toBe(240);
+  });
+
+  it('应返回快捷属性 topbarHeight Ref (sidebar模式为0)', () => {
+    const layout = useLayout();
+    expect(layout.topbarHeight.value).toBe(0);
   });
 
   it('应返回快捷属性 isDesktop 和 isMobile Ref', () => {
@@ -66,6 +71,7 @@ describe('useLayout', () => {
     expect(layout.dimensions.value).toHaveProperty('header');
     expect(layout.dimensions.value).toHaveProperty('footer');
     expect(layout.dimensions.value).toHaveProperty('sidebar');
+    expect(layout.dimensions.value).toHaveProperty('topbar');
   });
 });
 
@@ -76,7 +82,7 @@ describe('getState', () => {
       mode: 'sidebar',
       defaultCollapsed: false,
       breakpoints: { xs: 480, sm: 768, md: 1024 },
-      sizes: { header: 64, footer: 48, sidebar: 240 },
+      sizes: { header: 64, footer: 48, sidebar: 240, topbar: 56 },
     });
   });
 

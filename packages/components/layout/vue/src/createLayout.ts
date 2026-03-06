@@ -28,10 +28,12 @@ const DEFAULT_SIZES: Required<{
   header: NonNullable<LayoutSizes['header']>;
   footer: NonNullable<LayoutSizes['footer']>;
   sidebar: NonNullable<LayoutSizes['sidebar']>;
+  topbar: NonNullable<LayoutSizes['topbar']>;
 }> = {
   header: 64,
   footer: 48,
   sidebar: 240,
+  topbar: 56,
 };
 
 /**
@@ -43,10 +45,11 @@ function normalizeConfig(options?: CreateLayoutOptions): LayoutConfig {
     header: options?.sizes?.header ?? DEFAULT_SIZES.header,
     footer: options?.sizes?.footer ?? DEFAULT_SIZES.footer,
     sidebar: options?.sizes?.sidebar ?? DEFAULT_SIZES.sidebar,
+    topbar: options?.sizes?.topbar ?? DEFAULT_SIZES.topbar,
   };
   
   return {
-    mode: 'sidebar',
+    mode: options?.mode ?? 'sidebar',
     defaultCollapsed: options?.defaultCollapsed ?? false,
     breakpoints,
     sizes,
@@ -153,6 +156,7 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
     const headerHeight = computed(() => dimensions.value.header.min ?? 0);
     const footerHeight = computed(() => dimensions.value.footer.min ?? 0);
     const sidebarWidth = computed(() => dimensions.value.sidebar.min ?? 0);
+    const topbarHeight = computed(() => dimensions.value.topbar.min ?? 0);
     
     // 快捷属性：断点判断
     const isMobile = computed(() => 
@@ -171,6 +175,7 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
       headerHeight,
       footerHeight,
       sidebarWidth,
+      topbarHeight,
       isMobile,
       isDesktop,
       

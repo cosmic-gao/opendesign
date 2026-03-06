@@ -1,7 +1,8 @@
 import type { 
   LayoutDimensions, 
   Breakpoints,
-  LayoutSizes 
+  LayoutSizes,
+  LayoutMode 
 } from '@openlayout/type';
 import type { Ref } from 'vue';
 
@@ -25,6 +26,7 @@ export interface UseLayoutReturn {
   headerHeight: Ref<number>;
   footerHeight: Ref<number>;
   sidebarWidth: Ref<number>;
+  topbarHeight: Ref<number>;
   isMobile: Ref<boolean>;
   isDesktop: Ref<boolean>;
   
@@ -36,6 +38,8 @@ export interface UseLayoutReturn {
  * createLayout 配置选项（简化版）
  */
 export interface CreateLayoutOptions {
+  /** 布局模式，默认 'sidebar' */
+  mode?: LayoutMode;
   /** 断点配置，默认 { xs: 480, sm: 768, md: 1024 } */
   breakpoints?: Breakpoints;
   /** 尺寸配置，默认 { header: 64, footer: 48, sidebar: 240 } */

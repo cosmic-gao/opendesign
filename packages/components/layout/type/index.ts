@@ -57,6 +57,8 @@ export interface LayoutSizes {
   footer?: LayoutSizeValue;
   /** 侧边栏区域尺寸 */
   sidebar?: LayoutSizeValue;
+  /** 顶部导航栏区域尺寸（top/mixed 模式） */
+  topbar?: LayoutSizeValue;
 }
 
 /**
@@ -90,7 +92,12 @@ export interface LayoutState {
  * @interface
  */
 export interface LayoutDimensions {
+  /** 头部区域尺寸 */
   header: LayoutSize;
+  /** 底部区域尺寸 */
   footer: LayoutSize;
+  /** 侧边栏区域尺寸 */
   sidebar: LayoutSize;
+  /** 顶部导航栏尺寸（top/mixed 模式） */
+  topbar: LayoutSize;
 }

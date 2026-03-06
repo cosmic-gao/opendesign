@@ -1,7 +1,8 @@
 import type { 
   LayoutDimensions, 
   Breakpoints,
-  LayoutSizes 
+  LayoutSizes,
+  LayoutMode 
 } from '@openlayout/type';
 
 /**
@@ -23,6 +24,7 @@ export interface UseLayoutReturn {
   headerHeight: number;
   footerHeight: number;
   sidebarWidth: number;
+  topbarHeight: number;
   isMobile: boolean;
   isDesktop: boolean;
   
@@ -35,6 +37,8 @@ export interface UseLayoutReturn {
  * 布局模式默认为 sidebar
  */
 export interface CreateLayoutOptions {
+  /** 布局模式，默认 'sidebar' */
+  mode?: LayoutMode;
   /** 断点配置，默认 { xs: 480, sm: 768, md: 1024 } */
   breakpoints?: Breakpoints;
   /** 尺寸配置，默认 { header: 64, footer: 48, sidebar: 240 } */
