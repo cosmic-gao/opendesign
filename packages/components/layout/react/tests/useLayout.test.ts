@@ -10,7 +10,7 @@ describe('useLayout', () => {
       mode: 'sidebar',
       defaultCollapsed: false,
       breakpoints: { xs: 480, sm: 768, md: 1024 },
-      sizes: { header: 64, footer: 48, sidebar: 240, topbar: 56 },
+      sizes: { header: 64, footer: 48, sidebar: 240 },
     });
   });
 
@@ -36,11 +36,6 @@ describe('useLayout', () => {
   it('应返回快捷属性 sidebarWidth', () => {
     const { result } = renderHook(() => useLayout());
     expect(result.current.sidebarWidth).toBe(240);
-  });
-
-  it('应返回快捷属性 topbarHeight (sidebar模式为0)', () => {
-    const { result } = renderHook(() => useLayout());
-    expect(result.current.topbarHeight).toBe(0);
   });
 
   it('应返回快捷属性 isDesktop 和 isMobile', () => {
@@ -75,10 +70,20 @@ describe('useLayout', () => {
 
   it('应包含 dimensions 完整尺寸对象', () => {
     const { result } = renderHook(() => useLayout());
-    expect(result.current.dimensions).toHaveProperty('header');
-    expect(result.current.dimensions).toHaveProperty('footer');
-    expect(result.current.dimensions).toHaveProperty('sidebar');
-    expect(result.current.dimensions).toHaveProperty('topbar');
+    // 检查新的尺寸属性
+    expect(result.current.dimensions).toHaveProperty('headerHeight');
+    expect(result.current.dimensions).toHaveProperty('headerWidth');
+    expect(result.current.dimensions).toHaveProperty('sidebarWidth');
+    expect(result.current.dimensions).toHaveProperty('sidebarHeight');
+    expect(result.current.dimensions).toHaveProperty('footerHeight');
+    expect(result.current.dimensions).toHaveProperty('footerWidth');
+    expect(result.current.dimensions).toHaveProperty('contentMarginTop');
+    expect(result.current.dimensions).toHaveProperty('contentMarginLeft');
+  });
+
+  it('应返回 layoutMode', () => {
+    const { result } = renderHook(() => useLayout());
+    expect(result.current.layoutMode).toBe('sidebar');
   });
 });
 
@@ -89,7 +94,7 @@ describe('getState', () => {
       mode: 'sidebar',
       defaultCollapsed: false,
       breakpoints: { xs: 480, sm: 768, md: 1024 },
-      sizes: { header: 64, footer: 48, sidebar: 240, topbar: 56 },
+      sizes: { header: 64, footer: 48, sidebar: 240 },
     });
   });
 

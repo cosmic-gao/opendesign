@@ -19,6 +19,7 @@ export interface UseLayoutReturn {
   // 基础状态（Ref）
   collapsed: Ref<boolean>;
   breakpoint: Ref<Breakpoint>;
+  layoutMode: Ref<LayoutMode>; // 新增：当前生效的布局模式
   toggleCollapsed: () => void;
   setCollapsed: (value: boolean) => void;
   
@@ -26,7 +27,6 @@ export interface UseLayoutReturn {
   headerHeight: Ref<number>;
   footerHeight: Ref<number>;
   sidebarWidth: Ref<number>;
-  topbarHeight: Ref<number>;
   isMobile: Ref<boolean>;
   isDesktop: Ref<boolean>;
   

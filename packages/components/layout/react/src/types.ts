@@ -17,6 +17,7 @@ export interface UseLayoutReturn {
   // 基础状态
   collapsed: boolean;
   breakpoint: Breakpoint;
+  layoutMode: LayoutMode; // 新增：当前生效的布局模式
   toggleCollapsed: () => void;
   setCollapsed: (value: boolean) => void;
   
@@ -24,7 +25,6 @@ export interface UseLayoutReturn {
   headerHeight: number;
   footerHeight: number;
   sidebarWidth: number;
-  topbarHeight: number;
   isMobile: boolean;
   isDesktop: boolean;
   
@@ -34,7 +34,6 @@ export interface UseLayoutReturn {
 
 /**
  * createLayout 配置选项（简化版）
- * 布局模式默认为 sidebar
  */
 export interface CreateLayoutOptions {
   /** 布局模式，默认 'sidebar' */

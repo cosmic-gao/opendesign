@@ -6,9 +6,13 @@
 
 /**
  * 布局模式
- * @typedef {'sidebar' | 'top' | 'mixed'} LayoutMode
+ * @typedef {'sidebar' | 'mixed' | 'top' | 'blank'} LayoutMode
+ * - sidebar: 侧边优先，Sidebar 占满左侧全高
+ * - mixed: 顶部优先，Header 占满顶部全宽
+ * - top: 顶部导航，无 Sidebar
+ * - blank: 空白模式，无 Header/Sidebar/Footer
  */
-export type LayoutMode = 'sidebar' | 'top' | 'mixed';
+export type LayoutMode = 'sidebar' | 'mixed' | 'top' | 'blank';
 
 /**
  * 响应式断点（支持任意自定义命名）
@@ -57,8 +61,6 @@ export interface LayoutSizes {
   footer?: LayoutSizeValue;
   /** 侧边栏区域尺寸 */
   sidebar?: LayoutSizeValue;
-  /** 顶部导航栏区域尺寸（top/mixed 模式） */
-  topbar?: LayoutSizeValue;
 }
 
 /**
@@ -88,16 +90,27 @@ export interface LayoutState {
 }
 
 /**
- * 布局尺寸计算结果
+ * 布局尺寸计算结果 (像素值或 CSS 值)
  * @interface
  */
 export interface LayoutDimensions {
-  /** 头部区域尺寸 */
-  header: LayoutSize;
-  /** 底部区域尺寸 */
-  footer: LayoutSize;
-  /** 侧边栏区域尺寸 */
-  sidebar: LayoutSize;
-  /** 顶部导航栏尺寸（top/mixed 模式） */
-  topbar: LayoutSize;
+  /** 头部高度 (px) */
+  headerHeight: number;
+  /** 头部宽度 (px 或 '100%') */
+  headerWidth: number | '100%';
+  
+  /** 侧边栏宽度 (px) */
+  sidebarWidth: number;
+  /** 侧边栏高度 (px 或 '100%') */
+  sidebarHeight: number | '100%';
+  
+  /** 底部高度 (px) */
+  footerHeight: number;
+  /** 底部宽度 (px 或 '100%') */
+  footerWidth: number | '100%';
+  
+  /** 内容区域上边距 (px) - 通常等于 headerHeight */
+  contentMarginTop: number;
+  /** 内容区域左边距 (px) - 通常等于 sidebarWidth */
+  contentMarginLeft: number;
 }

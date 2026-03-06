@@ -9,7 +9,7 @@ describe('useLayout', () => {
       mode: 'sidebar',
       defaultCollapsed: false,
       breakpoints: { xs: 480, sm: 768, md: 1024 },
-      sizes: { header: 64, footer: 48, sidebar: 240, topbar: 56 },
+      sizes: { header: 64, footer: 48, sidebar: 240 },
     });
   });
 
@@ -35,11 +35,6 @@ describe('useLayout', () => {
   it('应返回快捷属性 sidebarWidth Ref', () => {
     const layout = useLayout();
     expect(layout.sidebarWidth.value).toBe(240);
-  });
-
-  it('应返回快捷属性 topbarHeight Ref (sidebar模式为0)', () => {
-    const layout = useLayout();
-    expect(layout.topbarHeight.value).toBe(0);
   });
 
   it('应返回快捷属性 isDesktop 和 isMobile Ref', () => {
@@ -68,10 +63,20 @@ describe('useLayout', () => {
 
   it('应包含 dimensions 完整尺寸对象 Ref', () => {
     const layout = useLayout();
-    expect(layout.dimensions.value).toHaveProperty('header');
-    expect(layout.dimensions.value).toHaveProperty('footer');
-    expect(layout.dimensions.value).toHaveProperty('sidebar');
-    expect(layout.dimensions.value).toHaveProperty('topbar');
+    // 检查新的尺寸属性
+    expect(layout.dimensions.value).toHaveProperty('headerHeight');
+    expect(layout.dimensions.value).toHaveProperty('headerWidth');
+    expect(layout.dimensions.value).toHaveProperty('sidebarWidth');
+    expect(layout.dimensions.value).toHaveProperty('sidebarHeight');
+    expect(layout.dimensions.value).toHaveProperty('footerHeight');
+    expect(layout.dimensions.value).toHaveProperty('footerWidth');
+    expect(layout.dimensions.value).toHaveProperty('contentMarginTop');
+    expect(layout.dimensions.value).toHaveProperty('contentMarginLeft');
+  });
+
+  it('应返回 layoutMode', () => {
+    const layout = useLayout();
+    expect(layout.layoutMode.value).toBe('sidebar');
   });
 });
 
@@ -82,7 +87,7 @@ describe('getState', () => {
       mode: 'sidebar',
       defaultCollapsed: false,
       breakpoints: { xs: 480, sm: 768, md: 1024 },
-      sizes: { header: 64, footer: 48, sidebar: 240, topbar: 56 },
+      sizes: { header: 64, footer: 48, sidebar: 240 },
     });
   });
 

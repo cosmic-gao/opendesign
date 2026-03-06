@@ -27,12 +27,10 @@ const DEFAULT_SIZES: Required<{
   header: NonNullable<LayoutSizes['header']>;
   footer: NonNullable<LayoutSizes['footer']>;
   sidebar: NonNullable<LayoutSizes['sidebar']>;
-  topbar: NonNullable<LayoutSizes['topbar']>;
 }> = {
   header: 64,
   footer: 48,
   sidebar: 240,
-  topbar: 56,
 };
 
 /**
@@ -44,7 +42,6 @@ function useConfig(options?: CreateLayoutOptions): LayoutConfig {
     header: options?.sizes?.header ?? DEFAULT_SIZES.header,
     footer: options?.sizes?.footer ?? DEFAULT_SIZES.footer,
     sidebar: options?.sizes?.sidebar ?? DEFAULT_SIZES.sidebar,
-    topbar: options?.sizes?.topbar ?? DEFAULT_SIZES.topbar,
   };
   
   return {
@@ -63,48 +60,21 @@ let unsubscribeMedia: (() => void) | null = null;
 
 /**
  * Layout Store 类型
- * 参考 Zustand/Nano Stores 设计
  */
 export interface LayoutStore {
-  /**
-   * 使用布局的 Hook
-   */
   useStore: () => UseLayoutReturn;
-  /**
-   * 获取同步状态（非响应式，仅用于初始化）
-   */
   getState: () => { collapsed: boolean; breakpoint: string | null };
-  /**
-   * 清理函数
-   */
   cleanup: () => void;
 }
 
 /**
  * 创建布局 Store 的工厂函数
- * 参考 Zustand 的 create 函数设计
- * @param options - 可选的布局配置
- * @returns LayoutStore
- * 
- * @example
- * // 解构使用（推荐）
- * const { useStore, getState, cleanup } = createLayout({ breakpoints: { xs: 480 } });
- * 
- * function App() {
- *   const { collapsed, headerHeight } = useStore();
- *   // ...
- * }
- * 
- * // 或直接使用
- * const layout = createLayout({ breakpoints: { xs: 480 } });
- * const { collapsed, headerHeight } = layout.useStore();
- * layout.cleanup();
  */
 export function createLayout(options?: CreateLayoutOptions): LayoutStore {
   // 规范化配置
   const config = useConfig(options);
   
-  // 初始化 Core 层状态（仅执行一次）
+  // 初始化 Core 层状态
   if (!cachedConfig) {
     initState(config);
     cachedConfig = config;
@@ -122,17 +92,10 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
     }
   }
   
-  /**
-   * 获取同步状态（非响应式）
-   * 参考 Zustand.getState()
-   */
   function getState(): { collapsed: boolean; breakpoint: string | null } {
     return $layoutState.get();
   }
   
-  /**
-   * 清理函数
-   */
   function cleanup(): void {
     if (unsubscribeMedia) {
       unsubscribeMedia();
@@ -141,9 +104,6 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
     cachedConfig = null;
   }
   
-  /**
-   * 主 Layout Hook - 箭头函数
-   */
   const useStore = (): UseLayoutReturn => {
     // 订阅 Core 层状态
     const state = useNanoStore($layoutState);
@@ -152,10 +112,9 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
     const dimensions = computeLayout(config, state);
     
     // 快捷属性：提取高度/宽度数值
-    const headerHeight = dimensions.header.min ?? 0;
-    const footerHeight = dimensions.footer.min ?? 0;
-    const sidebarWidth = dimensions.sidebar.min ?? 0;
-    const topbarHeight = dimensions.topbar.min ?? 0;
+    const headerHeight = dimensions.headerHeight;
+    const footerHeight = dimensions.footerHeight;
+    const sidebarWidth = dimensions.sidebarWidth;
     
     // 快捷属性：断点判断
     const isMobile = state.breakpoint === 'xs' || state.breakpoint === 'sm';
@@ -165,6 +124,7 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
       // 基础状态
       collapsed: state.collapsed,
       breakpoint: state.breakpoint as Breakpoint,
+      layoutMode: config.mode, // 返回当前模式
       toggleCollapsed: coreToggleCollapsed,
       setCollapsed,
       
@@ -172,7 +132,6 @@ export function createLayout(options?: CreateLayoutOptions): LayoutStore {
       headerHeight,
       footerHeight,
       sidebarWidth,
-      topbarHeight,
       isMobile,
       isDesktop,
       
