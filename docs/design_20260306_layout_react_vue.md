@@ -2,7 +2,7 @@
 
 **项目名称**: OpenDesign Layout React/Vue Adapters
 **文档类型**: 架构设计文档
-**版本**: 1.0.0
+**版本**: 1.0.3
 
 ---
 
@@ -13,6 +13,7 @@
 | 1.0.0 | 2026-03-06 | 初始版本：React 19 / Vue 4 适配器设计 | - |
 | 1.0.1 | 2026-03-06 | 自检修复：字段一致性、补充 SSR 说明 | - |
 | 1.0.2 | 2026-03-06 | API 美化：零配置体验、快捷属性、SSR 示例优化 | - |
+| 1.0.3 | 2026-03-06 | 自检修复：mode 改为可选、补充快捷属性实现说明、添加 Vue SSR 通用示例 | - |
 
 ---
 
@@ -142,7 +143,7 @@ const useLayout = createLayout({
 ```typescript
 // 完整配置
 const config = {
-  // 布局模式（必填）
+  // 布局模式（可选，默认 'sidebar'）
   mode: 'sidebar' as const,
   
   // 断点（可选，默认 { xs: 480, sm: 768, md: 1024 }）
@@ -155,8 +156,8 @@ const config = {
   defaultCollapsed: false,
 };
 
-// 创建 Hook
-const useLayout = createLayout(config);
+// 创建 Hook（使用默认配置）
+const useLayout = createLayout();
 ```
 
 #### 3.1.4 useLayout 返回值
@@ -184,6 +185,15 @@ const {
   dimensions       // { header, footer, sidebar } - 完整尺寸对象
 } = useLayout();
 ```
+
+> **快捷属性实现说明**：
+> - `headerHeight` = `dimensions.header.min`
+> - `footerHeight` = `dimensions.footer.min`
+> - `sidebarWidth` = `dimensions.sidebar.min`
+> - `isMobile` = `breakpoint === 'xs' || breakpoint === 'sm'`
+> - `isDesktop` = `breakpoint === 'lg'`
+> 
+> 这些快捷属性在适配器层通过 `dimensions` 和 `breakpoint` 计算得出，Core 层仅输出原始尺寸数据。
 
 **类型定义**：
 ```typescript
@@ -297,7 +307,7 @@ const { collapsed, toggleCollapsed } = useLayout();
 ```typescript
 // 完整配置
 const config = {
-  // 布局模式（必填）
+  // 布局模式（可选，默认 'sidebar'）
   mode: 'sidebar' as const,
   
   // 断点（可选，默认 { xs: 480, sm: 768, md: 1024 }）
@@ -310,7 +320,8 @@ const config = {
   defaultCollapsed: false,
 };
 
-const useLayout = createLayout(config);
+// 创建 Composable（使用默认配置）
+const useLayout = createLayout();
 ```
 
 #### 3.2.4 useLayout 返回值
@@ -338,6 +349,15 @@ const {
   dimensions       // Ref<LayoutDimensions> - 完整尺寸对象
 } = useLayout();
 ```
+
+> **快捷属性实现说明**：
+> - `headerHeight` = `dimensions.header.min`
+> - `footerHeight` = `dimensions.footer.min`
+> - `sidebarWidth` = `dimensions.sidebar.min`
+> - `isMobile` = `breakpoint === 'xs' || breakpoint === 'sm'`
+> - `isDesktop` = `breakpoint === 'lg'`
+> 
+> 这些快捷属性在适配器层通过 `dimensions` 和 `breakpoint` 计算得出，Core 层仅输出原始尺寸数据。
 
 **类型定义**：
 ```typescript
@@ -374,6 +394,27 @@ const { headerHeight, sidebarWidth } = useLayout();
     </NuxtLayout>
   </div>
 </template>
+```
+
+**Vue SSR (通用)**：
+```typescript
+// 在 serverPrefetch 中初始化
+import { createLayout } from '@openlayout/vue';
+
+export default {
+  setup() {
+    const useLayout = createLayout();
+    
+    // 服务端初始化
+    if (import.meta.env.SSR) {
+      // 服务端使用最大断点作为初始值
+      const { breakpoint } = useLayout();
+      breakpoint.value = 'lg';
+    }
+    
+    return { useLayout };
+  }
+};
 ```
 
 ### 3.3 数据结构
