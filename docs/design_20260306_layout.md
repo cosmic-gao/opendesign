@@ -2,7 +2,7 @@
 
 **项目名称**: OpenDesign Layout
 **文档类型**: 架构设计文档
-**版本**: 1.3.0
+**版本**: 1.4.0
 
 ---
 
@@ -10,6 +10,7 @@
 
 | 版本 | 日期 | 修改内容 | 作者 |
 |------|------|----------|------|
+| 1.4.0 | 2026-03-06 | 抽取 range 工具函数；添加完整单元测试；更新依赖版本（nanostores 1.1.1, vitest 4.0.18） | - |
 | 1.3.0 | 2026-03-06 | 使用 Nanostores + @nanostores/media-query；添加 auto 支持；简化为单词命名 | - |
 | 1.2.0 | 2026-02-28 | 架构升级：合并 type/config 到 core；增加设计原则；明确 Core 不知道 UI 原则；使用 Nanostores + @nanostores/media-query 管理状态 | - |
 
@@ -333,6 +334,23 @@ export interface LayoutDimensions {
   sidebar: LayoutSize;
 }
 
+/**
+ * 校验并规范化数字范围
+ * @param min - 最小值
+ * @param max - 最大值
+ * @returns 校验后的 [min, max]
+ */
+function range(min?: number, max?: number): [number, number] {
+  let lo = min ?? 0;
+  let hi = max ?? lo;
+
+  if (lo < 0) lo = 0;
+  if (hi < 0) hi = 0;
+  if (lo > hi) [lo, hi] = [hi, lo];
+
+  return [lo, hi];
+}
+
 // 校验并规范化尺寸配置
 // 纯函数，无副作用
 function createSize(value?: LayoutSizeValue): LayoutSize {
@@ -399,11 +417,34 @@ export function createLayout(
 // inject.ts
 import type { LayoutSizes, LayoutSizeValue } from "@openlayout/core";
 
+/**
+ * 校验并规范化数字范围
+ */
+function range(min?: number, max?: number): [number, number] {
+  let lo = min ?? 0;
+  let hi = max ?? lo;
+
+  if (lo < 0) lo = 0;
+  if (hi < 0) hi = 0;
+  if (lo > hi) [lo, hi] = [hi, lo];
+
+  return [lo, hi];
+}
+
+/**
+ * 校验并规范化尺寸配置
+ */
 function createSize(v?: LayoutSizeValue): LayoutSize {
-  if (v === undefined) return {};
+  if (v === undefined) return { auto: true };
   if (v === 'auto') return { auto: true };
-  if (typeof v === 'number') return { min: v, max: v };
-  return v;
+
+  if (typeof v === 'number') {
+    const [min, max] = range(v, v);
+    return { min, max };
+  }
+
+  const [min, max] = range(v.min, v.max);
+  return { min, max, auto: v.auto };
 }
 
 function root(doc?: Document): Document | null {
@@ -454,8 +495,9 @@ export function inject(sizes: LayoutSizes, doc?: Document): void {
 ```
 
 **依赖**：
-- `nanostores` - 状态管理
-- `@nanostores/media-query` - 断点检测
+- `nanostores@^1.1.1` - 状态管理
+- `@nanostores/media-query@^0.1.2` - 断点检测
+- `vitest@^4.0.18` - 单元测试
 
 ---
 
