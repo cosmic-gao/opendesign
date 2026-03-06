@@ -11,7 +11,7 @@
 
 | 版本 | 日期 | 修改内容 | 作者 |
 |------|------|----------|------|
-| 1.2.0 | 2026-02-28 | 架构升级：合并 type/config 到 core；增加设计原则；明确 Core 不知道 UI 原则；使用 Nanostores + @nanostores/media 管理状态 | - |
+| 1.2.0 | 2026-02-28 | 架构升级：合并 type/config 到 core；增加设计原则；明确 Core 不知道 UI 原则；使用 Nanostores + @nanostores/media-query 管理状态 | - |
 
 ---
 
@@ -254,11 +254,11 @@ export function useLayoutState(): LayoutState {
 - 🛠️ **优秀 TypeScript 支持**
 - 🧪 **经过生产验证** (Evil Martians 开发，PostCSS 作者)
 
-#### 断点检测（使用 @nanostores/media）
+#### 断点检测（使用 @nanostores/media-query）
 
 ```typescript
 // media.ts
-import { mapMedia } from "@nanostores/media";
+import { fromMediaQuery } from "@nanostores/media-query";
 import type { Breakpoints } from "@openlayout/core";
 
 // 构建互斥断点查询（无重叠、无空隙）
@@ -291,32 +291,39 @@ function buildQueries(bp: Breakpoints): Record<string, string> {
 // 创建媒体查询状态
 export function createMedia(breakpoints: Breakpoints) {
   const queries = buildQueries(breakpoints);
-  const $media = mapMedia(queries);
-
-  // 获取当前断点
-  function getBreakpoint(): string | null {
-    const keys = Object.keys(queries) as (keyof typeof queries)[];
-    for (const key of keys) {
-      if ($media.get()[key as keyof typeof $media.get()]) {
-        return key as string | null;
-      }
-    }
-    // SSR fallback: 返回最大断点
-    const sortedKeys = keys.sort((a, b) => (breakpoints[b] ?? 0) - (breakpoints[a] ?? 0));
-    return sortedKeys[0] ?? null;
-  }
+  const stores = Object.entries(queries).map(([key, query]) => ({
+    key,
+    store: fromMediaQuery(query),
+  }));
 
   return {
-    $media,
-    getBreakpoint,
+    getBreakpoint: (): string | null => {
+      for (const { key, store } of stores) {
+        if (store.get()) {
+          return key;
+        }
+      }
+      const sortedKeys = Object.keys(queries).sort((a, b) => (breakpoints[b] ?? 0) - (breakpoints[a] ?? 0));
+      return sortedKeys[0] ?? null;
+    },
+    subscribe: (callback: (breakpoint: string | null) => void) => {
+      const unsubscribes = stores.map(({ key, store }) =>
+        store.subscribe((matches) => {
+          if (matches) {
+            callback(key);
+          }
+        })
+      );
+      return () => unsubscribes.forEach((fn) => fn());
+    },
   };
 }
 ```
 
-**使用 @nanostores/media 的优势**：
-- 🏈 **超小**: ~500 bytes
+**使用 @nanostores/media-query 的优势**：
+- 🏈 **超小**: ~84 bytes
 - 🌍 **框架无关**: React / Vue / Svelte / Vanilla
-- 🛠️ **SSR 支持**: 服务端返回空对象
+- 🛠️ **SSR 支持**: 服务端返回 false
 - ✅ **零依赖**: Nanostores 官方扩展
 
 #### 布局计算
@@ -463,7 +470,7 @@ export function inject(sizes: LayoutSizes, doc?: Document): void {
 
 **依赖**：
 - `nanostores` - 状态管理
-- `@nanostores/media` - 断点检测
+- `@nanostores/media-query` - 断点检测
 
 ---
 
