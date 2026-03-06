@@ -170,7 +170,7 @@ describe('createLayout', () => {
   });
 
   describe('未配置尺寸', () => {
-    it('未配置时应返回默认值', () => {
+    it('未配置时应返回 auto', () => {
       const config: LayoutConfig = {
         mode: 'sidebar',
         defaultCollapsed: false,
@@ -180,12 +180,9 @@ describe('createLayout', () => {
       
       const result = createLayout(config, defaultState);
       
-      expect(result.header.min).toBe(0);
-      expect(result.header.max).toBe(0);
-      expect(result.footer.min).toBe(0);
-      expect(result.footer.max).toBe(0);
-      expect(result.sidebar.min).toBe(0);
-      expect(result.sidebar.max).toBe(0);
+      expect(result.header.auto).toBe(true);
+      expect(result.footer.auto).toBe(true);
+      expect(result.sidebar.auto).toBe(true);
     });
   });
 });

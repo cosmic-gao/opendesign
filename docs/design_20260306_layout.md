@@ -336,15 +336,20 @@ export interface LayoutDimensions {
 // 校验并规范化尺寸配置
 // 纯函数，无副作用
 function createSize(value?: LayoutSizeValue): LayoutSize {
-  if (value === undefined || value === "auto") {
-    return Object.freeze({ auto: true });
+  // 处理 undefined 或空对象 - 默认 auto
+  if (value === undefined) return { auto: true };
+
+  // 处理 'auto' 简写形式
+  if (value === 'auto') {
+    return { auto: true };
   }
 
-  if (typeof value === "number") {
-    return Object.freeze({ min: value, max: value });
+  let size: LayoutSize;
+  if (typeof value === 'number') {
+    size = { min: value, max: value };
+  } else {
+    size = { ...value };
   }
-
-  const size: LayoutSize = { ...value };
 
   // 负值保护
   if (size.min !== undefined && size.min < 0) size.min = 0;
@@ -355,11 +360,11 @@ function createSize(value?: LayoutSizeValue): LayoutSize {
     [size.min, size.max] = [size.max, size.min!];
   }
 
-  // 默认值（非 auto 模式下）
+  // 默认值
   if (size.min === undefined) size.min = 0;
   if (size.max === undefined) size.max = size.min;
 
-  return Object.freeze(size);
+  return size;
 }
 
 // 主布局计算函数

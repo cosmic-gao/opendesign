@@ -20,12 +20,12 @@ export interface LayoutDimensions {
  * @returns 规范化后的尺寸对象
  */
 function createSize(value?: LayoutSizeValue): LayoutSize {
-  // 处理 undefined 或空对象
-  if (value === undefined) return { min: 0, max: 0 };
+  // 处理 undefined 或空对象 - 默认 auto
+  if (value === undefined) return { auto: true };
   
   // 处理 'auto' 简写形式
   if (value === 'auto') {
-    return { auto: true, min: undefined, max: undefined };
+    return { auto: true };
   }
   
   let size: LayoutSize;
