@@ -77,14 +77,6 @@ interface LayoutConfig {
 }
 ```
 
-### ActiveBreakpoint
-
-当前激活的断点。
-
-```typescript
-type ActiveBreakpoint = string | null;
-```
-
 ### LayoutState
 
 布局状态。
@@ -92,6 +84,6 @@ type ActiveBreakpoint = string | null;
 ```typescript
 interface LayoutState {
   collapsed: boolean;
-  breakpoint: ActiveBreakpoint;
+  breakpoint: string | null;
 }
 ```

@@ -28,12 +28,6 @@ export interface Breakpoints {
 }
 
 /**
- * 当前激活的断点（互斥模型）
- * @typedef {string | null} ActiveBreakpoint
- */
-export type ActiveBreakpoint = string | null;
-
-/**
  * 单个区域的大小配置（支持简写和完整写法）
  * @interface
  */
@@ -88,5 +82,5 @@ export interface LayoutState {
   /** 当前是否折叠 */
   collapsed: boolean;
   /** 当前激活的断点 */
-  breakpoint: ActiveBreakpoint;
+  breakpoint: string | null
 }

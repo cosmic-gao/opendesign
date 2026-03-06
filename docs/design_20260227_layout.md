@@ -334,7 +334,7 @@ export interface LayoutDimensions {
 
 // 校验并规范化尺寸配置
 // 纯函数，无副作用
-function normalizeSize(value?: LayoutSizeValue): LayoutSize {
+function createSize(value?: LayoutSizeValue): LayoutSize {
   if (value === undefined || value === "auto") {
     return Object.freeze({ auto: true });
   }
@@ -382,9 +382,9 @@ export function createLayout(
   state: LayoutState
 ): LayoutDimensions {
   // 规范化各区域尺寸
-  const header = normalizeSize(config.sizes.header);
-  const footer = normalizeSize(config.sizes.footer);
-  const sidebar = normalizeSize(config.sizes.sidebar);
+  const header = createSize(config.sizes.header);
+  const footer = createSize(config.sizes.footer);
+  const sidebar = createSize(config.sizes.sidebar);
   
   // 计算 sidebar 实际宽度
   // Core 层不预设 "Mobile" 概念，仅根据 collapsed 状态计算
@@ -407,34 +407,47 @@ export function createLayout(
 // inject.ts
 import type { LayoutSizes, LayoutSizeValue } from "@openlayout/core";
 
-function normalize(v?: LayoutSizeValue): LayoutSize {
-  if (!v) return { min: 0, max: 0 };
-  return typeof v === "number" ? { min: v, max: v } : v;
+function createSize(v?: LayoutSizeValue): LayoutSize {
+  if (v === undefined) return {};
+  if (v === 'auto') return { auto: true };
+  if (typeof v === 'number') return { min: v, max: v };
+  return v;
 }
 
-export function inject(sizes: LayoutSizes): void {
-  const h = normalize(sizes.header);
-  const f = normalize(sizes.footer);
-  const s = normalize(sizes.sidebar);
+function root(doc?: Document): Document | null {
+  if (doc) return doc;
+  if (typeof document !== 'undefined') return document;
+  return null;
+}
+
+function style(id: string, doc: Document): HTMLStyleElement {
+  let el = doc.getElementById(id) as HTMLStyleElement;
+  if (!el) {
+    el = doc.createElement('style');
+    el.id = id;
+    doc.head.appendChild(el);
+  }
+  return el;
+}
+
+export function inject(sizes: LayoutSizes, doc?: Document): void {
+  const d = root(doc);
+  if (!d) return;
+
+  const h = createSize(sizes.header);
+  const f = createSize(sizes.footer);
+  const s = createSize(sizes.sidebar);
 
   const css = `
     :root {
-      --od-header-height: ${h.min}px;
-      --od-footer-height: ${f.min}px;
-      --od-sidebar-width: ${s.min}px;
+      --od-header-height: ${h.auto ? 'auto' : (h.min ?? 0) + 'px'};
+      --od-footer-height: ${f.auto ? 'auto' : (f.min ?? 0) + 'px'};
+      --od-sidebar-width: ${s.auto ? 'auto' : (s.min ?? 0) + 'px'};
     }
   `;
 
-  if (typeof document !== "undefined") {
-    const id = "od-layout-variables";
-    let style = document.getElementById(id);
-    if (!style) {
-      style = document.createElement("style");
-      style.id = id;
-      document.head.appendChild(style);
-    }
-    style.textContent = css;
-  }
+  const el = style('od-layout-variables', d);
+  el.textContent = css;
 }
 ```
 
