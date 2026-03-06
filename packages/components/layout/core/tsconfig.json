@@ -4,7 +4,8 @@
     "composite": true,
     "lib": ["ESNext", "DOM"],
     "jsx": "react-jsx",
-    "types": ["vitest/globals"]
+    "types": ["vitest"]
   },
+  "include": ["*.ts"],
   "exclude": ["node_modules"]
 }

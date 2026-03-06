@@ -35,7 +35,12 @@ export function useLayoutState(): LayoutState {
   return $layoutState.get();
 }
 
-export function createState(_initialConfig: Partial<LayoutConfig>) {
+/**
+ * 创建状态管理器（保留 API 兼容性）
+ * @param _initialConfig - 初始配置（暂未使用，预留）
+ * @returns 状态管理对象
+ */
+export function createState(_initialConfig?: Partial<LayoutConfig>) {
   return {
     getState: useLayoutState,
     setCollapsed,
