@@ -1,0 +1,12 @@
+{
+  "name": "@openlayout/vue",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@openlayout/core": "workspace:*",
+    "@openlayout/config": "workspace:*",
+    "vue": "^3.0.0"
+  }
+}
