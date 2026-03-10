@@ -5,5 +5,9 @@
   "type": "module",
   "dependencies": {
     "@openlayout/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@opendesign/tsconfig": "workspace:*",
+    "typescript": "^5.9.3"
   }
 }

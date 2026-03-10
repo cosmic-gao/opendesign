@@ -4,8 +4,12 @@
   "main": "src/index.ts",
   "type": "module",
   "dependencies": {
-    "@openlayout/core": "workspace:*",
     "@openlayout/config": "workspace:*",
+    "@openlayout/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.4",
+    "vite": "^7.3.1",
     "vue": "^3.0.0"
   }
 }

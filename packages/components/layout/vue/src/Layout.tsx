@@ -1,27 +1,27 @@
-import { defineComponent, computed, provide, toRef, reactive, ref, onMounted, onUnmounted, watch } from 'vue';
+import { defineComponent, computed, provide, toRef, reactive, ref, onMounted, onUnmounted, watch, type PropType } from 'vue';
 import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
-import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
+import type { LayoutProps, LayoutConfig, Breakpoint, ThemeMode } from '@openlayout/config';
 import { resolveConfig } from '@openlayout/config';
 
 export const Layout = defineComponent({
   name: 'ODLayout',
   props: {
-    header: { type: Object, default: () => ({}) },
-    footer: { type: Object, default: () => ({}) },
-    sidebar: { type: Object, default: () => ({}) },
-    content: { type: Object, default: () => ({}) },
-    breakpoints: { type: Object, default: undefined },
+    header: { type: Object as PropType<LayoutProps['header']>, default: () => ({}) },
+    footer: { type: Object as PropType<LayoutProps['footer']>, default: () => ({}) },
+    sidebar: { type: Object as PropType<LayoutProps['sidebar']>, default: () => ({}) },
+    content: { type: Object as PropType<LayoutProps['content']>, default: () => ({}) },
+    breakpoints: { type: Object as PropType<LayoutProps['breakpoints']>, default: undefined },
     mobileBreakpoint: { type: Number, default: 768 },
     animated: { type: Boolean, default: true },
     animationDuration: { type: Number, default: 200 },
     className: { type: String, default: '' },
-    style: { type: Object, default: () => ({}) },
-    onBreakpointChange: { type: Function, default: undefined },
-    onThemeChange: { type: Function, default: undefined },
-    theme: { type: String, default: 'light' },
+    style: { type: Object as PropType<Record<string, string | number>>, default: () => ({}) },
+    onBreakpointChange: { type: Function as PropType<LayoutProps['onBreakpointChange']>, default: undefined },
+    onThemeChange: { type: Function as PropType<LayoutProps['onThemeChange']>, default: undefined },
+    theme: { type: String as PropType<ThemeMode>, default: 'light' },
   },
-  setup(props: LayoutProps) {
-    const config = computed<LayoutConfig>(() => resolveConfig(props));
+  setup(props) {
+    const config = computed<LayoutConfig>(() => resolveConfig(props as LayoutProps));
 
     // Reactive Responsive State
     const responsiveHelper = createResponsive({ breakpoints: props.breakpoints });

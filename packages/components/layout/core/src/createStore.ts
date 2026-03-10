@@ -45,6 +45,11 @@ export interface UseLayoutStateOptions {
   footer?: { height?: number; fixed?: boolean };
 }
 
+export interface LayoutStore {
+  state: LayoutState;
+  actions: LayoutActions;
+}
+
 /**
  * 创建布局状态仓库
  * 
@@ -53,9 +58,9 @@ export interface UseLayoutStateOptions {
  * 此函数仅返回初始状态和空操作函数，实际响应式逻辑由框架层实现。
  * 
  * @param {UseLayoutStateOptions} [options={}] - 初始配置
- * @returns {LayoutState & LayoutActions} 状态和操作
+ * @returns {LayoutStore} 状态和操作
  */
-export function createStore(options: UseLayoutStateOptions = {}): LayoutState & LayoutActions {
+export function createStore(options: UseLayoutStateOptions = {}): LayoutStore {
   const sidebarCollapsed = options.sidebar?.defaultCollapsed ?? false;
   const sidebarVisible = true;
 
