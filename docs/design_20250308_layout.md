@@ -1,7 +1,7 @@
 # OpenDesign Layout 布局组件设计方案
 
 **版本**: 1.1.0  
-**状态**: 进行中
+**状态**: 已归档
 
 ---
 
@@ -9,7 +9,7 @@
 
 | 版本 | 日期 | 修改内容 |
 |------|------|----------|
-| 1.1.0 | 2025-03-10 | 优化：Vue 使用 TSX 编写；breakpoint 计算和 CSS 动态样式移至 core 层；增强 TS 类型安全 |
+| 1.1.0 | 2025-03-10 | 优化：Vue 使用 TSX 编写；breakpoint 计算和 CSS 动态样式移至 core 层；增强 TS 类型安全；采用开源最佳实践（matchMedia、CSS 变量、框架原生状态管理） |
 | 1.0.0 | 2025-03-08 | 初始版本：完成 Layout 组件完整设计方案 |
 
 ---
@@ -44,90 +44,56 @@
 
 ### 2.2 组件 Props 设计
 
+> **类型安全原则**：所有组件 Props 使用 `@openlayout/config` 中定义的类型，确保跨框架一致性。
+
 #### Layout 根容器
 
 ```typescript
-interface LayoutProps {
-  // ==================== Header 配置 ====================
-  header?: {
-    /** Header 高度 */
-    height?: number;
-    /** 固定定位 */
-    fixed?: boolean;
-    /** 撑满左右（与 Sidebar 对齐） */
-    fullWidth?: boolean;
-  };
+import type { Breakpoint, Breakpoints, ThemeMode } from '@openlayout/config';
 
-  // ==================== Footer 配置 ====================
-  footer?: {
-    /** Footer 高度 */
-    height?: number;
-    /** 固定定位 */
-    fixed?: boolean;
-    /** 撑满左右 */
-    fullWidth?: boolean;
-  };
-
-  // ==================== Sidebar 配置 ====================
-  sidebar?: {
-    /** Sidebar 宽度 */
-    width?: number;
-    /** 折叠后宽度 */
-    collapsedWidth?: number;
-    /** 是否可折叠 */
-    collapsible?: boolean;
-    /** 默认折叠状态 */
-    defaultCollapsed?: boolean;
-    /** 撑满上下 */
-    fullHeight?: boolean;
-    /** 遮罩层模式（移动端） */
-    overlay?: boolean;
-  };
-
-  // ==================== Content 配置 ====================
-  content?: {
-    /** 是否可滚动 */
-    scrollable?: boolean;
-  };
-
-  // ==================== 响应式断点配置 ====================
-  /** 响应式断点设置 */
-  breakpoints?: {
-    /** 超小 - 手机 (< 480px) */
-    xs?: number;
-    /** 小 - 大手机 (≥ 480px) */
-    sm?: number;
-    /** 中 - 平板 (≥ 768px) */
-    md?: number;
-    /** 大 - 小笔记本 (≥ 992px) */
-    lg?: number;
-    /** 超大 - 桌面 (≥ 1200px) */
-    xl?: number;
-    /** 超超大 - 大桌面 (≥ 1400px) */
-    xxl?: number;
-  };
-
-  /** 移动端断点（小于此值视为移动端） */
+interface LayoutConfig {
+  header?: HeaderConfig;
+  footer?: FooterConfig;
+  sidebar?: SidebarConfig;
+  content?: ContentConfig;
+  breakpoints?: Breakpoints;
   mobileBreakpoint?: number;
-
-  /** 断点变化回调 */
-  onBreakpointChange?: (breakpoint: Breakpoint) => void;
-
-  // ==================== 全局配置 ====================
-  /** 是否启用动画 */
   animated?: boolean;
-  /** 动画时长 */
   animationDuration?: number;
+  theme?: ThemeMode;
+}
 
-  /** 主题模式 */
-  theme?: 'light' | 'dark' | 'system';
-  /** 主题变化回调 */
-  onThemeChange?: (theme: 'light' | 'dark') => void;
+interface HeaderConfig {
+  height?: number;
+  fixed?: boolean;
+  fullWidth?: boolean;
+}
 
-  // ==================== 渲染控制 ====================
+interface FooterConfig {
+  height?: number;
+  fixed?: boolean;
+  fullWidth?: boolean;
+}
+
+interface SidebarConfig {
+  width?: number;
+  collapsedWidth?: number;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  fullHeight?: boolean;
+  overlay?: boolean;
+}
+
+interface ContentConfig {
+  scrollable?: boolean;
+}
+
+interface LayoutProps extends Partial<LayoutConfig> {
+  onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
+  onThemeChange?: (theme: Exclude<ThemeMode, 'system'>) => void;
   className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
+  style?: Record<string, string | number>;
+  children?: import('@openlayout/config').ReactNode;
 }
 ```
 
@@ -135,20 +101,21 @@ interface LayoutProps {
 - 使用对象式配置 `header`、`footer`、`sidebar`、`content` 分组管理子组件属性
 - 层级清晰，避免属性平铺导致的混乱
 - 子组件仍可单独接收 props，根容器配置作为默认值
+- 严格类型：`style` 使用 `Record<string, string | number>` 替代 `React.CSSProperties`
 
 #### Header 组件
 
 ```typescript
+import type { ElementType } from '@openlayout/config';
+
 interface HeaderProps {
-  /** 固定定位 */
   fixed?: boolean;
-  /** 撑满左右（与 Sidebar 对齐） */
   fullWidth?: boolean;
-  /** 自定义渲染 */
-  as?: React.ElementType;
+  height?: number;
+  as?: ElementType;
   className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
+  style?: Record<string, string | number>;
+  children?: import('@openlayout/config').ReactNode;
 }
 ```
 
@@ -156,15 +123,13 @@ interface HeaderProps {
 
 ```typescript
 interface FooterProps {
-  /** 固定定位 */
   fixed?: boolean;
-  /** 撑满左右 */
   fullWidth?: boolean;
-  /** 自定义渲染 */
-  as?: React.ElementType;
+  height?: number;
+  as?: ElementType;
   className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
+  style?: Record<string, string | number>;
+  children?: import('@openlayout/config').ReactNode;
 }
 ```
 
@@ -172,23 +137,18 @@ interface FooterProps {
 
 ```typescript
 interface SidebarProps {
-  /** 可折叠 */
   collapsible?: boolean;
-  /** 折叠状态（受控） */
   collapsed?: boolean;
-  /** 默认折叠状态（非受控） */
   defaultCollapsed?: boolean;
-  /** 折叠状态变化回调 */
   onCollapsedChange?: (collapsed: boolean) => void;
-  /** 撑满上下 */
   fullHeight?: boolean;
-  /** 遮罩层模式（移动端） */
   overlay?: boolean;
-  /** 自定义渲染 */
-  as?: React.ElementType;
+  width?: number;
+  collapsedWidth?: number;
+  as?: ElementType;
   className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
+  style?: Record<string, string | number>;
+  children?: import('@openlayout/config').ReactNode;
 }
 ```
 
@@ -196,50 +156,475 @@ interface SidebarProps {
 
 ```typescript
 interface ContentProps {
-  /** 可滚动 */
   scrollable?: boolean;
-  /** 自定义渲染 */
-  as?: React.ElementType;
+  as?: ElementType;
   className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
+  style?: Record<string, string | number>;
+  children?: import('@openlayout/config').ReactNode;
 }
 ```
 
-### 2.3 Hooks API 设计
+### 2.3 Core 层 - 断点计算与样式生成
+
+> **核心职责**：core 层处理所有与布局相关的**逻辑计算**和**样式生成**，框架层只负责渲染。
+>
+> **最佳实践参考**：
+> - 断点检测使用 `window.matchMedia` API（参考 [use-breakpoint](https://www.npmjs.com/package/use-breakpoint)、[vue-mq](https://www.npmjs.com/package/vue-mq)、[Material UI useMediaQuery](https://mui.com/material-ui/react-use-media-query/)）
+> - CSS 变量存储动态值，通过 JS 监听断点变化设置变量值
+> - 布局状态使用框架原生响应式系统，无需引入复杂状态管理库
+
+#### 2.3.1 断点检测 (createMediaQuery)
 
 ```typescript
-// 从 @openlayout/react 导入
-import { useLayout, useSidebar, useHeader, useFooter } from '@openlayout/react';
+// @openlayout/core - 基于 window.matchMedia 的断点检测
+// 参考: use-breakpoint, vue-mq, Material UI useMediaQuery
 
-// 断点类型（来自 @openlayout/config）
+import type { Breakpoint, Breakpoints } from '@openlayout/config';
+import { DEFAULT_BREAKPOINTS } from '@openlayout/config';
+
+type BreakpointKey = keyof Breakpoints;
+
+interface MediaQueryState {
+  breakpoint: Breakpoint;
+  breakpoints: Breakpoints;
+  isAbove: (bp: Breakpoint) => boolean;
+  isBelow: (bp: Breakpoint) => boolean;
+  isMobile: boolean;
+}
+
+interface MediaQueryOptions {
+  breakpoints?: Partial<Breakpoints>;
+  mobileBreakpoint?: number;
+  onChange?: (breakpoint: Breakpoint) => void;
+}
+
+function createMediaQuery(options: MediaQueryOptions = {}): MediaQueryState {
+  const breakpoints: Breakpoints = {
+    ...DEFAULT_BREAKPOINTS,
+    ...options.breakpoints,
+  };
+
+  const bpKeys: BreakpointKey[] = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
+  const mobileThreshold = options.mobileBreakpoint ?? breakpoints.md ?? 768;
+
+  const getBreakpoint = (): Breakpoint => {
+    if (typeof window === 'undefined') return 'xxl';
+    const width = window.innerWidth;
+    if (width < (breakpoints.xs ?? 480)) return 'xs';
+    if (width < (breakpoints.sm ?? 576)) return 'sm';
+    if (width < (breakpoints.md ?? 768)) return 'md';
+    if (width < (breakpoints.lg ?? 992)) return 'lg';
+    if (width < (breakpoints.xl ?? 1200)) return 'xl';
+    return 'xxl';
+  };
+
+  const isAbove = (bp: Breakpoint): boolean => {
+    if (typeof window === 'undefined') return true;
+    const threshold = breakpoints[bp];
+    if (threshold === undefined) return true;
+    return window.innerWidth >= threshold;
+  };
+
+  const isBelow = (bp: Breakpoint): boolean => {
+    if (typeof window === 'undefined') return false;
+    const threshold = breakpoints[bp];
+    if (threshold === undefined) return false;
+    return window.innerWidth < threshold;
+  };
+
+  return {
+    breakpoint: getBreakpoint(),
+    breakpoints,
+    isAbove,
+    isBelow,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < mobileThreshold : false,
+  };
+}
+
+// 生成 CSS 媒体查询字符串（用于 CSS-in-JS）
+function getMediaQueries(
+  breakpoints: Breakpoints,
+  mediaType: string = 'screen'
+): Record<string, string> {
+  const bpKeys = Object.keys(breakpoints).sort(
+    (a, b) => (breakpoints[a as BreakpointKey] ?? 0) - (breakpoints[b as BreakpointKey] ?? 0)
+  );
+
+  const queries: Record<string, string> = {};
+
+  bpKeys.forEach((key, index) => {
+    const minWidth = breakpoints[key as BreakpointKey];
+    const maxWidth = bpKeys[index + 1]
+      ? (breakpoints[bpKeys[index + 1] as BreakpointKey] ?? 0) - 0.02
+      : undefined;
+
+    if (minWidth !== undefined) {
+      if (maxWidth !== undefined) {
+        queries[key] = `@media ${mediaType} and (min-width: ${minWidth}px) and (max-width: ${maxWidth}px)`;
+      } else {
+        queries[key] = `@media ${mediaType} and (min-width: ${minWidth}px)`;
+      }
+    }
+  });
+
+  return queries;
+}
+```
+
+**最佳实践说明**：
+- 使用 `window.matchMedia` API 进行断点检测（浏览器原生，性能好）
+- 提供 `isAbove`、`isBelow` 方法判断断点关系
+- 提供 `getMediaQueries` 辅助函数生成 CSS 媒体查询字符串
+- 支持 SSR（服务端渲染）场景
+
+#### 2.3.2 CSS 动态样式生成 (createStylesheet)
+
+```typescript
+// @openlayout/core - 生成布局所需的 CSS 变量和样式对象
+// 最佳实践: 使用 CSS 变量存储动态值，通过 JS 监听断点变化设置变量值
+
+import type { LayoutConfig } from '@openlayout/config';
+
+interface LayoutStyles {
+  root: Record<string, string | number>;
+  header: Record<string, string | number>;
+  footer: Record<string, string | number>;
+  sidebar: Record<string, string | number>;
+  content: Record<string, string | number>;
+  cssVars: Record<string, string | number>;
+}
+
+interface StyleOptions {
+  config: LayoutConfig;
+  breakpoint: string;
+  isMobile: boolean;
+  collapsed?: boolean;
+}
+
+function createStylesheet(options: StyleOptions): LayoutStyles {
+  const { config, isMobile, collapsed = false } = options;
+
+  const headerConfig = config.header ?? {};
+  const footerConfig = config.footer ?? {};
+  const sidebarConfig = config.sidebar ?? {};
+  const contentConfig = config.content ?? {};
+
+  // CSS 变量 - 存储动态值，便于主题切换和响应式调整
+  const cssVars: Record<string, string | number> = {
+    '--od-header-height': headerConfig.height ?? 64,
+    '--od-footer-height': footerConfig.height ?? 48,
+    '--od-sidebar-width': collapsed
+      ? sidebarConfig.collapsedWidth ?? 80
+      : sidebarConfig.width ?? 200,
+    '--od-sidebar-collapsed-width': sidebarConfig.collapsedWidth ?? 80,
+    '--od-animated': config.animated !== false ? 1 : 0,
+    '--od-animation-duration': config.animationDuration ?? 200,
+    '--od-breakpoint': options.breakpoint,
+    '--od-is-mobile': isMobile ? 1 : 0,
+  };
+
+  const root: Record<string, string | number> = {
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100vh',
+    ...cssVars,
+  };
+
+  const header: Record<string, string | number> = {
+    flexShrink: 0,
+    height: `${headerConfig.height ?? 64}px`,
+    ...(headerConfig.fixed ? { position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100 } : {}),
+    ...(headerConfig.fullWidth ? { width: '100%' } : {}),
+  };
+
+  const footer: Record<string, string | number> = {
+    flexShrink: 0,
+    height: `${footerConfig.height ?? 48}px`,
+    ...(footerConfig.fixed ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 } : {}),
+    ...(footerConfig.fullWidth ? { width: '100%' } : {}),
+  };
+
+  const sidebarWidth = collapsed
+    ? (sidebarConfig.collapsedWidth ?? 80)
+    : (sidebarConfig.width ?? 200);
+
+  const sidebar: Record<string, string | number> = {
+    flexShrink: 0,
+    width: `${sidebarWidth}px`,
+    transition: `width ${config.animationDuration ?? 200}ms ease`,
+    ...(sidebarConfig.fullHeight !== false ? { height: '100%' } : {}),
+    ...(sidebarConfig.overlay || isMobile ? { position: 'fixed', zIndex: 99 } : {}),
+  };
+
+  const content: Record<string, string | number> = {
+    flex: 1,
+    minWidth: 0,
+    ...(contentConfig.scrollable !== false ? { overflow: 'auto' } : {}),
+  };
+
+  return { root, header, footer, sidebar, content, cssVars };
+}
+```
+
+#### 2.3.3 布局状态管理 (createStore)
+
+> **最佳实践**: 布局状态相对简单，使用框架原生响应式系统即可，无需引入 Redux/Zustand 等复杂状态管理库。
+
+```typescript
+// @openlayout/core - 布局状态管理
+// 最佳实践: 使用框架原生响应式系统（Vue: ref/reactive, React: useState/useReducer）
+
+import type { SidebarConfig } from '@openlayout/config';
+
+interface LayoutState {
+  sidebar: {
+    collapsed: boolean;
+    visible: boolean;
+    width: number;
+  };
+  header: {
+    visible: boolean;
+    fixed: boolean;
+    height: number;
+  };
+  footer: {
+    visible: boolean;
+    fixed: boolean;
+    height: number;
+  };
+}
+
+interface LayoutActions {
+  sidebar: {
+    toggle: () => void;
+    collapse: () => void;
+    expand: () => void;
+    show: () => void;
+    hide: () => void;
+    setCollapsed: (collapsed: boolean) => void;
+  };
+  header: {
+    show: () => void;
+    hide: () => void;
+    setFixed: (fixed: boolean) => void;
+  };
+  footer: {
+    show: () => void;
+    hide: () => void;
+    setFixed: (fixed: boolean) => void;
+  };
+}
+
+interface UseLayoutStateOptions {
+  sidebar?: SidebarConfig;
+  header?: { height?: number; fixed?: boolean };
+  footer?: { height?: number; fixed?: boolean };
+}
+
+function createStore(options: UseLayoutStateOptions = {}): LayoutState & LayoutActions {
+  const sidebarCollapsed = options.sidebar?.defaultCollapsed ?? false;
+  const sidebarVisible = true;
+
+  return {
+    state: {
+      sidebar: { collapsed: sidebarCollapsed, visible: sidebarVisible, width: options.sidebar?.width ?? 200 },
+      header: { visible: true, fixed: options.header?.fixed ?? false, height: options.header?.height ?? 64 },
+      footer: { visible: true, fixed: options.footer?.fixed ?? false, height: options.footer?.height ?? 48 },
+    },
+    actions: {
+      sidebar: {
+        toggle: () => {},
+        collapse: () => {},
+        expand: () => {},
+        show: () => {},
+        hide: () => {},
+        setCollapsed: () => {},
+      },
+      header: { show: () => {}, hide: () => {}, setFixed: () => {} },
+      footer: { show: () => {}, hide: () => {}, setFixed: () => {} },
+    },
+  };
+}
+```
+
+### 2.4 Vue 层 - TSX 组件实现
+
+> **渲染职责**：Vue 层使用 TSX 编写，负责将 core 层生成的样式应用到组件。
+
+```tsx
+// @openlayout/vue - Layout.tsx
+
+import { defineComponent, computed, provide, toRef } from 'vue';
+import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
+import type { LayoutProps, LayoutConfig } from '@openlayout/config';
+import { normalizeLayoutConfig } from '@openlayout/config';
+
+export const Layout = defineComponent({
+  name: 'ODLayout',
+  props: {
+    header: { type: Object, default: () => ({}) },
+    footer: { type: Object, default: () => ({}) },
+    sidebar: { type: Object, default: () => ({}) },
+    content: { type: Object, default: () => ({}) },
+    breakpoints: { type: Object, default: undefined },
+    mobileBreakpoint: { type: Number, default: 768 },
+    animated: { type: Boolean, default: true },
+    animationDuration: { type: Number, default: 200 },
+    className: { type: String, default: '' },
+    style: { type: Object, default: () => ({}) },
+  },
+  setup(props: LayoutProps) {
+    const config = computed<LayoutConfig>(() => normalizeLayoutConfig(props));
+
+    const responsive = createResponsive({ breakpoints: props.breakpoints });
+    const layoutState = createStore(config.value);
+    const styles = createStylesheet({
+      config: config.value,
+      breakpoint: responsive.breakpoint,
+      isMobile: responsive.width < (props.mobileBreakpoint ?? 768),
+      collapsed: layoutState.state.sidebar.collapsed,
+    });
+
+    provide('layoutConfig', config);
+    provide('layoutState', layoutState);
+    provide('layoutStyles', styles);
+
+    return { styles, layoutState };
+  },
+  render() {
+    const { styles, layoutState, $slots, className, style } = this;
+    const rootClass = ['od-layout', className];
+
+    return (
+      <div class={rootClass} style={{ ...styles.root, ...style }}>
+        {$slots.default?.()}
+      </div>
+    );
+  },
+});
+```
+
+```tsx
+// @openlayout/vue - Header.tsx
+
+import { defineComponent, inject, computed } from 'vue';
+import type { HeaderProps } from '@openlayout/config';
+
+export const Header = defineComponent({
+  name: 'ODHeader',
+  props: {
+    fixed: { type: Boolean, default: undefined },
+    fullWidth: { type: Boolean, default: undefined },
+    height: { type: Number, default: undefined },
+    className: { type: String, default: '' },
+    style: { type: Object, default: () => ({}) },
+  },
+  setup(props: HeaderProps) {
+    const layoutStyles = inject<{ header: Record<string, string | number> }>('layoutStyles');
+    const layoutState = inject<{ header: { visible: boolean } }>('layoutState');
+
+    const mergedStyle = computed(() => ({
+      ...(layoutStyles?.header ?? {}),
+      ...props.style,
+    }));
+
+    const classNames = computed(() => [
+      'od-layout-header',
+      props.className,
+      { 'od-layout-header--fixed': props.fixed },
+      { 'od-layout-header--full-width': props.fullWidth },
+    ]);
+
+    return { mergedStyle, classNames, layoutState };
+  },
+  render() {
+    const { mergedStyle, classNames, layoutState, $slots } = this;
+    if (layoutState?.header.visible === false) return null;
+
+    return (
+      <header class={classNames} style={mergedStyle}>
+        {$slots.default?.()}
+      </header>
+    );
+  },
+});
+```
+
+```tsx
+// @openlayout/vue - Sidebar.tsx
+
+import { defineComponent, inject, computed } from 'vue';
+import type { SidebarProps } from '@openlayout/config';
+
+export const Sidebar = defineComponent({
+  name: 'ODSidebar',
+  props: {
+    collapsible: { type: Boolean, default: undefined },
+    collapsed: { type: Boolean, default: undefined },
+    defaultCollapsed: { type: Boolean, default: undefined },
+    fullHeight: { type: Boolean, default: undefined },
+    overlay: { type: Boolean, default: undefined },
+    width: { type: Number, default: undefined },
+    collapsedWidth: { type: Number, default: undefined },
+    className: { type: String, default: '' },
+    style: { type: Object, default: () => ({}) },
+  },
+  setup(props: SidebarProps) {
+    const layoutStyles = inject<{ sidebar: Record<string, string | number> }>('layoutStyles');
+    const layoutState = inject<{ sidebar: { collapsed: boolean } }>('layoutState');
+
+    const mergedStyle = computed(() => ({
+      ...(layoutStyles?.sidebar ?? {}),
+      ...props.style,
+    }));
+
+    const classNames = computed(() => [
+      'od-layout-sidebar',
+      props.className,
+      { 'od-layout-sidebar--collapsed': props.collapsed ?? layoutState?.sidebar.collapsed },
+      { 'od-layout-sidebar--full-height': props.fullHeight },
+      { 'od-layout-sidebar--overlay': props.overlay },
+    ]);
+
+    return { mergedStyle, classNames };
+  },
+  render() {
+    const { mergedStyle, classNames, $slots } = this;
+
+    return (
+      <aside class={classNames} style={mergedStyle}>
+        {$slots.default?.()}
+      </aside>
+    );
+  },
+});
+```
+
+### 2.5 Hooks API 设计
+
+```typescript
+// 从 @openlayout/vue 导入 (Vue Composition API)
+import { useLayout, useSidebar, useHeader, useFooter } from '@openlayout/vue';
+
 import type { Breakpoint } from '@openlayout/config';
 
-// 根布局状态（框架适配层返回）
 const {
-  // 布局方向
   direction,
-  // 响应式状态（框架适配层处理 isMobile）
-  isMobile,        // 框架层返回：width < mobileBreakpoint
-  breakpoint,      // 断点值：'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl'
-  breakpoints,     // 断点配置
-  currentWidth,    // 当前视口宽度
-  // 主题状态
+  isMobile,
+  breakpoint,
+  breakpoints,
+  currentWidth,
   theme,
-  // 尺寸
   headerHeight,
   footerHeight,
   sidebarWidth,
   collapsedWidth,
 } = useLayout();
 
-// Sidebar 状态和操作
 const {
-  // 状态
   collapsed,
   visible,
   width,
-  // 操作
   toggle,
   collapse,
   expand,
@@ -247,7 +632,6 @@ const {
   hide,
 } = useSidebar();
 
-// Header 状态
 const {
   visible: headerVisible,
   fixed: headerFixed,
@@ -256,7 +640,6 @@ const {
   hide: hideHeader,
 } = useHeader();
 
-// Footer 状态
 const {
   visible: footerVisible,
   fixed: footerFixed,
@@ -264,81 +647,6 @@ const {
   show: showFooter,
   hide: hideFooter,
 } = useFooter();
-```
-
-### 2.4 内部 CSS 布局结构
-
-组件内部使用 Flexbox 实现布局，不暴露给外部，但作为实现参考：
-
-```css
-/* Layout 根容器 */
-.layout {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* 垂直布局（默认） */
-.layout-vertical {
-  flex-direction: column;
-}
-
-/* 水平布局 */
-.layout-horizontal {
-  flex-direction: row;
-}
-
-/* Header */
-.layout-header {
-  flex-shrink: 0;
-}
-.layout-header.fixed {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-}
-.layout-header.full-width {
-  width: 100%;
-}
-
-/* Footer */
-.layout-footer {
-  flex-shrink: 0;
-}
-.layout-footer.fixed {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-}
-.layout-footer.full-width {
-  width: 100%;
-}
-
-/* Sidebar */
-.layout-sidebar {
-  flex-shrink: 0;
-  transition: width 200ms ease;
-}
-.layout-sidebar.full-height {
-  height: 100%;
-}
-.layout-sidebar.overlay {
-  position: fixed;
-  z-index: 99;
-}
-
-/* Content */
-.layout-content {
-  flex: 1;
-  min-width: 0;
-}
-.layout-content.scrollable {
-  overflow: auto;
-}
 ```
 
 ---
@@ -349,17 +657,12 @@ const {
 
 ```
 packages/components/layout/
-├── core/          # @openlayout/core - 纯逻辑层
+├── core/          # @openlayout/core - 逻辑与样式层
 │   ├── src/
 │   │   ├── index.ts
-│   │   ├── createLayout.ts      # 创建布局实例
-│   │   ├── useLayout.ts         # 根布局状态
-│   │   ├── useSidebar.ts        # Sidebar 状态
-│   │   ├── useHeader.ts         # Header 状态
-│   │   ├── useFooter.ts         # Footer 状态
-│   │   ├── useContent.ts        # Content 状态
-│   │   ├── useResponsive.ts     # 响应式状态
-│   │   ├── LayoutContext.ts     # Context 定义
+│   │   ├── createResponsive.ts   # 断点检测
+│   │   ├── createStylesheet.ts   # 样式生成
+│   │   ├── createStore.ts        # 状态管理
 │   │   └── types.ts             # 核心类型
 │   └── package.json
 │
@@ -374,15 +677,15 @@ packages/components/layout/
 │   │   └── constants.ts         # 默认常量
 │   ├── package.json
 │
-├── vue/           # @openlayout/vue - Vue 适配
+├── vue/           # @openlayout/vue - Vue3 TSX 实现
 │   ├── src/
 │   │   ├── index.ts
-│   │   ├── Layout.vue
-│   │   ├── Header.vue
-│   │   ├── Footer.vue
-│   │   ├── Sidebar.vue
-│   │   ├── Content.vue
-│   │   └── useLayout.ts
+│   │   ├── Layout.tsx            # Layout 组件
+│   │   ├── Header.tsx           # Header 组件
+│   │   ├── Footer.tsx           # Footer 组件
+│   │   ├── Sidebar.tsx          # Sidebar 组件
+│   │   ├── Content.tsx          # Content 组件
+│   │   └── useLayout.ts         # Composition API hooks
 │   └── package.json
 │
 └── react/         # @openlayout/react - React 适配
@@ -420,39 +723,40 @@ packages/components/layout/
 
 | 目录 | 包名 | 说明 |
 |------|------|------|
-| core | @openlayout/core | 纯逻辑状态管理 |
+| core | @openlayout/core | 断点计算、样式生成、状态管理 |
 | config | @openlayout/config | 类型定义和常量 |
-| vue | @openlayout/vue | Vue3 组件库 |
+| vue | @openlayout/vue | Vue3 TSX 组件库 |
 | react | @openlayout/react | React 组件库 |
 
 ### 3.4 职责分工
 
-**core 层（纯逻辑）**：
-- 只处理 Breakpoint 断点计算
-- 不涉及具体业务判断（如 isMobile）
-- 提供断点变化事件，由框架适配层决定如何响应
+**core 层（逻辑与样式）**：
+- 断点计算 (`createResponsive`)
+- 样式生成 (`createStylesheet`)
+- 状态管理 (`createStore`)
+- 无 DOM 依赖，纯业务逻辑
 
-**框架适配层（vue/react）**：
-- 负责具体业务判断（如 isMobile）
-- 处理移动端适配逻辑
-- 处理主题切换（跟随系统等）
-- 处理 DOM 监听和事件绑定
+**框架渲染层（vue/react）**：
+- 使用 TSX 编写组件
+- 调用 core 层 API
+- 处理 DOM 事件
+- 处理主题切换
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                      framework (vue/react)                  │
+│                    framework (vue/react)                    │
+│  • 使用 TSX 渲染组件                                        │
 │  • 监听 window.resize                                      │
-│  • 判断 isMobile = width < mobileBreakpoint                │
 │  • 处理主题切换（跟随系统）                                  │
-│  • 触发 onBreakpointChange 回调                           │
+│  • 触发 onBreakpointChange 回调                            │
 ├────────────────────────────────────────────────────────────┤
-│                         core                              │
-│  • 存储 breakpoints 配置                                   │
-│  • 计算当前 breakpoint                                      │
-│  • 提供 breakpoint 变化事件                                │
-│  • 不判断 isMobile，只提供断点数值                         │
+│                         core                                │
+│  • 断点计算: createResponsive()                            │
+│  • 样式生成: createStylesheet()                          │
+│  • 状态管理: createStore()                               │
+│  • 无 DOM 依赖，纯函数                                      │
 ├────────────────────────────────────────────────────────────┤
-│                        config                              │
+│                        config                               │
 │  • 定义 Breakpoint 类型                                    │
 │  • 定义 Breakpoints 接口                                   │
 │  • 提供默认断点常量                                        │
@@ -483,81 +787,6 @@ interface ResponsiveConfig {
   mobileBreakpoint?: number;
   /** 断点变化回调 */
   onBreakpointChange?: (breakpoint: Breakpoint) => void;
-}
-```
-
-**core 层（纯逻辑）**：
-
-```typescript
-// core/src/useResponsive.ts
-import { ref, computed } from 'vue'; // 或 React hooks
-import type { Breakpoint, Breakpoints } from '@openlayout/config';
-import { DEFAULT_BREAKPOINTS } from '@openlayout/config';
-
-export function createResponsive(config: { breakpoints?: Breakpoints }) {
-  const breakpoints = ref(config.breakpoints ?? DEFAULT_BREAKPOINTS);
-  const currentWidth = ref(0);
-
-  // 计算当前断点（纯数值计算）
-  const breakpoint = computed<Breakpoint>(() => {
-    const width = currentWidth.value;
-    const bp = breakpoints.value;
-
-    if (width < (bp.xs ?? 480)) return 'xs';
-    if (width < (bp.sm ?? 576)) return 'sm';
-    if (width < (bp.md ?? 768)) return 'md';
-    if (width < (bp.lg ?? 992)) return 'lg';
-    if (width < (bp.xl ?? 1200)) return 'xl';
-    return 'xxl';
-  });
-
-  return {
-    breakpoints,
-    currentWidth,
-    breakpoint,
-    setWidth: (width: number) => { currentWidth.value = width; },
-  };
-}
-```
-
-**framework 适配层（vue/react）**：
-
-```typescript
-// react/src/useLayout.tsx
-import { useEffect, useState } from 'react';
-import { createResponsive } from '@openlayout/core';
-import type { ResponsiveConfig } from '@openlayout/config';
-
-export function useResponsive(config: ResponsiveConfig) {
-  const { breakpoints, breakpoint, setWidth } = createResponsive(config);
-
-  // 框架适配层处理 DOM 监听
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setWidth(width);
-
-      // 框架层处理 isMobile 业务判断
-      const mobile = width < (config.mobileBreakpoint ?? 768);
-      setIsMobile(mobile);
-
-      // 触发回调
-      config.onBreakpointChange?.(breakpoint.value);
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [config.mobileBreakpoint, config.onBreakpointChange]);
-
-  return {
-    breakpoints: breakpoints.value,
-    breakpoint: breakpoint.value,
-    isMobile,  // 框架层业务判断
-    currentWidth: currentWidth.value,
-  };
 }
 ```
 
