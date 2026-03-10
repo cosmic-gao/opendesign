@@ -1,4 +1,0 @@
-{
-  "extends": "@opendesign/tsconfig/lib",
-  "include": ["src/**/*"]
-}
