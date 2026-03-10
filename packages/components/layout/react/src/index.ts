@@ -1,11 +1,9 @@
-export { Layout, useLayout } from './Layout';
+export { Layout, useLayout, LayoutContext } from './Layout';
 export { Header } from './Header';
 export { Footer } from './Footer';
 export { Sidebar } from './Sidebar';
 export { Content } from './Content';
+export { useLayout, useSidebar, useHeader, useFooter } from './useLayout';
 
-export type { LayoutProps } from '@openlayout/config';
-export type { HeaderProps } from '@openlayout/config';
-export type { FooterProps } from '@openlayout/config';
-export type { SidebarProps } from '@openlayout/config';
-export type { ContentProps } from '@openlayout/config';
+export type { LayoutProps, HeaderProps, FooterProps, SidebarProps, ContentProps } from '@openlayout/config';
+export type { LayoutContextValue } from './Layout';

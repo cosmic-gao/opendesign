@@ -17,6 +17,8 @@ interface LayoutContextValue {
 
 const LayoutContext = createContext<LayoutContextValue | null>(null);
 
+export { LayoutContext };
+
 export const useLayout = () => {
   const context = useContext(LayoutContext);
   if (!context) {

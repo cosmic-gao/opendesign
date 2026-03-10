@@ -1,6 +1,6 @@
 # OpenDesign Layout 布局组件设计方案
 
-**版本**: 1.1.1  
+**版本**: 1.2.0  
 **状态**: 已归档
 
 ---
@@ -9,6 +9,7 @@
 
 | 版本 | 日期 | 修改内容 |
 |------|------|----------|
+| 1.2.0 | 2026-03-10 | 新增：React 适配层完整实现；优化：Vue 组件改用函数式组件写法；更新：createStore 返回类型改为 LayoutStore 接口；补充：React Hooks API 设计 |
 | 1.1.1 | 2025-03-10 | 修正：组件 Props 优先级高于全局配置；调整 Sidebar Overlay z-index 层级；规范命名（展开缩写）；补充 Core 层 JSDoc 注释；集成 `@opendesign/tsconfig` 严格类型配置 |
 | 1.1.0 | 2025-03-10 | 优化：Vue 使用 TSX 编写；breakpoint 计算和 CSS 动态样式移至 core 层；增强 TS 类型安全；采用开源最佳实践（matchMedia、CSS 变量、框架原生状态管理） |
 | 1.0.0 | 2025-03-08 | 初始版本：完成 Layout 组件完整设计方案 |
@@ -460,6 +461,11 @@ interface LayoutActions {
   };
 }
 
+interface LayoutStore {
+  state: LayoutState;
+  actions: LayoutActions;
+}
+
 interface UseLayoutStateOptions {
   sidebar?: SidebarConfig;
   header?: { height?: number; fixed?: boolean };
@@ -474,9 +480,9 @@ interface UseLayoutStateOptions {
  * 此函数仅返回初始状态和空操作函数，实际响应式逻辑由框架层实现。
  * 
  * @param {UseLayoutStateOptions} [options={}] - 初始配置
- * @returns {LayoutState & LayoutActions} 状态和操作
+ * @returns {LayoutStore} 包含 state 和 actions 的仓库对象
  */
-function createStore(options: UseLayoutStateOptions = {}): LayoutState & LayoutActions {
+function createStore(options: UseLayoutStateOptions = {}): LayoutStore {
   const sidebarCollapsed = options.sidebar?.defaultCollapsed ?? false;
   const sidebarVisible = true;
 
@@ -502,173 +508,186 @@ function createStore(options: UseLayoutStateOptions = {}): LayoutState & LayoutA
 }
 ```
 
+**设计说明**：
+- 使用 `LayoutStore` 接口包装 `state` 和 `actions`，结构更清晰，避免交叉类型带来的类型推断问题
+- 框架层通过 `store.state` 访问状态，通过 `store.actions` 访问操作方法
+- 实际响应式逻辑由各框架适配层（Vue/React）实现
+
 ### 2.4 Vue 层 - TSX 组件实现
 
 > **渲染职责**：Vue 层使用 TSX 编写，负责将 core 层生成的样式应用到组件。
 > **属性优先级**：组件 Props > Layout Config (Context) > Default
+> **实现方式**：采用函数式组件（Functional Component）写法，直接在 `defineComponent` 中返回渲染函数。
 
 ```tsx
 // @openlayout/vue - Layout.tsx
 
-import { defineComponent, computed, provide, toRef } from 'vue';
+import { defineComponent, computed, provide, inject, ref, onMounted, onUnmounted, type StyleValue } from 'vue';
 import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
-import type { LayoutProps, LayoutConfig } from '@openlayout/config';
+import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
 import { resolveConfig } from '@openlayout/config';
 
-export const Layout = defineComponent({
-  name: 'ODLayout',
-  props: {
-    header: { type: Object, default: () => ({}) },
-    footer: { type: Object, default: () => ({}) },
-    sidebar: { type: Object, default: () => ({}) },
-    content: { type: Object, default: () => ({}) },
-    breakpoints: { type: Object, default: undefined },
-    mobileBreakpoint: { type: Number, default: 768 },
-    animated: { type: Boolean, default: true },
-    animationDuration: { type: Number, default: 200 },
-    className: { type: String, default: '' },
-    style: { type: Object, default: () => ({}) },
-  },
-  setup(props: LayoutProps) {
-    const config = computed<LayoutConfig>(() => resolveConfig(props));
+export const Layout = defineComponent((props: LayoutProps, { slots }) => {
+  const config = computed<LayoutConfig>(() => resolveConfig(props));
 
-    const responsive = createResponsive({ breakpoints: props.breakpoints });
-    const layoutState = createStore(config.value);
-    const styles = createStylesheet({
-      config: config.value,
-      breakpoint: responsive.breakpoint,
-      isMobile: responsive.width < (props.mobileBreakpoint ?? 768),
-      collapsed: layoutState.state.sidebar.collapsed,
-    });
+  // Responsive State
+  const responsiveHelper = createResponsive({ breakpoints: props.breakpoints });
+  const breakpoint = ref<Breakpoint>(responsiveHelper.breakpoint);
+  const width = ref(typeof window !== 'undefined' ? window.innerWidth : 0);
+  const isMobile = computed(() => width.value < (props.mobileBreakpoint ?? 768));
 
-    provide('layoutConfig', config);
-    provide('layoutState', layoutState);
-    provide('layoutStyles', styles);
+  const updateResponsive = () => {
+    const current = createResponsive({ breakpoints: props.breakpoints });
+    if (current.breakpoint !== breakpoint.value) {
+      breakpoint.value = current.breakpoint;
+      props.onBreakpointChange?.(current.breakpoint, window.innerWidth);
+    }
+    width.value = window.innerWidth;
+  };
 
-    return { styles, layoutState };
-  },
-  render() {
-    const { styles, layoutState, $slots, className, style } = this;
-    const rootClass = ['od-layout', className];
+  onMounted(() => {
+    window.addEventListener('resize', updateResponsive);
+    updateResponsive();
+  });
 
-    return (
-      <div class={rootClass} style={{ ...styles.root, ...style }}>
-        {$slots.default?.()}
-      </div>
-    );
-  },
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateResponsive);
+  });
+
+  // Layout State
+  const store = createStore(config.value);
+  const layoutState = store.state;
+
+  // Actions - 实现响应式逻辑
+  const actions = {
+    sidebar: {
+      toggle: () => { layoutState.sidebar.collapsed = !layoutState.sidebar.collapsed; },
+      collapse: () => { layoutState.sidebar.collapsed = true; },
+      expand: () => { layoutState.sidebar.collapsed = false; },
+      show: () => { layoutState.sidebar.visible = true; },
+      hide: () => { layoutState.sidebar.visible = false; },
+      setCollapsed: (v: boolean) => { layoutState.sidebar.collapsed = v; },
+    },
+    header: {
+      show: () => { layoutState.header.visible = true; },
+      hide: () => { layoutState.header.visible = false; },
+      setFixed: (v: boolean) => { layoutState.header.fixed = v; },
+    },
+    footer: {
+      show: () => { layoutState.footer.visible = true; },
+      hide: () => { layoutState.footer.visible = false; },
+      setFixed: (v: boolean) => { layoutState.footer.fixed = v; },
+    },
+  };
+
+  // Styles
+  const styles = computed(() => createStylesheet({
+    config: config.value,
+    breakpoint: breakpoint.value,
+    isMobile: isMobile.value,
+    collapsed: layoutState.sidebar.collapsed,
+  }));
+
+  provide('layoutConfig', config);
+  provide('layoutState', layoutState);
+  provide('layoutActions', actions);
+  provide('layoutStyles', styles);
+  provide('layoutResponsive', { breakpoint, width, isMobile });
+
+  return () => (
+    <div class={`od-layout ${props.className ?? ''}`} style={{ ...styles.value.root, ...props.style } as StyleValue}>
+      {slots.default?.()}
+    </div>
+  );
 });
 ```
 
 ```tsx
 // @openlayout/vue - Header.tsx
 
-import { defineComponent, inject, computed } from 'vue';
+import { defineComponent, inject, computed, type ComputedRef, type StyleValue } from 'vue';
 import type { HeaderProps } from '@openlayout/config';
+import type { LayoutStyles } from '@openlayout/core';
 
-export const Header = defineComponent({
-  name: 'ODHeader',
-  props: {
-    fixed: { type: Boolean, default: undefined },
-    fullWidth: { type: Boolean, default: undefined },
-    height: { type: Number, default: undefined },
-    className: { type: String, default: '' },
-    style: { type: Object, default: () => ({}) },
-  },
-  setup(props: HeaderProps) {
-    const layoutStyles = inject<{ header: Record<string, string | number> }>('layoutStyles');
-    const layoutState = inject<{ header: { visible: boolean } }>('layoutState');
+export const Header = defineComponent((props: HeaderProps, { slots }) => {
+  const layoutStyles = inject<ComputedRef<LayoutStyles>>('layoutStyles');
+  const layoutState = inject<{ header: { visible: boolean } }>('layoutState');
 
-    // 样式合并策略：Layout Config (Context) < Component Props
-    const mergedStyle = computed(() => ({
-      ...(layoutStyles?.header ?? {}),
-      ...(props.height !== undefined ? { height: `${props.height}px` } : {}),
-      ...(props.fixed !== undefined ? { position: props.fixed ? 'fixed' : 'relative' } : {}), // 需配合完整逻辑
-      ...props.style,
-    }));
+  const mergedStyle = computed<StyleValue>(() => ({
+    ...(layoutStyles?.value?.header ?? {}),
+    ...(props.height !== undefined ? { height: `${props.height}px` } : {}),
+    ...(props.fixed !== undefined ? { position: props.fixed ? 'fixed' : 'relative' } : {}),
+    ...(props.style as Record<string, string | number>),
+  }));
 
-    const classNames = computed(() => [
-      'od-layout-header',
-      props.className,
-      { 'od-layout-header--fixed': props.fixed },
-      { 'od-layout-header--full-width': props.fullWidth },
-    ]);
+  const classNames = computed(() => [
+    'od-layout-header',
+    props.className,
+    { 'od-layout-header--fixed': props.fixed },
+    { 'od-layout-header--full-width': props.fullWidth },
+  ]);
 
-    return { mergedStyle, classNames, layoutState };
-  },
-  render() {
-    const { mergedStyle, classNames, layoutState, $slots } = this;
+  return () => {
     if (layoutState?.header.visible === false) return null;
-
     return (
-      <header class={classNames} style={mergedStyle}>
-        {$slots.default?.()}
+      <header class={classNames.value} style={mergedStyle.value}>
+        {slots.default?.()}
       </header>
     );
-  },
+  };
 });
 ```
 
 ```tsx
 // @openlayout/vue - Sidebar.tsx
 
-import { defineComponent, inject, computed } from 'vue';
+import { defineComponent, inject, computed, type ComputedRef, type StyleValue } from 'vue';
 import type { SidebarProps } from '@openlayout/config';
+import type { LayoutStyles } from '@openlayout/core';
 
-export const Sidebar = defineComponent({
-  name: 'ODSidebar',
-  props: {
-    collapsible: { type: Boolean, default: undefined },
-    collapsed: { type: Boolean, default: undefined },
-    defaultCollapsed: { type: Boolean, default: undefined },
-    fullHeight: { type: Boolean, default: undefined },
-    overlay: { type: Boolean, default: undefined },
-    width: { type: Number, default: undefined },
-    collapsedWidth: { type: Number, default: undefined },
-    className: { type: String, default: '' },
-    style: { type: Object, default: () => ({}) },
-  },
-  setup(props: SidebarProps) {
-    const layoutStyles = inject<{ sidebar: Record<string, string | number> }>('layoutStyles');
-    const layoutState = inject<{ sidebar: { collapsed: boolean } }>('layoutState');
+export const Sidebar = defineComponent((props: SidebarProps, { slots }) => {
+  const layoutStyles = inject<ComputedRef<LayoutStyles>>('layoutStyles');
+  const layoutState = inject<{ sidebar: { collapsed: boolean } }>('layoutState');
 
-    // 样式合并策略：Layout Config (Context) < Component Props
-    const mergedStyle = computed(() => {
-      const isCollapsed = props.collapsed ?? layoutState?.sidebar.collapsed ?? false;
-      const currentWidth = isCollapsed 
-        ? (props.collapsedWidth ?? layoutStyles?.cssVariables['--od-sidebar-collapsed-width']) 
-        : (props.width ?? layoutStyles?.cssVariables['--od-sidebar-width']);
+  const mergedStyle = computed<StyleValue>(() => {
+    const isCollapsed = props.collapsed ?? layoutState?.sidebar.collapsed ?? false;
+    const cssVars = layoutStyles?.value?.cssVariables ?? {};
+    
+    const currentWidth = isCollapsed 
+      ? (props.collapsedWidth ?? cssVars['--od-sidebar-collapsed-width']) 
+      : (props.width ?? cssVars['--od-sidebar-width']);
 
-      return {
-        ...(layoutStyles?.sidebar ?? {}),
-        width: `${currentWidth}px`,
-        ...props.style,
-      };
-    });
+    return {
+      ...(layoutStyles?.value?.sidebar ?? {}),
+      width: `${currentWidth}px`,
+      ...(props.style as Record<string, string | number>),
+    };
+  });
 
-    const classNames = computed(() => [
-      'od-layout-sidebar',
-      props.className,
-      { 'od-layout-sidebar--collapsed': props.collapsed ?? layoutState?.sidebar.collapsed },
-      { 'od-layout-sidebar--full-height': props.fullHeight },
-      { 'od-layout-sidebar--overlay': props.overlay },
-    ]);
+  const classNames = computed(() => [
+    'od-layout-sidebar',
+    props.className,
+    { 'od-layout-sidebar--collapsed': props.collapsed ?? layoutState?.sidebar.collapsed },
+    { 'od-layout-sidebar--full-height': props.fullHeight },
+    { 'od-layout-sidebar--overlay': props.overlay },
+  ]);
 
-    return { mergedStyle, classNames };
-  },
-  render() {
-    const { mergedStyle, classNames, $slots } = this;
-
-    return (
-      <aside class={classNames} style={mergedStyle}>
-        {$slots.default?.()}
-      </aside>
-    );
-  },
+  return () => (
+    <aside class={classNames.value} style={mergedStyle.value}>
+      {slots.default?.()}
+    </aside>
+  );
 });
 ```
 
+**Vue 函数式组件优势**：
+- 直接使用 TypeScript 接口定义 props，无需手动编写运行时 props 定义
+- 代码更简洁，减少样板代码
+- 利用 Vue 3 的类型推断，确保类型安全
+
 ### 2.5 Hooks API 设计
+
+#### Vue Hooks
 
 ```typescript
 // 从 @openlayout/vue 导入 (Vue Composition API)
@@ -716,6 +735,62 @@ const {
   hide: hideFooter,
 } = useFooter();
 ```
+
+#### React Hooks
+
+```typescript
+// 从 @openlayout/react 导入 (React Hooks)
+import { useLayout, useSidebar, useHeader, useFooter } from '@openlayout/react';
+
+const {
+  // 响应式信息
+  responsive: { breakpoint, width, isMobile },
+  // 配置信息
+  config,
+  // 布局样式
+  styles,
+  // 状态与操作
+  state,
+  actions,
+} = useLayout();
+
+const {
+  collapsed,
+  visible,
+  width,
+  toggle,
+  collapse,
+  expand,
+  show,
+  hide,
+  setCollapsed,
+} = useSidebar();
+
+const {
+  visible: headerVisible,
+  fixed: headerFixed,
+  height: headerHeight,
+  show: showHeader,
+  hide: hideHeader,
+  setFixed: setHeaderFixed,
+} = useHeader();
+
+const {
+  visible: footerVisible,
+  fixed: footerFixed,
+  height: footerHeight,
+  show: showFooter,
+  hide: hideFooter,
+  setFixed: setFooterFixed,
+} = useFooter();
+```
+
+**React Hooks 设计说明**：
+- `useLayout`: 提供完整的布局上下文，包括响应式状态、配置、样式和状态操作
+- `useSidebar`: 提供侧边栏的状态和操作方法
+- `useHeader`: 提供头部区域的状态和操作方法
+- `useFooter`: 提供底部区域的状态和操作方法
+- 所有 hooks 必须 在 `Layout` 组件内部使用（通过 Context 提供）
 
 ---
 
