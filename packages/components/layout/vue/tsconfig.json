@@ -1,4 +1,7 @@
 {
   "extends": "@opendesign/tsconfig/vue",
+  "compilerOptions": {
+    "types": []
+  },
   "include": ["src/**/*"]
 }
