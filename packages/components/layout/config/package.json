@@ -1,0 +1,7 @@
+{
+  "name": "@openlayout/config",
+  "version": "1.0.0",
+  "description": "Configuration and types for OpenLayout",
+  "main": "src/index.ts",
+  "type": "module"
+}
