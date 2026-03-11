@@ -1,11 +1,9 @@
 import type { StorybookConfig } from "@storybook/react-vite";
-import { mergeConfig } from "vite";
-import path from "path";
 
 const config: StorybookConfig = {
   stories: [
-    "../../packages/components/**/react/**/*.stories.tsx",
-    "../../packages/components/**/react/**/*.stories.mdx",
+    "../../packages/**/*.stories.tsx",
+    "../../packages/**/*.stories.mdx",
   ],
   addons: [
     "@storybook/addon-a11y",
@@ -13,22 +11,6 @@ const config: StorybookConfig = {
   framework: {
     name: "@storybook/react-vite",
     options: {},
-  },
-  viteFinal: async (config) => {
-    return mergeConfig(config, {
-      resolve: {
-        alias: {
-          "@openlayout/react": path.resolve(
-            __dirname,
-            "../../packages/components/layout/react/src"
-          ),
-          "@openlayout/button": path.resolve(
-            __dirname,
-            "../../packages/components/button/react/src"
-          ),
-        },
-      },
-    });
   },
 };
 

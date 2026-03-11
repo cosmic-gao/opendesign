@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
-    "storybook": "pnpm -r --filter './storybooks/*' --parallel storybook",
-    "storybook:vue": "pnpm --filter '@openstory/vue' storybook",
-    "storybook:react": "pnpm --filter '@openstory/react' storybook",
-    "storybook:host": "pnpm --filter '@openstory/host' storybook"
+    "storybook": "pnpm -r --parallel --filter=./storybooks/* run storybook",
+    "storybook:vue": "pnpm -r --filter=./storybooks/vue run storybook",
+    "storybook:react": "pnpm -r --filter=./storybooks/react run storybook",
+    "storybook:host": "pnpm -r --filter=./storybooks/host run storybook"
   },
   "devDependencies": {
     "@opendesign/tsconfig": "workspace:*",

@@ -8,8 +8,19 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    layout: "centered",
+    layout: "fullscreen",
+    backgrounds: {
+      default: "light",
+      values: [
+        { name: "light", value: "#ffffff" },
+        { name: "dark", value: "#1a1a1a" },
+      ],
+    },
+    docs: {
+      toc: true,
+    },
   },
+  tags: ["autodocs"],
 };
 
 export default preview;
