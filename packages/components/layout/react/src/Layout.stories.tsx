@@ -6,7 +6,7 @@ import { Content } from './Content';
 import { Footer } from './Footer';
 
 const meta: Meta<typeof Layout> = {
-  title: 'Layout/Layout',
+  title: 'React/Layout',
   component: Layout,
   parameters: {
     layout: 'fullscreen',

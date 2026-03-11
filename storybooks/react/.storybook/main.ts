@@ -1,9 +1,10 @@
 import type { StorybookConfig } from "@storybook/react-vite";
+import path from "path";
 
 const config: StorybookConfig = {
   stories: [
-    "../../packages/**/*.stories.tsx",
-    "../../packages/**/*.stories.mdx",
+    path.resolve(__dirname, "../../../packages/components/layout/react/src/**/*.stories.tsx"),
+    path.resolve(__dirname, "../../../packages/components/button/react/src/**/*.stories.tsx"),
   ],
   addons: [
     "@storybook/addon-a11y",
