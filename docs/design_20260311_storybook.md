@@ -1,8 +1,8 @@
 # OpenDesign 组件库 Storybook 统一管理方案
 
-**版本**: 2.0.0
+**版本**: 2.2.0
 **状态**: 规划中
-**日期**: 2026-03-10
+**日期**: 2026-03-11
 
 ---
 
@@ -10,6 +10,8 @@
 
 | 版本 | 日期 | 修改内容 |
 |------|------|----------|
+| 2.2.0 | 2026-03-11 | 修正：目录结构改为 storybook/；包名改为 @openstory/vue、@openstory/react、@openstory/host |
+| 2.1.0 | 2026-03-11 | 修正：目录结构改用 apps/ 与现有项目对齐；添加 pnpm-workspace 配置；添加环境变量支持；补充主题支持说明 |
 | 2.0.0 | 2026-03-10 | 重构：采用 Storybook Composition 方案，Vue/React 分离实例 + 统一入口 |
 | 1.1.0 | 2026-03-10 | 优化：采用单一 Storybook 实例方案，通过 Glob 自动发现 Stories；Stories 放在各组件 src 目录下 |
 | 1.0.0 | 2026-03-10 | 初始版本：多实例 Storybook Composition 方案 |
@@ -23,6 +25,19 @@
 当前 `@openlayout` 组件库采用 Monorepo 架构，每个组件包含多框架适配（Vue/React）。随着组件库规模扩展（Button、Form、Modal 等组件即将加入），需要统一的文档与演示平台。
 
 **重要说明**：Storybook 官方不支持在同一实例中混用 Vue 和 React 框架，因此需要采用 Storybook Composition 方案。
+
+**现有项目结构**：
+```
+opendesign/
+├── configs/               # TSConfig 配置
+├── packages/
+│   └── components/
+│       └── layout/
+│           ├── config/    # 组件配置
+│           ├── core/      # 核心逻辑
+│           ├── vue/       # Vue 适配
+│           └── react/     # React 适配
+```
 
 现有问题：
 - 每个组件缺乏直观的交互式演示
@@ -93,8 +108,7 @@
 
 ```
 opendesign/
-├── apps/
-├── storybooks/
+├── storybook/                    # Storybook 应用（独立目录）
 │   ├── vue/                      # Vue 组件 Storybook
 │   │   ├── .storybook/
 │   │   │   ├── main.ts
@@ -111,12 +125,13 @@ opendesign/
 │   │
 │   └── host/                    # 主入口（Composition）
 │       ├── .storybook/
-│       │   ├── main.ts          # 引用 Vue/React 实例
+│       │   ├── main.ts           # 引用 Vue/React 实例
 │       │   └── preview.ts
 │       ├── package.json
 │       └── tsconfig.json
 │
-├── packages/
+├── configs/                      # 现有配置
+├── packages/                     # 现有组件
 │   └── components/
 │       ├── layout/
 │       │   ├── vue/
@@ -130,7 +145,6 @@ opendesign/
 │       │   │       ├── Layout.stories.tsx   # React Stories
 │       │   │       └── index.ts
 │       │   └── config/
-│       │       └── ...
 │       └── button/
 │           ├── vue/src/...
 │           └── react/src/...
@@ -147,9 +161,9 @@ opendesign/
 
 ```yaml
 packages:
-  - 'apps/*'
-  - 'storybooks/*'
-  - 'packages/*'
+  - 'storybook/*'
+  - 'packages/**'
+  - 'configs/**'
 ```
 
 #### 2.3.2 根 package.json
@@ -160,28 +174,30 @@ packages:
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
-    "storybook": "pnpm -r --filter './storybooks/*' storybook",
-    "storybook:vue": "pnpm --filter '@opendesign/storybooks-vue' storybook",
-    "storybook:react": "pnpm --filter '@opendesign/storybooks-react' storybook",
-    "storybook:host": "pnpm --filter '@opendesign/storybooks-host' storybook",
-    "build-storybook": "pnpm --filter '@opendesign/storybooks-host' build-storybook"
+    "storybook": "pnpm -r --filter './storybook/*' --parallel storybook",
+    "storybook:vue": "pnpm --filter '@openstory/vue' storybook",
+    "storybook:react": "pnpm --filter '@openstory/react' storybook",
+    "storybook:host": "pnpm --filter '@openstory/host' storybook",
+    "build-storybook": "pnpm --filter '@openstory/host' build-storybook"
   },
   "devDependencies": {}
 }
 ```
 
+> **注意**：首次使用需运行 `pnpm install` 以识别新的 workspace 包
+
 #### 2.3.3 Vue Storybook 配置
 
 ```typescript
-// storybooks/vue/.storybook/main.ts
+// storybook/vue/.storybook/main.ts
 import type { StorybookConfig } from "@storybook/vue3-vite";
 import { mergeConfig } from "vite";
 import path from "path";
 
 const config: StorybookConfig = {
   stories: [
-    "../packages/components/**/vue/**/*.stories.ts",
-    "../packages/components/**/vue/**/*.stories.mdx",
+    "../../packages/components/**/vue/**/*.stories.ts",
+    "../../packages/components/**/vue/**/*.stories.mdx",
   ],
   addons: [
     "@storybook/addon-essentials",
@@ -198,11 +214,11 @@ const config: StorybookConfig = {
         alias: {
           "@openlayout/vue": path.resolve(
             __dirname,
-            "../packages/components/layout/vue/src"
+            "../../packages/components/layout/vue/src"
           ),
           "@openlayout/button": path.resolve(
             __dirname,
-            "../packages/components/button/vue/src"
+            "../../packages/components/button/vue/src"
           ),
         },
       },
@@ -214,7 +230,7 @@ export default config;
 ```
 
 ```typescript
-// storybooks/vue/.storybook/preview.ts
+// storybook/vue/.storybook/preview.ts
 import type { Preview } from "@storybook/vue3";
 
 const preview: Preview = {
@@ -233,9 +249,9 @@ export default preview;
 ```
 
 ```json
-// storybooks/vue/package.json
+// storybook/vue/package.json
 {
-  "name": "@opendesign/storybooks-vue",
+  "name": "@openstory/vue",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -256,15 +272,15 @@ export default preview;
 #### 2.3.4 React Storybook 配置
 
 ```typescript
-// storybooks/react/.storybook/main.ts
+// storybook/react/.storybook/main.ts
 import type { StorybookConfig } from "@storybook/react-vite";
 import { mergeConfig } from "vite";
 import path from "path";
 
 const config: StorybookConfig = {
   stories: [
-    "../packages/components/**/react/**/*.stories.tsx",
-    "../packages/components/**/react/**/*.stories.mdx",
+    "../../packages/components/**/react/**/*.stories.tsx",
+    "../../packages/components/**/react/**/*.stories.mdx",
   ],
   addons: [
     "@storybook/addon-essentials",
@@ -281,11 +297,11 @@ const config: StorybookConfig = {
         alias: {
           "@openlayout/react": path.resolve(
             __dirname,
-            "../packages/components/layout/react/src"
+            "../../packages/components/layout/react/src"
           ),
           "@openlayout/button": path.resolve(
             __dirname,
-            "../packages/components/button/react/src"
+            "../../packages/components/button/react/src"
           ),
         },
       },
@@ -299,19 +315,19 @@ export default config;
 #### 2.3.5 主入口 Storybook（Composition）
 
 ```typescript
-// storybooks/host/.storybook/main.ts
+// storybook/host/.storybook/main.ts
 import type { StorybookConfig } from "@storybook/react-vite";
 
 const config: StorybookConfig = {
   stories: [],
   refs: {
-    "@opendesign/vue": {
+    vue: {
       title: "Vue Components",
-      url: "http://localhost:6007",
+      url: process.env.STORYBOOK_VUE_URL || "http://localhost:6007",
     },
-    "@opendesign/react": {
+    react: {
       title: "React Components",
-      url: "http://localhost:6008",
+      url: process.env.STORYBOOK_REACT_URL || "http://localhost:6008",
     },
   },
   addons: [
@@ -326,10 +342,14 @@ const config: StorybookConfig = {
 export default config;
 ```
 
+> **注意**：生产构建时需通过环境变量指定远程 Storybook URL：
+> - `STORYBOOK_VUE_URL=https://vue-storybook.example.com`
+> - `STORYBOOK_REACT_URL=https://react-storybook.example.com`
+
 ```json
-// storybooks/host/package.json
+// storybook/host/package.json
 {
-  "name": "@opendesign/storybooks-host",
+  "name": "@openstory/host",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -509,7 +529,21 @@ pnpm storybook:host  # http://localhost:6006
 # 构建主入口 Storybook（包含 Composition）
 pnpm build-storybook
 
-# 输出目录: apps/storybook-host/storybook-static
+# 输出目录: storybook/host/storybook-static
+```
+
+### 3.4 环境变量配置
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `STORYBOOK_VUE_URL` | http://localhost:6007 | Vue Storybook 地址 |
+| `STORYBOOK_REACT_URL` | http://localhost:6008 | React Storybook 地址 |
+
+**生产环境示例**：
+```bash
+STORYBOOK_VUE_URL=https://vue-storybook.yourdomain.com \
+STORYBOOK_REACT_URL=https://react-storybook.yourdomain.com \
+pnpm build-storybook
 ```
 
 ---
@@ -520,21 +554,46 @@ pnpm build-storybook
 
 | 阶段 | 任务 | 工期 |
 |------|------|------|
-| Phase 1 | 创建 apps/storybook-vue 并配置 | 1d |
-| Phase 2 | 创建 apps/storybook-react 并配置 | 1d |
+| Phase 1 | 创建 storybook/vue 并配置 | 1d |
+| Phase 2 | 创建 storybook/react 并配置 | 1d |
 | Phase 3 | 迁移 Layout 组件 Stories | 0.5d |
-| Phase 4 | 创建 apps/storybook-host 配置 Composition | 0.5d |
+| Phase 4 | 创建 storybook/host 配置 Composition | 0.5d |
 | Phase 5 | 添加启动脚本与验证 | 0.5d |
 | Phase 6 | 新组件接入规范文档 | 0.5d |
 | **总计** | | **4d** |
 
-### 4.2 新组件接入流程
+### 4.2 初始化步骤
+
+```bash
+# 1. 更新 workspace 配置
+# 将 storybook/* 添加到 pnpm-workspace.yaml
+
+# 2. 安装依赖
+pnpm install
+
+# 3. 创建 Vue Storybook
+mkdir -p storybook/vue/.storybook
+# 复制配置见 2.3.3
+
+# 4. 创建 React Storybook
+mkdir -p storybook/react/.storybook
+# 复制配置见 2.3.4
+
+# 5. 创建 Host Storybook
+mkdir -p storybook/host/.storybook
+# 复制配置见 2.3.5
+
+# 6. 启动验证
+pnpm storybook
+```
+
+### 4.3 新组件接入流程
 
 ```
 新组件（如 button）接入流程：
 
 1. 创建组件目录结构
-   button/
+   packages/components/button/
    ├── vue/
    │   └── src/
    │       ├── Button.tsx
@@ -545,8 +604,8 @@ pnpm build-storybook
    │       └── Button.stories.tsx    # React Stories
 
 2. 编写 Stories
-   - Vue: button/vue/src/Button.stories.ts
-   - React: button/react/src/Button.stories.tsx
+   - Vue: packages/components/button/vue/src/Button.stories.ts
+   - React: packages/components/button/react/src/Button.stories.tsx
 
 3. 自动发现
    → 各 Storybook 实例自动通过 glob 发现
@@ -568,9 +627,65 @@ pnpm build-storybook
 | R3 | 维护 3 份配置 | 将公共配置提取到共享模块 |
 | R4 | Vue/React 样式不一致 | 使用统一的 CSS 变量系统 |
 
+## 6. 主题支持
+
+### 6.1 主题配置
+
+通过 `.storybook/preview.ts` 全局注入主题：
+
+```typescript
+// storybook/vue/.storybook/preview.ts
+import type { Preview } from "@storybook/vue3";
+import { createTheme } from '@openlayout/config';
+
+const preview: Preview = {
+  parameters: {
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
+    layout: "centered",
+    backgrounds: {
+      default: 'light',
+      values: [
+        { name: 'light', value: '#ffffff' },
+        { name: 'dark', value: '#1a1a1a' },
+      ],
+    },
+  },
+  decorators: [
+    (story) => ({
+      setup() {
+        return {};
+      },
+      template: `<div class="theme-provider"><story /></div>`,
+    }),
+  ],
+};
+
+export default preview;
+```
+
+### 6.2 CSS 变量集成
+
+确保组件使用 CSS 变量实现主题切换：
+
+```css
+/* 组件基础样式使用 CSS 变量 */
+.component {
+  background-color: var(--color-bg, #ffffff);
+  color: var(--color-text, #333333);
+  border-radius: var(--border-radius, 4px);
+}
+```
+
+> 详细主题配置见 [design_20250308_layout.md](./design_20250308_layout.md)
+
 ---
 
-## 6. 方案对比
+## 7. 方案对比
 
 | 特性 | 本方案（Composition） | 单一实例 + Glob | Web Components |
 |------|---------------------|-----------------|----------------|
@@ -582,9 +697,9 @@ pnpm build-storybook
 
 ---
 
-## 7. 附录
+## 8. 附录
 
-### 7.1 参考资料
+### 8.1 参考资料
 
 - [Storybook Composition](https://storybook.js.org/docs/react/sharing/storybook-composition)
 - [Storybook Vue3 Vite](https://storybook.js.org/docs/vue3/get-started/install)
@@ -592,7 +707,7 @@ pnpm build-storybook
 - [Turborepo Discussion #6879](https://github.com/vercel/turborepo/discussions/6879)
 - [Storybook Monorepo Discussion #11351](https://github.com/storybookjs/storybook/discussions/11351)
 
-### 7.2 依赖清单
+### 8.2 依赖清单
 
 ```json
 {
