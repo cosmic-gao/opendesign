@@ -13,11 +13,11 @@ const config: StorybookConfig = {
     },
   },
   addons: [
-    "@storybook/addon-essentials",
     "@storybook/addon-links",
   ],
   framework: {
     name: "@storybook/react-vite",
+    options: {},
   },
 };
 

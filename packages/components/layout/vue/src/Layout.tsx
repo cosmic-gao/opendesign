@@ -1,4 +1,4 @@
-import { defineComponent, computed, provide, toRef, reactive, ref, onMounted, onUnmounted, watch, type PropType } from 'vue';
+import { defineComponent, computed, provide, reactive, ref, onMounted, onUnmounted, type PropType } from 'vue';
 import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
 import type { LayoutProps, LayoutConfig, Breakpoint, ThemeMode } from '@openlayout/config';
 import { resolveConfig } from '@openlayout/config';
@@ -96,7 +96,7 @@ export const Layout = defineComponent({
     return { styles, layoutState };
   },
   render() {
-    const { styles, layoutState, $slots, className, style } = this;
+    const { styles, $slots, className, style } = this;
     const rootClass = ['od-layout', className];
 
     return (

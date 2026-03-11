@@ -1,53 +1,53 @@
-import { useContext, computed } from 'react';
+import { useContext } from 'react';
 import { LayoutContext } from './Layout';
-import type { Breakpoint } from '@openlayout/config';
-
-export function useLayout() {
-  const context = useContext(LayoutContext);
-  if (!context) {
-    throw new Error('useLayout must be used within LayoutProvider');
-  }
-  return context;
-}
 
 export function useSidebar() {
-  const { state, actions } = useLayout();
+  const context = useContext(LayoutContext);
+  if (!context) {
+    throw new Error('useSidebar must be used within LayoutProvider');
+  }
 
   return {
-    collapsed: computed(() => state.sidebar.collapsed),
-    visible: computed(() => state.sidebar.visible),
-    width: computed(() => state.sidebar.width),
-    toggle: actions.sidebar.toggle,
-    collapse: actions.sidebar.collapse,
-    expand: actions.sidebar.expand,
-    show: actions.sidebar.show,
-    hide: actions.sidebar.hide,
-    setCollapsed: actions.sidebar.setCollapsed,
+    collapsed: context.state.sidebar.collapsed,
+    visible: context.state.sidebar.visible,
+    width: context.state.sidebar.width,
+    toggle: context.actions.sidebar.toggle,
+    collapse: context.actions.sidebar.collapse,
+    expand: context.actions.sidebar.expand,
+    show: context.actions.sidebar.show,
+    hide: context.actions.sidebar.hide,
+    setCollapsed: context.actions.sidebar.setCollapsed,
   };
 }
 
 export function useHeader() {
-  const { state, actions } = useLayout();
+  const context = useContext(LayoutContext);
+  if (!context) {
+    throw new Error('useHeader must be used within LayoutProvider');
+  }
 
   return {
-    visible: computed(() => state.header.visible),
-    fixed: computed(() => state.header.fixed),
-    height: computed(() => state.header.height),
-    show: actions.header.show,
-    hide: actions.header.hide,
-    setFixed: actions.header.setFixed,
+    visible: context.state.header.visible,
+    fixed: context.state.header.fixed,
+    height: context.state.header.height,
+    show: context.actions.header.show,
+    hide: context.actions.header.hide,
+    setFixed: context.actions.header.setFixed,
   };
 }
 
 export function useFooter() {
-  const { state, actions } = useLayout();
+  const context = useContext(LayoutContext);
+  if (!context) {
+    throw new Error('useFooter must be used within LayoutProvider');
+  }
 
   return {
-    visible: computed(() => state.footer.visible),
-    fixed: computed(() => state.footer.fixed),
-    height: computed(() => state.footer.height),
-    show: actions.footer.show,
-    hide: actions.footer.hide,
-    setFixed: actions.footer.setFixed,
+    visible: context.state.footer.visible,
+    fixed: context.state.footer.fixed,
+    height: context.state.footer.height,
+    show: context.actions.footer.show,
+    hide: context.actions.footer.hide,
+    setFixed: context.actions.footer.setFixed,
   };
 }

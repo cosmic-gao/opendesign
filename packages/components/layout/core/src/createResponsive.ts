@@ -38,7 +38,6 @@ export function createResponsive(options: MediaQueryOptions = {}): MediaQuerySta
     ...options.breakpoints,
   };
 
-  const breakpointKeys: BreakpointKey[] = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
   const mobileThreshold = options.mobileBreakpoint ?? breakpoints.md ?? 768;
 
   const getBreakpoint = (): Breakpoint => {

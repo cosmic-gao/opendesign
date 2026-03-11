@@ -15,6 +15,8 @@ interface LayoutContextValue {
   };
 }
 
+export type { LayoutContextValue };
+
 const LayoutContext = createContext<LayoutContextValue | null>(null);
 
 export { LayoutContext };

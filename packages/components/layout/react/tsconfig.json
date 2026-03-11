@@ -2,7 +2,8 @@
   "extends": "@opendesign/tsconfig/react",
   "compilerOptions": {
     "rootDir": "src",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": ["react"]
   },
   "include": ["src/**/*"]
 }
