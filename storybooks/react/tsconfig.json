@@ -1,0 +1,7 @@
+{
+  "extends": "@opendesign/tsconfig/react",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": [".storybook/**/*"]
+}

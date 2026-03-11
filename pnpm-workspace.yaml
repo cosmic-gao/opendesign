@@ -1,3 +1,4 @@
 packages:
+  - 'storybooks/*'
   - 'packages/**'
   - 'configs/**'

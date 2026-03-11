@@ -1,0 +1,16 @@
+{
+  "name": "@openstory/vue",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "storybook": "storybook dev -p 6007"
+  },
+  "devDependencies": {
+    "vue": "workspace:*",
+    "@openlayout/vue": "workspace:*",
+    "@storybook/vue3-vite": "workspace:*",
+    "@storybook/addon-essentials": "workspace:*",
+    "@storybook/addon-interactions": "workspace:*",
+    "@storybook/addon-a11y": "workspace:*"
+  }
+}

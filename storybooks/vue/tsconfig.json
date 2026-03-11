@@ -1,0 +1,7 @@
+{
+  "extends": "@opendesign/tsconfig/vue",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": [".storybook/**/*"]
+}

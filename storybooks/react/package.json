@@ -1,0 +1,17 @@
+{
+  "name": "@openstory/react",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "storybook": "storybook dev -p 6008"
+  },
+  "devDependencies": {
+    "react": "workspace:*",
+    "react-dom": "workspace:*",
+    "@openlayout/react": "workspace:*",
+    "@storybook/react-vite": "workspace:*",
+    "@storybook/addon-essentials": "workspace:*",
+    "@storybook/addon-interactions": "workspace:*",
+    "@storybook/addon-a11y": "workspace:*"
+  }
+}

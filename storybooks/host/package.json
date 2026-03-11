@@ -1,0 +1,13 @@
+{
+  "name": "@openstory/host",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "storybook": "storybook dev -p 6006"
+  },
+  "devDependencies": {
+    "@storybook/react-vite": "workspace:*",
+    "@storybook/addon-essentials": "workspace:*",
+    "@storybook/addon-links": "workspace:*"
+  }
+}
