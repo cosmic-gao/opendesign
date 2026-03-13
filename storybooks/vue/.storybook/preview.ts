@@ -1,4 +1,5 @@
 import type { Preview } from "@storybook/vue3";
+import React from 'react';
 
 const preview: Preview = {
   parameters: {

@@ -1,7 +1,13 @@
 {
   "extends": "@opendesign/tsconfig/vue",
   "compilerOptions": {
-    "rootDir": "."
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@openlayout/vue": ["../../packages/components/layout/vue/src"],
+      "@openlayout/config": ["../../packages/components/layout/config/src"],
+      "@openlayout/core": ["../../packages/components/layout/core/src"]
+    }
   },
-  "include": [".storybook/**/*"]
+  "include": [".storybook/**/*", "../../packages/**/*"]
 }
