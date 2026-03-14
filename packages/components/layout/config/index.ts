@@ -1,25 +1,6 @@
-# @openlayout/config
+export type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
 
-> Layout 配置与类型定义
-
-## 安装
-
-```bash
-pnpm add @openlayout/config
-```
-
-## 类型
-
-### Breakpoint
-
-```typescript
-type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
-```
-
-### Breakpoints
-
-```typescript
-interface Breakpoints {
+export interface Breakpoints {
   xs?: number;
   sm?: number;
   md?: number;
@@ -27,34 +8,31 @@ interface Breakpoints {
   xl?: number;
   xxl?: number;
 }
-```
 
-### HeaderConfig
+export const DEFAULT_BREAKPOINTS: Breakpoints = {
+  xs: 480,
+  sm: 576,
+  md: 768,
+  lg: 992,
+  xl: 1200,
+  xxl: 1400,
+};
 
-```typescript
-interface HeaderConfig {
+export interface HeaderConfig {
   enabled?: boolean;
   height?: number;
   fixed?: boolean;
   full?: boolean;
 }
-```
 
-### FooterConfig
-
-```typescript
-interface FooterConfig {
+export interface FooterConfig {
   enabled?: boolean;
   height?: number;
   fixed?: boolean;
   full?: boolean;
 }
-```
 
-### SidebarConfig
-
-```typescript
-interface SidebarConfig {
+export interface SidebarConfig {
   enabled?: boolean;
   width?: number;
   min?: number;
@@ -64,31 +42,19 @@ interface SidebarConfig {
   overlay?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
 }
-```
 
-### ContentConfig
-
-```typescript
-interface ContentConfig {
+export interface ContentConfig {
   enabled?: boolean;
   scrollable?: boolean;
 }
-```
 
-### AnimationConfig
-
-```typescript
-interface AnimationConfig {
+export interface AnimationConfig {
   enabled?: boolean;
   duration?: number;
   easing?: string;
 }
-```
 
-### LayoutConfig
-
-```typescript
-interface LayoutConfig {
+export interface LayoutConfig {
   header?: HeaderConfig;
   footer?: FooterConfig;
   sidebar?: SidebarConfig;
@@ -98,25 +64,3 @@ interface LayoutConfig {
   animation?: AnimationConfig;
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
 }
-```
-
-## 常量
-
-### DEFAULT_BREAKPOINTS
-
-默认断点配置：
-
-```typescript
-{
-  xs: 480,
-  sm: 576,
-  md: 768,
-  lg: 992,
-  xl: 1200,
-  xxl: 1400,
-}
-```
-
-## License
-
-MIT
