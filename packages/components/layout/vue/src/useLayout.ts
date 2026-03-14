@@ -9,19 +9,15 @@ export function useLayout() {
   >("layoutResponsive");
 
   return {
-    // direction: computed(() => config?.value?.direction), // Not defined in config
     isMobile: responsive?.isMobile,
     breakpoint: responsive?.breakpoint,
     breakpoints: computed(() => config?.value?.breakpoints),
-    currentWidth: responsive?.width,
-    theme: computed(() => config?.value?.theme),
+    width: responsive?.width,
 
     headerHeight: computed(() => config?.value?.header?.height ?? 64),
     footerHeight: computed(() => config?.value?.footer?.height ?? 48),
     sidebarWidth: computed(() => config?.value?.sidebar?.width ?? 200),
-    collapsedWidth: computed(() =>
-      config?.value?.sidebar?.collapsedWidth ?? 80
-    ),
+    sidebarMinWidth: computed(() => config?.value?.sidebar?.min ?? 80),
   };
 }
 
@@ -33,12 +29,9 @@ export function useSidebar() {
     collapsed: computed(() => state?.sidebar.collapsed),
     visible: computed(() => state?.sidebar.visible),
     width: computed(() => state?.sidebar.width),
-    toggle: actions?.sidebar.toggle,
-    collapse: actions?.sidebar.collapse,
-    expand: actions?.sidebar.expand,
-    show: actions?.sidebar.show,
-    hide: actions?.sidebar.hide,
-    setCollapsed: actions?.sidebar.setCollapsed,
+    min: computed(() => state?.sidebar.width),
+    toggle: actions?.toggleSidebar,
+    setCollapsed: actions?.setSidebarCollapsed,
   };
 }
 
@@ -50,9 +43,8 @@ export function useHeader() {
     visible: computed(() => state?.header.visible),
     fixed: computed(() => state?.header.fixed),
     height: computed(() => state?.header.height),
-    show: actions?.header.show,
-    hide: actions?.header.hide,
-    setFixed: actions?.header.setFixed,
+    setVisible: actions?.setHeaderVisible,
+    setFixed: actions?.setHeaderFixed,
   };
 }
 
@@ -64,8 +56,16 @@ export function useFooter() {
     visible: computed(() => state?.footer.visible),
     fixed: computed(() => state?.footer.fixed),
     height: computed(() => state?.footer.height),
-    show: actions?.footer.show,
-    hide: actions?.footer.hide,
-    setFixed: actions?.footer.setFixed,
+    setVisible: actions?.setFooterVisible,
+    setFixed: actions?.setFooterFixed,
+  };
+}
+
+export function useContent() {
+  const state = inject<LayoutState>("layoutState");
+
+  return {
+    visible: computed(() => state?.content.visible),
+    scrollable: computed(() => true),
   };
 }

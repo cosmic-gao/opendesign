@@ -11,12 +11,9 @@ export function useSidebar() {
     collapsed: context.state.sidebar.collapsed,
     visible: context.state.sidebar.visible,
     width: context.state.sidebar.width,
-    toggle: context.actions.sidebar.toggle,
-    collapse: context.actions.sidebar.collapse,
-    expand: context.actions.sidebar.expand,
-    show: context.actions.sidebar.show,
-    hide: context.actions.sidebar.hide,
-    setCollapsed: context.actions.sidebar.setCollapsed,
+    min: context.state.sidebar.width,
+    toggle: context.actions.toggleSidebar,
+    setCollapsed: context.actions.setSidebarCollapsed,
   };
 }
 
@@ -30,9 +27,8 @@ export function useHeader() {
     visible: context.state.header.visible,
     fixed: context.state.header.fixed,
     height: context.state.header.height,
-    show: context.actions.header.show,
-    hide: context.actions.header.hide,
-    setFixed: context.actions.header.setFixed,
+    setVisible: context.actions.setHeaderVisible,
+    setFixed: context.actions.setHeaderFixed,
   };
 }
 
@@ -46,8 +42,19 @@ export function useFooter() {
     visible: context.state.footer.visible,
     fixed: context.state.footer.fixed,
     height: context.state.footer.height,
-    show: context.actions.footer.show,
-    hide: context.actions.footer.hide,
-    setFixed: context.actions.footer.setFixed,
+    setVisible: context.actions.setFooterVisible,
+    setFixed: context.actions.setFooterFixed,
+  };
+}
+
+export function useContent() {
+  const context = useContext(LayoutContext);
+  if (!context) {
+    throw new Error('useContent must be used within LayoutProvider');
+  }
+
+  return {
+    visible: context.state.content.visible,
+    scrollable: true,
   };
 }

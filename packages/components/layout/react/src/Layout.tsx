@@ -56,38 +56,40 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
     updateResponsive();
 
     return () => window.removeEventListener('resize', updateResponsive);
-  }, [props.breakpoints, breakpoint, props]);
+  }, [props.breakpoints, breakpoint, props.onBreakpointChange]);
 
   const store = useMemo(() => createStore(config), [config]);
-  const layoutState = store.state;
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(store.state.sidebar.collapsed);
+  const [headerVisible, setHeaderVisible] = useState(store.state.header.visible);
+  const [headerFixed, setHeaderFixed] = useState(store.state.header.fixed);
+  const [footerVisible, setFooterVisible] = useState(store.state.footer.visible);
+  const [footerFixed, setFooterFixed] = useState(store.state.footer.fixed);
+
+  const layoutState = useMemo(() => ({
+    ...store.state,
+    sidebar: { ...store.state.sidebar, collapsed: sidebarCollapsed },
+    header: { ...store.state.header, visible: headerVisible, fixed: headerFixed },
+    footer: { ...store.state.footer, visible: footerVisible, fixed: footerFixed },
+  }), [store.state, sidebarCollapsed, headerVisible, headerFixed, footerVisible, footerFixed]);
 
   const actions = useMemo(() => ({
-    sidebar: {
-      toggle: () => { layoutState.sidebar.collapsed = !layoutState.sidebar.collapsed; },
-      collapse: () => { layoutState.sidebar.collapsed = true; },
-      expand: () => { layoutState.sidebar.collapsed = false; },
-      show: () => { layoutState.sidebar.visible = true; },
-      hide: () => { layoutState.sidebar.visible = false; },
-      setCollapsed: (v: boolean) => { layoutState.sidebar.collapsed = v; },
-    },
-    header: {
-      show: () => { layoutState.header.visible = true; },
-      hide: () => { layoutState.header.visible = false; },
-      setFixed: (v: boolean) => { layoutState.header.fixed = v; },
-    },
-    footer: {
-      show: () => { layoutState.footer.visible = true; },
-      hide: () => { layoutState.footer.visible = false; },
-      setFixed: (v: boolean) => { layoutState.footer.fixed = v; },
-    },
-  }), [layoutState]);
+    toggleSidebar: () => setSidebarCollapsed(prev => !prev),
+    setSidebarCollapsed,
+    toggleHeader: () => setHeaderVisible(prev => !prev),
+    setHeaderVisible,
+    setHeaderFixed,
+    toggleFooter: () => setFooterVisible(prev => !prev),
+    setFooterVisible,
+    setFooterFixed,
+  }), [setSidebarCollapsed, setHeaderVisible, setHeaderFixed, setFooterVisible, setFooterFixed]);
 
   const styles = useMemo(() => createStylesheet({
     config,
     breakpoint,
     isMobile,
-    collapsed: layoutState.sidebar.collapsed,
-  }), [config, breakpoint, isMobile, layoutState.sidebar.collapsed]);
+    collapsed: sidebarCollapsed,
+  }), [config, breakpoint, isMobile, sidebarCollapsed]);
 
   const contextValue = useMemo(() => ({
     config,

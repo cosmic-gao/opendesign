@@ -1,6 +1,6 @@
 import { defineComponent, computed, provide, reactive, ref, onMounted, onUnmounted, type PropType } from 'vue';
 import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
-import type { LayoutProps, LayoutConfig, Breakpoint, ThemeMode } from '@openlayout/config';
+import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
 import { resolveConfig } from '@openlayout/config';
 
 export const Layout = defineComponent({
@@ -12,18 +12,14 @@ export const Layout = defineComponent({
     content: { type: Object as PropType<LayoutProps['content']>, default: () => ({}) },
     breakpoints: { type: Object as PropType<LayoutProps['breakpoints']>, default: undefined },
     mobileBreakpoint: { type: Number, default: 768 },
-    animated: { type: Boolean, default: true },
-    animationDuration: { type: Number, default: 200 },
+    animation: { type: Object as PropType<LayoutProps['animation']>, default: () => ({}) },
     className: { type: String, default: '' },
     style: { type: Object as PropType<Record<string, string | number>>, default: () => ({}) },
     onBreakpointChange: { type: Function as PropType<LayoutProps['onBreakpointChange']>, default: undefined },
-    onThemeChange: { type: Function as PropType<LayoutProps['onThemeChange']>, default: undefined },
-    theme: { type: String as PropType<ThemeMode>, default: 'light' },
   },
   setup(props) {
     const config = computed<LayoutConfig>(() => resolveConfig(props as LayoutProps));
 
-    // Reactive Responsive State
     const responsiveHelper = createResponsive({ breakpoints: props.breakpoints });
     const breakpoint = ref<Breakpoint>(responsiveHelper.breakpoint);
     const width = ref(typeof window !== 'undefined' ? window.innerWidth : 0);
@@ -47,39 +43,20 @@ export const Layout = defineComponent({
       window.removeEventListener('resize', updateResponsive);
     });
 
-    // Reactive Layout State
     const store = createStore(config.value);
-    // Make state reactive
-    // We need to sync store state with props if controlled, but for now let's use the store state as source of truth for internal logic
-    // But store.state is a plain object. We wrap it in reactive.
     const layoutState = reactive(store.state);
-    
-    // Override actions to update reactive state
-    // Since createStore actions are empty in Core (it says "actual reactive logic by framework"), we need to implement them here or in a hook.
-    // The Core `createStore` is just a factory for initial state and empty actions.
-    // We need to implement the actions to mutate `layoutState`.
+
     const actions = {
-      sidebar: {
-        toggle: () => { layoutState.sidebar.collapsed = !layoutState.sidebar.collapsed; },
-        collapse: () => { layoutState.sidebar.collapsed = true; },
-        expand: () => { layoutState.sidebar.collapsed = false; },
-        show: () => { layoutState.sidebar.visible = true; },
-        hide: () => { layoutState.sidebar.visible = false; },
-        setCollapsed: (v: boolean) => { layoutState.sidebar.collapsed = v; },
-      },
-      header: {
-        show: () => { layoutState.header.visible = true; },
-        hide: () => { layoutState.header.visible = false; },
-        setFixed: (v: boolean) => { layoutState.header.fixed = v; },
-      },
-      footer: {
-        show: () => { layoutState.footer.visible = true; },
-        hide: () => { layoutState.footer.visible = false; },
-        setFixed: (v: boolean) => { layoutState.footer.fixed = v; },
-      },
+      toggleSidebar: () => { layoutState.sidebar.collapsed = !layoutState.sidebar.collapsed; },
+      setSidebarCollapsed: (v: boolean) => { layoutState.sidebar.collapsed = v; },
+      toggleHeader: () => { layoutState.header.visible = !layoutState.header.visible; },
+      setHeaderVisible: (v: boolean) => { layoutState.header.visible = v; },
+      setHeaderFixed: (v: boolean) => { layoutState.header.fixed = v; },
+      toggleFooter: () => { layoutState.footer.visible = !layoutState.footer.visible; },
+      setFooterVisible: (v: boolean) => { layoutState.footer.visible = v; },
+      setFooterFixed: (v: boolean) => { layoutState.footer.fixed = v; },
     };
 
-    // Styles
     const styles = computed(() => createStylesheet({
       config: config.value,
       breakpoint: breakpoint.value,
@@ -89,9 +66,9 @@ export const Layout = defineComponent({
 
     provide('layoutConfig', config);
     provide('layoutState', layoutState);
-    provide('layoutActions', actions); // Need to provide actions for hooks
+    provide('layoutActions', actions);
     provide('layoutStyles', styles);
-    provide('layoutResponsive', { breakpoint, width, isMobile }); // Provide responsive info
+    provide('layoutResponsive', { breakpoint, width, isMobile });
 
     return { styles, layoutState };
   },

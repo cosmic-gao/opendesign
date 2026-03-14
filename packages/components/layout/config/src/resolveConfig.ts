@@ -8,9 +8,7 @@ export function resolveConfig(props: LayoutProps): LayoutConfig {
     content,
     breakpoints,
     mobileBreakpoint,
-    animated,
-    animationDuration,
-    theme,
+    animation,
   } = props;
 
   return {
@@ -20,8 +18,6 @@ export function resolveConfig(props: LayoutProps): LayoutConfig {
     content,
     breakpoints,
     mobileBreakpoint,
-    animated,
-    animationDuration,
-    theme,
+    animation,
   };
 }

@@ -9,7 +9,7 @@ export interface Breakpoints {
   xxl?: number;
 }
 
-export type ElementType = string | React.ComponentType<any>;
+export type ElementType = string | ((props: any) => any);
 
 export type ReactNode = any;
 
