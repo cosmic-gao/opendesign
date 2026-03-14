@@ -17,7 +17,3 @@ export const DEFAULT_BREAKPOINTS: Breakpoints = {
   xl: 1200,
   xxl: 1400,
 };
-
-export type ElementType = string | ((props: any) => any);
-
-export type CSSProperties = Record<string, string | number | undefined>;

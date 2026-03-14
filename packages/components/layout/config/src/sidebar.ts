@@ -6,4 +6,5 @@ export interface SidebarConfig {
   collapsed?: boolean;
   full?: boolean;
   overlay?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
