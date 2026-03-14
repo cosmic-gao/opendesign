@@ -13,8 +13,5 @@ export interface LayoutConfig {
   breakpoints?: Breakpoints;
   mobileBreakpoint?: number;
   animation?: AnimationConfig;
-}
-
-export interface LayoutProps extends Partial<LayoutConfig> {
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
 }
