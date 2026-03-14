@@ -1386,30 +1386,128 @@ const updateResponsive = useDebouncedCallback(() => {
 
 ## 9. 测试策略
 
-### 测试框架
+### 9.1 测试框架
 
 | 层级 | 工具 | 说明 |
 |------|------|------|
 | 单元测试 | Vitest | core 层纯函数测试 |
-| 组件测试 | Storybook + Playwright | 视觉回归测试 |
-| E2E 测试 | Playwright | 完整流程测试 |
+| 组件测试 | Vitest + @testing-library | Vue/React 组件渲染和交互测试 |
+| Storybook UI 测试 | @storybook/test | Storybook 交互测试 |
+| E2E 测试 | Playwright | 完整流程测试、多设备响应式 |
 | 无障碍测试 | axe-core | WCAG 合规性 |
 
-### 测试范围
+### 9.2 测试范围
 
 - **单元测试**：断点计算、样式生成、状态管理、类型正确性
-- **组件测试**：渲染正确性、Props 传递、事件触发、响应式断点
-- **E2E 测试**：完整用户流程、多设备响应式、无障碍性
+- **组件测试**：渲染正确性、Props 传递、事件触发、响应式断点、组件状态
+- **Storybook 测试**：组件交互、视觉回归、Controls 面板
+- **E2E 测试**：完整用户流程、多设备响应式、无障碍性、CSS 变量应用
+- **性能测试**：渲染时间、响应速度
 
-### 测试文件结构
+### 9.3 测试文件结构
 
 ```
-tests/
-├── unit/           # 单元测试
-│   └── core/      # core 层函数测试
-├── components/    # 组件测试
-└── e2e/          # 端到端测试
+packages/components/layout/
+├── core/                              # Core 层
+│   └── src/
+│       └── __tests__/
+│           └── index.test.ts          # 断点计算、样式生成、状态管理测试
+│
+├── config/                            # Config 层 (无测试)
+│
+├── vue/                               # Vue 层
+│   └── src/
+│       ├── __tests__/
+│       │   └── components.test.ts    # 组件渲染、Props、Hooks 测试
+│       ├── stories/
+│       │   ├── Layout.stories.tsx    # Storybook 故事
+│       │   └── Layout.stories.test.ts # Storybook 交互测试
+│       └── e2e/
+│           └── layout.spec.ts         # Playwright E2E 测试
+│
+└── react/                             # React 层
+    └── src/
+        ├── __tests__/
+        │   └── components.test.tsx   # 组件渲染、Props、Hooks 测试
+        ├── stories/
+        │   ├── Layout.stories.tsx    # Storybook 故事
+        │   └── Layout.stories.test.ts # Storybook 交互测试
+        └── e2e/
+            └── layout.spec.ts         # Playwright E2E 测试
 ```
+
+### 9.4 Core 层单元测试
+
+核心函数测试覆盖：
+
+- `createResponsive`: 断点检测、SSR 支持、边界情况处理
+- `getMediaQueries`: 媒体查询生成、自定义媒体类型
+- `createStylesheet`: 根容器/Header/Footer/Sidebar/Content 样式生成、CSS 变量、动画配置、Z-Index 管理
+- `createStore`: 默认状态、自定义初始值、Actions
+
+### 9.5 Vue/React 组件测试
+
+组件测试覆盖：
+
+- 模块导出测试
+- Props 定义和默认值测试
+- 渲染测试（根元素、子元素）
+- 样式类名测试（fixed、full、collapsed、overlay）
+- 响应式行为测试（mobileBreakpoint、breakpoints）
+- 动画配置测试
+- 断点变化回调测试
+
+### 9.6 Storybook UI 测试
+
+使用 `@storybook/test` 进行交互测试：
+
+- 故事渲染验证
+- 组件可见性测试
+- CSS 类名状态测试
+- 交互行为测试
+
+### 9.7 E2E 测试
+
+Playwright 测试覆盖：
+
+- **基础渲染测试**：Layout、Header、Sidebar、Content、Footer
+- **组件状态测试**：Sidebar 折叠、Header 固定定位、可选组件显示/隐藏
+- **响应式测试**：移动端、平板、桌面、多断点切换
+- **无障碍测试**：语义化 HTML、键盘导航
+- **CSS 变量测试**：Header 高度、Sidebar 宽度、动画变量
+- **性能测试**：渲染时间
+
+### 9.8 测试运行命令
+
+```bash
+# Core 层单元测试
+cd packages/components/layout/core
+npm run test
+
+# Vue 层测试
+cd packages/components/layout/vue
+npm run test          # 单元测试
+npm run test:storybook # Storybook 测试
+npm run test:e2e     # E2E 测试
+
+# React 层测试
+cd packages/components/layout/react
+npm run test          # 单元测试
+npm run test:storybook # Storybook 测试
+npm run test:e2e     # E2E 测试
+
+# 运行所有测试
+cd packages/components/layout
+npm run test:all
+```
+
+### 9.9 测试最佳实践
+
+1. **Mock 依赖**：core 层使用 Vitest mock，避免实际 DOM 操作
+2. **隔离测试**：每个组件独立测试，避免相互依赖
+3. **真实场景**：E2E 测试使用真实浏览器，确保与用户行为一致
+4. **响应式测试**：覆盖多种视口尺寸，确保响应式正确性
+5. **无障碍优先**：使用语义化标签，支持屏幕阅读器和键盘导航
 
 ***
 

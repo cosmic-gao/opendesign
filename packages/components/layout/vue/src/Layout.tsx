@@ -1,7 +1,6 @@
 import { defineComponent, computed, provide, reactive, ref, onMounted, onUnmounted, type PropType } from 'vue';
 import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
 import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
-import { resolveConfig } from '@openlayout/config';
 
 export const Layout = defineComponent({
   name: 'ODLayout',
@@ -18,7 +17,7 @@ export const Layout = defineComponent({
     onBreakpointChange: { type: Function as PropType<LayoutProps['onBreakpointChange']>, default: undefined },
   },
   setup(props) {
-    const config = computed<LayoutConfig>(() => resolveConfig(props as LayoutProps));
+    const config = computed<LayoutConfig>(() => props as LayoutConfig);
 
     const responsiveHelper = createResponsive({ breakpoints: props.breakpoints });
     const breakpoint = ref<Breakpoint>(responsiveHelper.breakpoint);

@@ -1,4 +1,4 @@
-import type { Breakpoint, Breakpoints, ReactNode } from './types';
+import type { Breakpoint, Breakpoints } from './types';
 import type { HeaderConfig } from './header';
 import type { FooterConfig } from './footer';
 import type { SidebarConfig } from './sidebar';
@@ -17,7 +17,4 @@ export interface LayoutConfig {
 
 export interface LayoutProps extends Partial<LayoutConfig> {
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
-  className?: string;
-  style?: Record<string, string | number>;
-  children?: ReactNode;
 }

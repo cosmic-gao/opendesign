@@ -5,5 +5,3 @@ export * from './sidebar';
 export * from './content';
 export * from './layout';
 export * from './animation';
-export * from './constants';
-export * from './resolveConfig';

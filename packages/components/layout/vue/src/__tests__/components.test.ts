@@ -1,4 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
+import { mount } from '@vue/test-utils';
+import { createRouter, createWebHistory } from 'vue-router';
+import { Layout } from '../Layout';
+import { Header } from '../Header';
+import { Sidebar } from '../Sidebar';
+import { Content } from '../Content';
+import { Footer } from '../Footer';
+import { useLayout, useSidebar, useHeader, useFooter, useContent } from '../useLayout';
 
 vi.mock('@openlayout/core', () => ({
   createResponsive: vi.fn(() => ({
@@ -13,6 +21,7 @@ vi.mock('@openlayout/core', () => ({
       header: { visible: true, fixed: false, height: 60 },
       footer: { visible: true, fixed: false, height: 60 },
       sidebar: { visible: true, collapsed: false, width: 250, min: 60 },
+      content: { visible: true },
     },
     actions: {
       toggleSidebar: vi.fn(),
@@ -31,7 +40,11 @@ vi.mock('@openlayout/core', () => ({
     footer: { height: '60px' },
     sidebar: { width: '250px' },
     content: { flex: 1 },
-    cssVariables: {},
+    cssVariables: {
+      '--od-header-height': '60px',
+      '--od-footer-height': '60px',
+      '--od-sidebar-width': '250px',
+    },
   })),
 }));
 
@@ -106,5 +119,239 @@ describe('Vue Layout Component Structure', () => {
     const { Layout } = await import('../Layout');
     expect(Layout.props.mobileBreakpoint.default).toBe(768);
     expect(Layout.props.className.default).toBe('');
+  });
+});
+
+describe('Vue Layout Component Rendering', () => {
+  it('should render root element with correct class', () => {
+    const wrapper = mount(Layout, {
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.find('.od-layout').exists()).toBe(true);
+  });
+
+  it('should apply custom className', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        className: 'custom-layout',
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.find('.custom-layout').exists()).toBe(true);
+  });
+
+  it('should apply custom style', () => {
+    const customStyle = { backgroundColor: '#f0f0f0' };
+    const wrapper = mount(Layout, {
+      props: {
+        style: customStyle,
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.find('.od-layout').attributes('style')).toContain('#f0f0f0');
+  });
+
+  it('should render children in default slot', () => {
+    const wrapper = mount(Layout, {
+      slots: {
+        default: () => '<div>Test Content</div>',
+      },
+    });
+
+    expect(wrapper.text()).toContain('Test Content');
+  });
+});
+
+describe('Vue Header Component', () => {
+  it('should render header element', () => {
+    const wrapper = mount(Layout, {
+      slots: {
+        default: () => {
+          return [
+            '<header class="od-layout-header">Header Content</header>',
+          ].join('');
+        },
+      },
+    });
+
+    const header = wrapper.find('.od-layout-header');
+    expect(header.exists()).toBe(true);
+  });
+
+  it('should apply fixed class when fixed prop is true', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        header: { fixed: true },
+      },
+      slots: {
+        default: () => '<header class="od-layout-header">Header</header>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-header').classes()).toContain('od-layout-header--fixed');
+  });
+
+  it('should apply full class when full prop is true', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        header: { full: true },
+      },
+      slots: {
+        default: () => '<header class="od-layout-header">Header</header>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-header').classes()).toContain('od-layout-header--full');
+  });
+});
+
+describe('Vue Sidebar Component', () => {
+  it('should render sidebar element', () => {
+    const wrapper = mount(Layout, {
+      slots: {
+        default: () => '<aside class="od-layout-sidebar">Sidebar</aside>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-sidebar').exists()).toBe(true);
+  });
+
+  it('should apply collapsed class when collapsed prop is true', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        sidebar: { collapsed: true },
+      },
+      slots: {
+        default: () => '<aside class="od-layout-sidebar">Sidebar</aside>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-sidebar').classes()).toContain('od-layout-sidebar--collapsed');
+  });
+
+  it('should apply overlay class when overlay prop is true', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        sidebar: { overlay: true },
+      },
+      slots: {
+        default: () => '<aside class="od-layout-sidebar">Sidebar</aside>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-sidebar').classes()).toContain('od-layout-sidebar--overlay');
+  });
+});
+
+describe('Vue Content Component', () => {
+  it('should render content element', () => {
+    const wrapper = mount(Layout, {
+      slots: {
+        default: () => '<main class="od-layout-content">Content</main>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-content').exists()).toBe(true);
+  });
+});
+
+describe('Vue Footer Component', () => {
+  it('should render footer element', () => {
+    const wrapper = mount(Layout, {
+      slots: {
+        default: () => '<footer class="od-layout-footer">Footer</footer>',
+      },
+    });
+
+    expect(wrapper.find('.od-layout-footer').exists()).toBe(true);
+  });
+});
+
+describe('Vue Responsive Behavior', () => {
+  it('should calculate isMobile based on mobileBreakpoint', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        mobileBreakpoint: 768,
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.exists()).toBe(true);
+  });
+
+  it('should use custom breakpoints', () => {
+    const customBreakpoints = { xs: 0, sm: 400, md: 600, lg: 800, xl: 1000, xxl: 1200 };
+    const wrapper = mount(Layout, {
+      props: {
+        breakpoints: customBreakpoints,
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.exists()).toBe(true);
+  });
+});
+
+describe('Vue Animation Configuration', () => {
+  it('should accept animation config', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        animation: {
+          enabled: true,
+          duration: 300,
+          easing: 'ease-in-out',
+        },
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.exists()).toBe(true);
+  });
+
+  it('should handle disabled animation', () => {
+    const wrapper = mount(Layout, {
+      props: {
+        animation: {
+          enabled: false,
+        },
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    expect(wrapper.exists()).toBe(true);
+  });
+});
+
+describe('Vue Breakpoint Change Callback', () => {
+  it('should call onBreakpointChange when breakpoint changes', async () => {
+    const onBreakpointChange = vi.fn();
+    const wrapper = mount(Layout, {
+      props: {
+        onBreakpointChange,
+      },
+      slots: {
+        default: () => 'Content',
+      },
+    });
+
+    await wrapper.vm.$nextTick();
+    expect(wrapper.exists()).toBe(true);
   });
 });

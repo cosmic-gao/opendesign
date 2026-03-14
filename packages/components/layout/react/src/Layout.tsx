@@ -1,12 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react';
 import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
 import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
-import { resolveConfig } from '@openlayout/config';
 
 interface LayoutContextValue {
   config: LayoutConfig;
   state: ReturnType<typeof createStore>['state'];
-  actions: ReturnType<typeof createStore>['actions'];
   styles: ReturnType<typeof createStylesheet>;
   responsive: {
     breakpoint: Breakpoint;
@@ -36,7 +34,7 @@ interface LayoutComponentProps extends LayoutProps {
 export const Layout: React.FC<LayoutComponentProps> = (props) => {
   const { children, className, style, ...rest } = props;
 
-  const config = useMemo<LayoutConfig>(() => resolveConfig(rest), [rest]);
+  const config = useMemo<LayoutConfig>(() => rest as LayoutConfig, [rest]);
 
   const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
   const [width, setWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 0);
@@ -94,10 +92,9 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
   const contextValue = useMemo(() => ({
     config,
     state: layoutState,
-    actions,
     styles,
     responsive: { breakpoint, width, isMobile },
-  }), [config, layoutState, actions, styles, breakpoint, width, isMobile]);
+  }), [config, layoutState, styles, breakpoint, width, isMobile]);
 
   return (
     <LayoutContext.Provider value={contextValue}>
