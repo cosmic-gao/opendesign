@@ -34,8 +34,8 @@ export interface LayoutActions {
 
 export interface UseLayoutStateOptions {
   sidebar?: SidebarConfig;
-  header?: { height?: number; fixed?: boolean };
-  footer?: { height?: number; fixed?: boolean };
+  header?: { enabled?: boolean; height?: number; fixed?: boolean };
+  footer?: { enabled?: boolean; height?: number; fixed?: boolean };
 }
 
 export interface LayoutStore {

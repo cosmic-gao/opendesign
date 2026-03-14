@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/vue3';
-import { Layout } from './Layout';
-import { Header } from './Header';
-import { Sidebar } from './Sidebar';
-import { Content } from './Content';
-import { Footer } from './Footer';
+import { Layout } from '../Layout';
+import { Header } from '../Header';
+import { Sidebar } from '../Sidebar';
+import { Content } from '../Content';
+import { Footer } from '../Footer';
 
 const meta: Meta<typeof Layout> = {
   title: 'Vue/Layout',
@@ -19,14 +19,14 @@ export default meta;
 type Story = StoryObj<typeof Layout>;
 
 export const Default: Story = {
-  render: (args) => ({
+  render: (args: typeof meta.args) => ({
     components: { Layout, Header, Sidebar, Content, Footer },
     setup() {
       return { args };
     },
     template: `
       <Layout v-bind="args">
-        <Header height="60">Header Content</Header>
+        <Header :height="60">Header Content</Header>
         <div style="display: flex; flex: 1; padding-top: 60px;">
           <Sidebar>
             <div style="padding: 16px;">Sidebar Content</div>
@@ -49,14 +49,14 @@ export const Default: Story = {
 };
 
 export const WithCollapsedSidebar: Story = {
-  render: (args) => ({
+  render: (args: typeof meta.args) => ({
     components: { Layout, Header, Sidebar, Content, Footer },
     setup() {
       return { args };
     },
     template: `
       <Layout v-bind="args">
-        <Header height="60">Header Content</Header>
+        <Header :height="60">Header Content</Header>
         <div style="display: flex; flex: 1; padding-top: 60px;">
           <Sidebar>
             <div style="padding: 16px;">Sidebar Content</div>
@@ -78,7 +78,7 @@ export const WithCollapsedSidebar: Story = {
 };
 
 export const WithoutHeader: Story = {
-  render: (args) => ({
+  render: (args: typeof meta.args) => ({
     components: { Layout, Sidebar, Content },
     setup() {
       return { args };
@@ -105,14 +105,14 @@ export const WithoutHeader: Story = {
 };
 
 export const WithoutSidebar: Story = {
-  render: (args) => ({
+  render: (args: typeof meta.args) => ({
     components: { Layout, Header, Content },
     setup() {
       return { args };
     },
     template: `
       <Layout v-bind="args">
-        <Header height="60">Header Only</Header>
+        <Header :height="60">Header Only</Header>
         <div style="padding-top: 60px;">
           <Content>
             <div style="padding: 24px;">
@@ -130,14 +130,14 @@ export const WithoutSidebar: Story = {
 };
 
 export const FullLayout: Story = {
-  render: (args) => ({
+  render: (args: typeof meta.args) => ({
     components: { Layout, Header, Sidebar, Content, Footer },
     setup() {
       return { args };
     },
     template: `
       <Layout v-bind="args">
-        <Header height="60">Fixed Header</Header>
+        <Header :height="60">Fixed Header</Header>
         <div style="display: flex; flex: 1; padding-top: 60px; padding-bottom: 48px;">
           <Sidebar>
             <div style="padding: 16px;">Sidebar</div>

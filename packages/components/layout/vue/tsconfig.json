@@ -3,8 +3,7 @@
     "@opendesign/tsconfig/lib",
     "@opendesign/tsconfig/vue"
   ],
-  "compilerOptions": {
-    "rootDir": "src"
-  },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ]
 }

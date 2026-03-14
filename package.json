@@ -2,13 +2,6 @@
   "name": "opendesign",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "dev": "pnpm -r --parallel run dev",
-    "storybook": "pnpm -r --parallel --filter=./storybooks/* run storybook",
-    "storybook:vue": "pnpm -r --filter=./storybooks/vue run storybook",
-    "storybook:react": "pnpm -r --filter=./storybooks/react run storybook",
-    "storybook:host": "pnpm -r --filter=./storybooks/host run storybook"
-  },
   "devDependencies": {
     "@opendesign/tsconfig": "workspace:*",
     "typescript": "^5.9.3"

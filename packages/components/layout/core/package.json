@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "main": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "dependencies": {
     "@openlayout/config": "workspace:*"
   },
   "devDependencies": {
     "@opendesign/tsconfig": "workspace:*",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^2.0.0"
   }
 }

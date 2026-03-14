@@ -1,11 +1,16 @@
 {
   "name": "@openlayout/config",
   "version": "1.0.0",
-  "description": "Configuration and types for OpenLayout",
   "main": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {},
   "devDependencies": {
     "@opendesign/tsconfig": "workspace:*",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^2.0.0"
   }
 }

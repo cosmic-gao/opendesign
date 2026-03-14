@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { Layout } from './Layout';
-import { Header } from './Header';
-import { Sidebar } from './Sidebar';
-import { Content } from './Content';
-import { Footer } from './Footer';
+import { Layout } from '../Layout';
+import { Header } from '../Header';
+import { Sidebar } from '../Sidebar';
+import { Content } from '../Content';
+import { Footer } from '../Footer';
 
 const meta: Meta<typeof Layout> = {
   title: 'React/Layout',
