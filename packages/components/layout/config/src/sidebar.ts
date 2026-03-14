@@ -1,15 +1,16 @@
 import type { ElementType, ReactNode } from './types';
 
 export interface SidebarConfig {
+  enabled?: boolean;
   width?: number;
-  collapsedWidth?: number;
+  min?: number;
   collapsible?: boolean;
-  defaultCollapsed?: boolean;
-  fullHeight?: boolean;
+  collapsed?: boolean;
+  full?: boolean;
   overlay?: boolean;
 }
 
-export interface SidebarProps extends SidebarConfig {
+export interface SidebarProps extends Partial<SidebarConfig> {
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   as?: ElementType;

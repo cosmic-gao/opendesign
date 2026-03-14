@@ -1,16 +1,16 @@
 # TypeScript 配置包设计方案
 
-- **版本**: 1.0.0
-- **更新日期**: 2026-02-27
+- **版本**: 1.1.0
+- **更新日期**: 2026-03-14
 - **状态**: 草稿
 
 ---
 
 ## 修改记录 (Changelog)
 
-| 版本 | 日期 | 修改内容 | 作者 |
-|------|------|----------|------|
-| 1.0.0 | 2026-02-27 | 初始版本 | - |
+| 版本 | 日期 | 修改内容 |
+|------|------|----------|
+| 1.1.0 | 2026-03-14 | 优化：统一 node.json 使用 NodeNext；修正 next.json target；新增 node16.json；完善版本兼容性说明 |
 
 ---
 
@@ -142,7 +142,7 @@ tsconfig/
     "./browser": "./environments/browser.json",
     "./vite": "./environments/vite.json",
     "./node": "./environments/node.json",
-    "./node18": "./environments/node18.json",
+    "./node16": "./environments/node16.json",
     "./react": "./environments/react.json",
     "./next": "./environments/next.json",
     "./vue": "./environments/vue.json",
@@ -257,8 +257,8 @@ tsconfig/
   "compilerOptions": {
     "lib": ["ES2022"],
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "types": ["node"],
     "outDir": "./dist"
   },
@@ -267,16 +267,16 @@ tsconfig/
 }
 ```
 
-#### node18.json - Node.js 18+
+#### node16.json - Node.js 16
+
+> **定位**：Node.js 16 项目配置，继承自 node.json。
 
 ```json
 {
   "extends": "./node.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+    "target": "ES2021",
+    "lib": ["ES2021"]
   }
 }
 ```
@@ -370,7 +370,6 @@ tsconfig/
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "target": "ES2017",
     "types": ["next"]
   }
 }
@@ -635,12 +634,11 @@ pnpm add @opendesign/tsconfig -D
 
 ## 九、版本兼容性
 
-| Node.js 版本 | 推荐配置 |
-|-------------|---------|
-| 14.x | node.json + target ES2020 |
-| 16.x | node.json + target ES2021 |
-| 18.x | node18.json |
-| 20.x+ | node.json (默认 ES2022) |
+| Node.js 版本 | 推荐配置 | 说明 |
+|-------------|---------|------|
+| 14.x | node.json + target ES2020 | 使用 bundler moduleResolution |
+| 16.x | node16.json | ES2021 target，支持 NodeNext |
+| 18.x+ | node.json | ES2022 target，NodeNext 模式 |
 
 ---
 

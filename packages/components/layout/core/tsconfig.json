@@ -1,5 +1,5 @@
 {
-  "extends": "@opendesign/tsconfig/esm",
+  "extends": "@opendesign/tsconfig/lib",
   "compilerOptions": {
     "rootDir": "src"
   },

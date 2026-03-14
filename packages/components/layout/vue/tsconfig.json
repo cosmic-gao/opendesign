@@ -1,13 +1,10 @@
 {
-  "extends": "@opendesign/tsconfig/vue",
+  "extends": [
+    "@opendesign/tsconfig/lib",
+    "@opendesign/tsconfig/vue"
+  ],
   "compilerOptions": {
-    "rootDir": "src",
-    "types": [
-      "vite/client",
-      "@vitejs/plugin-vue"
-    ]
+    "rootDir": "src"
   },
-  "include": [
-    "src/**/*"
-  ]
+  "include": ["src/**/*"]
 }

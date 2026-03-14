@@ -16,27 +16,20 @@ export interface LayoutState {
     fixed: boolean;
     height: number;
   };
+  content: {
+    visible: boolean;
+  };
 }
 
 export interface LayoutActions {
-  sidebar: {
-    toggle: () => void;
-    collapse: () => void;
-    expand: () => void;
-    show: () => void;
-    hide: () => void;
-    setCollapsed: (collapsed: boolean) => void;
-  };
-  header: {
-    show: () => void;
-    hide: () => void;
-    setFixed: (fixed: boolean) => void;
-  };
-  footer: {
-    show: () => void;
-    hide: () => void;
-    setFixed: (fixed: boolean) => void;
-  };
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleHeader: () => void;
+  setHeaderVisible: (visible: boolean) => void;
+  setHeaderFixed: (fixed: boolean) => void;
+  toggleFooter: () => void;
+  setFooterVisible: (visible: boolean) => void;
+  setFooterFixed: (fixed: boolean) => void;
 }
 
 export interface UseLayoutStateOptions {
@@ -50,37 +43,26 @@ export interface LayoutStore {
   actions: LayoutActions;
 }
 
-/**
- * 创建布局状态仓库
- * 
- * @description
- * 初始化布局状态并提供操作方法。
- * 此函数仅返回初始状态和空操作函数，实际响应式逻辑由框架层实现。
- * 
- * @param {UseLayoutStateOptions} [options={}] - 初始配置
- * @returns {LayoutStore} 状态和操作
- */
 export function createStore(options: UseLayoutStateOptions = {}): LayoutStore {
-  const sidebarCollapsed = options.sidebar?.defaultCollapsed ?? false;
-  const sidebarVisible = true;
+  const sidebarCollapsed = options.sidebar?.collapsed ?? false;
+  const sidebarVisible = options.sidebar?.enabled ?? true;
 
   return {
     state: {
       sidebar: { collapsed: sidebarCollapsed, visible: sidebarVisible, width: options.sidebar?.width ?? 200 },
-      header: { visible: true, fixed: options.header?.fixed ?? false, height: options.header?.height ?? 64 },
-      footer: { visible: true, fixed: options.footer?.fixed ?? false, height: options.footer?.height ?? 48 },
+      header: { visible: options.header?.enabled ?? true, fixed: options.header?.fixed ?? false, height: options.header?.height ?? 64 },
+      footer: { visible: options.footer?.enabled ?? true, fixed: options.footer?.fixed ?? false, height: options.footer?.height ?? 48 },
+      content: { visible: true },
     },
     actions: {
-      sidebar: {
-        toggle: () => {},
-        collapse: () => {},
-        expand: () => {},
-        show: () => {},
-        hide: () => {},
-        setCollapsed: () => {},
-      },
-      header: { show: () => {}, hide: () => {}, setFixed: () => {} },
-      footer: { show: () => {}, hide: () => {}, setFixed: () => {} },
+      toggleSidebar: () => {},
+      setSidebarCollapsed: () => {},
+      toggleHeader: () => {},
+      setHeaderVisible: () => {},
+      setHeaderFixed: () => {},
+      toggleFooter: () => {},
+      setFooterVisible: () => {},
+      setFooterFixed: () => {},
     },
   };
 }
