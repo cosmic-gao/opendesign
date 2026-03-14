@@ -10,9 +10,9 @@ export const Sidebar: React.FC<SidebarProps & { children?: ReactNode }> = (props
   
   const currentWidth = useMemo(() => 
     isCollapsed 
-      ? (props.collapsedWidth ?? cssVars['--od-sidebar-collapsed-width']) 
+      ? (props.min ?? cssVars['--od-sidebar-min-width']) 
       : (props.width ?? cssVars['--od-sidebar-width']),
-    [isCollapsed, props.collapsedWidth, props.width, cssVars]
+    [isCollapsed, props.min, props.width, cssVars]
   );
 
   const mergedStyle = useMemo<CSSProperties>(() => ({
@@ -25,9 +25,9 @@ export const Sidebar: React.FC<SidebarProps & { children?: ReactNode }> = (props
     'od-layout-sidebar',
     props.className,
     isCollapsed && 'od-layout-sidebar--collapsed',
-    props.fullHeight && 'od-layout-sidebar--full-height',
+    props.full && 'od-layout-sidebar--full',
     props.overlay && 'od-layout-sidebar--overlay',
-  ].filter(Boolean).join(' '), [props.className, isCollapsed, props.fullHeight, props.overlay]);
+  ].filter(Boolean).join(' '), [props.className, isCollapsed, props.full, props.overlay]);
 
   return (
     <aside className={classNames} style={mergedStyle}>

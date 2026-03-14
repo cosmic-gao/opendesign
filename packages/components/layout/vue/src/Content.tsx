@@ -4,6 +4,7 @@ import type { LayoutStyles } from '@openlayout/core';
 
 export const Content = defineComponent((props: ContentProps, { slots }) => {
   const layoutStyles = inject<ComputedRef<LayoutStyles>>('layoutStyles');
+  const layoutState = inject<{ content: { visible: boolean } }>('layoutState');
 
   const mergedStyle = computed<StyleValue>(() => ({
     ...(layoutStyles?.value?.content ?? {}),
@@ -14,9 +15,12 @@ export const Content = defineComponent((props: ContentProps, { slots }) => {
 
   const rootClass = computed(() => ['od-layout-content', props.className]);
 
-  return () => (
-    <main class={rootClass.value} style={mergedStyle.value}>
-      {slots.default?.()}
-    </main>
-  );
+  return () => {
+    if (layoutState?.content.visible === false) return null;
+    return (
+      <main class={rootClass.value} style={mergedStyle.value}>
+        {slots.default?.()}
+      </main>
+    );
+  };
 });

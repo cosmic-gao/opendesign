@@ -18,8 +18,8 @@ export const Header: React.FC<HeaderProps & { children?: ReactNode }> = (props) 
     'od-layout-header',
     props.className,
     props.fixed && 'od-layout-header--fixed',
-    props.fullWidth && 'od-layout-header--full-width',
-  ].filter(Boolean).join(' '), [props.className, props.fixed, props.fullWidth]);
+    props.full && 'od-layout-header--full',
+  ].filter(Boolean).join(' '), [props.className, props.fixed, props.full]);
 
   return (
     <header className={classNames} style={mergedStyle}>

@@ -22,7 +22,7 @@ export const Default: Story = {
   render: () => (
     <Layout
       header={{ fixed: true }}
-      sidebar={{ width: 240, collapsedWidth: 64 }}
+      sidebar={{ width: 240, min: 64 }}
     >
       <Header height={60}>Header Content</Header>
       <div style={{ display: 'flex', flex: 1, paddingTop: '60px' }}>
@@ -45,7 +45,7 @@ export const WithCollapsedSidebar: Story = {
   render: () => (
     <Layout
       header={{ fixed: true }}
-      sidebar={{ width: 240, collapsedWidth: 64, defaultCollapsed: true }}
+      sidebar={{ width: 240, min: 64, collapsed: true }}
     >
       <Header height={60}>Header Content</Header>
       <div style={{ display: 'flex', flex: 1, paddingTop: '60px' }}>

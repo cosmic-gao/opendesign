@@ -17,7 +17,7 @@ export const Header = defineComponent((props: HeaderProps, { slots }) => {
     'od-layout-header',
     props.className,
     { 'od-layout-header--fixed': props.fixed },
-    { 'od-layout-header--full-width': props.fullWidth },
+    { 'od-layout-header--full': props.full },
   ]);
 
   return () => {

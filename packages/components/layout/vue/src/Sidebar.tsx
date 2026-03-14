@@ -11,7 +11,7 @@ export const Sidebar = defineComponent((props: SidebarProps, { slots }) => {
     const cssVars = layoutStyles?.value?.cssVariables ?? {};
     
     const currentWidth = isCollapsed 
-      ? (props.collapsedWidth ?? cssVars['--od-sidebar-collapsed-width']) 
+      ? (props.min ?? cssVars['--od-sidebar-min-width']) 
       : (props.width ?? cssVars['--od-sidebar-width']);
 
     return {
@@ -25,7 +25,7 @@ export const Sidebar = defineComponent((props: SidebarProps, { slots }) => {
     'od-layout-sidebar',
     props.className,
     { 'od-layout-sidebar--collapsed': props.collapsed ?? layoutState?.sidebar.collapsed },
-    { 'od-layout-sidebar--full-height': props.fullHeight },
+    { 'od-layout-sidebar--full': props.full },
     { 'od-layout-sidebar--overlay': props.overlay },
   ]);
 

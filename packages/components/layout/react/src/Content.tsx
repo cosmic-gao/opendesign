@@ -3,7 +3,9 @@ import { useLayout } from './Layout';
 import type { ContentProps } from '@openlayout/config';
 
 export const Content: React.FC<ContentProps & { children?: ReactNode }> = (props) => {
-  const { styles } = useLayout();
+  const { styles, state } = useLayout();
+
+  if (state.content.visible === false) return null;
 
   const mergedStyle = useMemo<CSSProperties>(() => ({
     ...styles.content,

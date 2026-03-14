@@ -17,7 +17,7 @@ export const Footer = defineComponent((props: FooterProps, { slots }) => {
     'od-layout-footer',
     props.className,
     { 'od-layout-footer--fixed': props.fixed },
-    { 'od-layout-footer--full-width': props.fullWidth },
+    { 'od-layout-footer--full': props.full },
   ]);
 
   return () => {

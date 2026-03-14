@@ -18,8 +18,8 @@ export const Footer: React.FC<FooterProps & { children?: ReactNode }> = (props) 
     'od-layout-footer',
     props.className,
     props.fixed && 'od-layout-footer--fixed',
-    props.fullWidth && 'od-layout-footer--full-width',
-  ].filter(Boolean).join(' '), [props.className, props.fixed, props.fullWidth]);
+    props.full && 'od-layout-footer--full',
+  ].filter(Boolean).join(' '), [props.className, props.fixed, props.full]);
 
   return (
     <footer className={classNames} style={mergedStyle}>

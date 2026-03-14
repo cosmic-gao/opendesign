@@ -44,7 +44,7 @@ export const Default: Story = {
   }),
   args: {
     header: { fixed: true },
-    sidebar: { width: 240, collapsedWidth: 64 },
+    sidebar: { width: 240, min: 64 },
   },
 };
 
@@ -73,7 +73,7 @@ export const WithCollapsedSidebar: Story = {
   }),
   args: {
     header: { fixed: true },
-    sidebar: { width: 240, collapsedWidth: 64, defaultCollapsed: true },
+    sidebar: { width: 240, min: 64, collapsed: true },
   },
 };
 
