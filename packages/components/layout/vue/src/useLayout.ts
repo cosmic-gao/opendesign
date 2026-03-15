@@ -1,16 +1,16 @@
 import { computed, type ComputedRef, inject, type Ref } from "vue";
 import type { LayoutConfig } from "@openlayout/config";
-import type { LayoutState, LayoutActions } from "@openlayout/core";
+import type { LayoutState, LayoutActions, ResponsiveState } from "@openlayout/core";
 
 export function useLayout() {
   const config = inject<ComputedRef<LayoutConfig>>("layoutConfig");
-  const responsive = inject<{ breakpoint: Ref<string>; width: Ref<number>; isMobile: Ref<boolean> }>("layoutResponsive");
+  const responsive = inject<ComputedRef<ResponsiveState>>("layoutResponsive");
 
   return {
-    isMobile: responsive?.isMobile,
-    breakpoint: responsive?.breakpoint,
+    isMobile: computed(() => responsive?.value.isMobile),
+    breakpoint: computed(() => responsive?.value.breakpoint),
     breakpoints: computed(() => config?.value?.breakpoints),
-    width: responsive?.width,
+    width: computed(() => responsive?.value.width),
     headerHeight: computed(() => config?.value?.header?.height ?? 64),
     footerHeight: computed(() => config?.value?.footer?.height ?? 48),
     sidebarWidth: computed(() => config?.value?.sidebar?.width ?? 200),

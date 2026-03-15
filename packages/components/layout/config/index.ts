@@ -18,6 +18,19 @@ export const DEFAULT_BREAKPOINTS: Breakpoints = {
   xxl: 1400,
 };
 
+export const DEFAULT_SIZES = Object.freeze({
+  HEADER_HEIGHT: 64,
+  FOOTER_HEIGHT: 48,
+  SIDEBAR_WIDTH: 200,
+  SIDEBAR_MIN_WIDTH: 80,
+});
+
+export const DEFAULT_Z_INDEX = Object.freeze({
+  HEADER_FIXED: 1000,
+  FOOTER_FIXED: 1000,
+  SIDEBAR_OVERLAY: 1001,
+});
+
 export interface HeaderConfig {
   enabled?: boolean;
   height?: number;
@@ -64,3 +77,5 @@ export interface LayoutConfig {
   animation?: AnimationConfig;
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
 }
+
+export type LayoutProps = LayoutConfig;

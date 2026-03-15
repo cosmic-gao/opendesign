@@ -1,7 +1,7 @@
 import { defineComponent, computed, provide, reactive, ref, onMounted, onUnmounted, type PropType } from 'vue';
 import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
 import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
-import type { LayoutState, LayoutStyles, LayoutActions } from '@openlayout/core';
+import type { LayoutState, LayoutStyles, LayoutActions, ResponsiveState } from '@openlayout/core';
 
 export const Layout = defineComponent({
   name: 'ODLayout',
@@ -20,28 +20,10 @@ export const Layout = defineComponent({
   setup(props) {
     const config = computed<LayoutConfig>(() => props as LayoutConfig);
 
-    const breakpoint = ref<Breakpoint>('lg');
-    const width = ref(0);
-
-    const updateResponsive = () => {
-      const current = createResponsive({ breakpoints: props.breakpoints, mobileBreakpoint: props.mobileBreakpoint });
-      breakpoint.value = current.breakpoint;
-      width.value = current.width;
-      props.onBreakpointChange?.(current.breakpoint, current.width);
-    };
-
-    onMounted(() => {
-      if (typeof window !== 'undefined') {
-        window.addEventListener('resize', updateResponsive);
-        updateResponsive();
-      }
-    });
-
-    onUnmounted(() => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('resize', updateResponsive);
-      }
-    });
+    const responsive = computed<ResponsiveState>(() => createResponsive({
+      breakpoints: props.breakpoints,
+      mobileBreakpoint: props.mobileBreakpoint,
+    }));
 
     const layoutState = createLayoutState(config.value);
     const state = reactive(layoutState);
@@ -57,12 +39,6 @@ export const Layout = defineComponent({
       setFooterFixed: (v: boolean) => { state.footer.fixed = v; },
     };
 
-    const responsive = computed(() => ({
-      breakpoint: breakpoint.value,
-      width: width.value,
-      isMobile: width.value < (props.mobileBreakpoint ?? 768),
-    }));
-
     const styles = computed(() => createStylesheet(config.value, state, responsive.value, state.sidebar.collapsed));
 
     provide('layoutConfig', config);
@@ -70,6 +46,24 @@ export const Layout = defineComponent({
     provide('layoutActions', actions);
     provide('layoutStyles', styles);
     provide('layoutResponsive', responsive);
+
+    const updateResponsive = () => {
+      const current = createResponsive({ breakpoints: props.breakpoints, mobileBreakpoint: props.mobileBreakpoint });
+      props.onBreakpointChange?.(current.breakpoint, current.width);
+    };
+
+    onMounted(() => {
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', updateResponsive);
+        updateResponsive();
+      }
+    });
+
+    onUnmounted(() => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', updateResponsive);
+      }
+    });
 
     return { styles, state };
   },

@@ -1,5 +1,5 @@
 import type { LayoutConfig, Breakpoint, Breakpoints } from '@openlayout/config';
-import { DEFAULT_BREAKPOINTS } from '@openlayout/config';
+import { DEFAULT_BREAKPOINTS, DEFAULT_SIZES, DEFAULT_Z_INDEX } from '@openlayout/config';
 
 export interface ResponsiveState {
   breakpoint: Breakpoint;
@@ -26,19 +26,6 @@ export interface LayoutStyles {
   cssVariables: Record<string, string>;
 }
 
-const Z_INDEX = Object.freeze({
-  HEADER_FIXED: 1000,
-  FOOTER_FIXED: 1000,
-  SIDEBAR_OVERLAY: 1001,
-});
-
-const DEFAULTS = Object.freeze({
-  HEADER_HEIGHT: 64,
-  FOOTER_HEIGHT: 48,
-  SIDEBAR_WIDTH: 200,
-  SIDEBAR_MIN_WIDTH: 80,
-});
-
 type GlobalThis = typeof globalThis;
 
 function getEnv<T, K extends keyof GlobalThis>(key: K): T | undefined {
@@ -51,15 +38,15 @@ function getWindowWidth(): number {
 }
 
 function getBreakpoint(width: number, breakpoints: Breakpoints): Breakpoint {
-  const sorted = [
-    { bp: 'xs' as const, v: breakpoints.xs ?? 480 },
-    { bp: 'sm' as const, v: breakpoints.sm ?? 576 },
-    { bp: 'md' as const, v: breakpoints.md ?? 768 },
-    { bp: 'lg' as const, v: breakpoints.lg ?? 992 },
-    { bp: 'xl' as const, v: breakpoints.xl ?? 1200 },
-    { bp: 'xxl' as const, v: breakpoints.xxl ?? Infinity },
+  const breakpointEntries: Array<{ bp: Breakpoint; v: number }> = [
+    { bp: 'xs', v: breakpoints.xs ?? DEFAULT_BREAKPOINTS.xs ?? Infinity },
+    { bp: 'sm', v: breakpoints.sm ?? DEFAULT_BREAKPOINTS.sm ?? Infinity },
+    { bp: 'md', v: breakpoints.md ?? DEFAULT_BREAKPOINTS.md ?? Infinity },
+    { bp: 'lg', v: breakpoints.lg ?? DEFAULT_BREAKPOINTS.lg ?? Infinity },
+    { bp: 'xl', v: breakpoints.xl ?? DEFAULT_BREAKPOINTS.xl ?? Infinity },
+    { bp: 'xxl', v: breakpoints.xxl ?? Infinity },
   ];
-  for (const { bp, v } of sorted) {
+  for (const { bp, v } of breakpointEntries) {
     if (width < v) return bp;
   }
   return 'xxl';
@@ -98,19 +85,19 @@ export function createStore(config?: Partial<LayoutConfig>): LayoutState {
     header: {
       visible: hc.enabled ?? true,
       fixed: hc.fixed ?? false,
-      height: hc.height ?? DEFAULTS.HEADER_HEIGHT,
+      height: hc.height ?? DEFAULT_SIZES.HEADER_HEIGHT,
       full: hc.full ?? false,
     },
     footer: {
       visible: fc.enabled ?? true,
       fixed: fc.fixed ?? false,
-      height: fc.height ?? DEFAULTS.FOOTER_HEIGHT,
+      height: fc.height ?? DEFAULT_SIZES.FOOTER_HEIGHT,
       full: fc.full ?? false,
     },
     sidebar: {
       visible: sc.enabled ?? true,
-      width: sc.width ?? DEFAULTS.SIDEBAR_WIDTH,
-      min: sc.min ?? DEFAULTS.SIDEBAR_MIN_WIDTH,
+      width: sc.width ?? DEFAULT_SIZES.SIDEBAR_WIDTH,
+      min: sc.min ?? DEFAULT_SIZES.SIDEBAR_MIN_WIDTH,
       collapsed: sc.collapsed ?? false,
       overlay: sc.overlay ?? false,
       full: sc.full ?? false,
@@ -148,16 +135,16 @@ export function createStylesheet(
   const root: Record<string, string> = { display: 'flex', flexDirection: 'column', minHeight: '100vh', ...cssVariables };
 
   const header: Record<string, string> = { flexShrink: '0', height: `${hs.height}px` };
-  if (hs.fixed) Object.assign(header, { position: 'fixed', top: '0', left: '0', right: '0', zIndex: String(Z_INDEX.HEADER_FIXED) });
+  if (hs.fixed) Object.assign(header, { position: 'fixed', top: '0', left: '0', right: '0', zIndex: String(DEFAULT_Z_INDEX.HEADER_FIXED) });
   if (hs.full) header.width = '100%';
 
   const footer: Record<string, string> = { flexShrink: '0', height: `${fs.height}px` };
-  if (fs.fixed) Object.assign(footer, { position: 'fixed', bottom: '0', left: '0', right: '0', zIndex: String(Z_INDEX.FOOTER_FIXED) });
+  if (fs.fixed) Object.assign(footer, { position: 'fixed', bottom: '0', left: '0', right: '0', zIndex: String(DEFAULT_Z_INDEX.FOOTER_FIXED) });
   if (fs.full) footer.width = '100%';
 
   const sidebar: Record<string, string> = { flexShrink: '0', width: `${collapsed ? ss.min : ss.width}px`, transition: 'width var(--od-animation-duration, 200ms) ease' };
   if (ss.full) sidebar.height = '100%';
-  if (ss.overlay || isMobile) Object.assign(sidebar, { position: 'fixed', zIndex: String(Z_INDEX.SIDEBAR_OVERLAY) });
+  if (ss.overlay || isMobile) Object.assign(sidebar, { position: 'fixed', zIndex: String(DEFAULT_Z_INDEX.SIDEBAR_OVERLAY) });
 
   const content: Record<string, string> = { flex: '1', minWidth: '0' };
   if (cs.scrollable) content.overflow = 'auto';

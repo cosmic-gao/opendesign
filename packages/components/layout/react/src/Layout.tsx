@@ -1,19 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
 import type { LayoutConfig, LayoutProps, Breakpoint } from '@openlayout/config';
-import type { LayoutState, LayoutStyles, LayoutActions } from '@openlayout/core';
-
-interface ResponsiveInfo {
-  breakpoint: Breakpoint;
-  width: number;
-  isMobile: boolean;
-}
+import type { LayoutState, LayoutStyles, LayoutActions, ResponsiveState } from '@openlayout/core';
 
 interface LayoutContextValue {
   config: LayoutConfig;
   state: LayoutState;
   styles: LayoutStyles;
-  responsive: ResponsiveInfo;
+  responsive: ResponsiveState;
   actions: LayoutActions;
 }
 
@@ -38,14 +32,12 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
 
   const config = useMemo<LayoutConfig>(() => rest as LayoutConfig, [rest]);
 
-  const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
-  const [width, setWidth] = useState<number>(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     const updateResponsive = () => {
+      setTick(t => t + 1);
       const current = createResponsive({ breakpoints: props.breakpoints, mobileBreakpoint: props.mobileBreakpoint });
-      setBreakpoint(current.breakpoint);
-      setWidth(current.width);
       props.onBreakpointChange?.(current.breakpoint, current.width);
     };
 
@@ -60,6 +52,11 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
       }
     };
   }, [props.breakpoints, props.mobileBreakpoint, props.onBreakpointChange]);
+
+  const responsive = useMemo<ResponsiveState>(() => createResponsive({
+    breakpoints: config.breakpoints,
+    mobileBreakpoint: config.mobileBreakpoint,
+  }), [config.breakpoints, config.mobileBreakpoint, setTick]);
 
   const layoutState = useMemo(() => createLayoutState(config), [config]);
 
@@ -87,11 +84,10 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
     setFooterFixed,
   }), []);
 
-  const responsive = useMemo<ResponsiveInfo>(() => ({
-    breakpoint,
-    width,
-    isMobile: width < (config.mobileBreakpoint ?? config.breakpoints?.md ?? 768),
-  }), [breakpoint, width, config.mobileBreakpoint, config.breakpoints]);
+  const responsive = useMemo<ResponsiveState>(() => createResponsive({
+    breakpoints: config.breakpoints,
+    mobileBreakpoint: config.mobileBreakpoint,
+  }), [config.breakpoints, config.mobileBreakpoint]);
 
   const styles = useMemo(() => createStylesheet(config, state, responsive, sidebarCollapsed), [config, state, responsive, sidebarCollapsed]);
 
