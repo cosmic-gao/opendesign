@@ -1,8 +1,10 @@
 import React, { useMemo, type ReactNode, type CSSProperties } from 'react';
 import { useLayout } from './Layout';
-import type { FooterProps } from '@openlayout/config';
+import type { FooterConfig } from '@openlayout/config';
 
-export const Footer: React.FC<FooterProps & { children?: ReactNode }> = (props) => {
+export type FooterProps = FooterConfig & { children?: ReactNode; className?: string; style?: CSSProperties };
+
+export const Footer: React.FC<FooterProps> = (props) => {
   const { styles, state } = useLayout();
 
   if (state.footer.visible === false) return null;

@@ -1,9 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
-import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
-import type { LayoutConfig, LayoutProps, Breakpoint } from '@openlayout/config';
-import type { LayoutState, LayoutStyles, LayoutActions, ResponsiveState } from '@openlayout/core';
+import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
+import type { LayoutConfig } from '@openlayout/config';
+import type { LayoutState, LayoutStyles, ResponsiveState } from '@openlayout/core';
 
-interface LayoutContextValue {
+interface LayoutActions {
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (value: boolean) => void;
+  toggleHeader: () => void;
+  setHeaderVisible: (value: boolean) => void;
+  setHeaderFixed: (value: boolean) => void;
+  toggleFooter: () => void;
+  setFooterVisible: (value: boolean) => void;
+  setFooterFixed: (value: boolean) => void;
+}
+
+export interface LayoutContextValue {
   config: LayoutConfig;
   state: LayoutState;
   styles: LayoutStyles;
@@ -23,16 +34,17 @@ export const useLayout = () => {
   return context;
 };
 
-interface LayoutComponentProps extends LayoutProps {
+interface LayoutComponentProps extends LayoutConfig {
   children?: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 export const Layout: React.FC<LayoutComponentProps> = (props) => {
   const { children, className, style, ...rest } = props;
 
   const config = useMemo<LayoutConfig>(() => rest as LayoutConfig, [rest]);
-
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     const updateResponsive = () => {
@@ -53,25 +65,32 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
     };
   }, [props.breakpoints, props.mobileBreakpoint, props.onBreakpointChange]);
 
+  const baseState = useMemo(() => createStore(config), [config]);
+
+  useMemo(() => {
+    createResponsive({
+      breakpoints: config.breakpoints,
+      mobileBreakpoint: config.mobileBreakpoint,
+    });
+  }, [config.breakpoints, config.mobileBreakpoint, tick]);
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(baseState.sidebar.collapsed);
+  const [headerVisible, setHeaderVisible] = useState(baseState.header.visible);
+  const [headerFixed, setHeaderFixed] = useState(baseState.header.fixed);
+  const [footerVisible, setFooterVisible] = useState(baseState.footer.visible);
+  const [footerFixed, setFooterFixed] = useState(baseState.footer.fixed);
+
+  const state = useMemo<LayoutState>(() => ({
+    ...baseState,
+    sidebar: { ...baseState.sidebar, collapsed: sidebarCollapsed },
+    header: { ...baseState.header, visible: headerVisible, fixed: headerFixed },
+    footer: { ...baseState.footer, visible: footerVisible, fixed: footerFixed },
+  }), [baseState, sidebarCollapsed, headerVisible, headerFixed, footerVisible, footerFixed]);
+
   const responsive = useMemo<ResponsiveState>(() => createResponsive({
     breakpoints: config.breakpoints,
     mobileBreakpoint: config.mobileBreakpoint,
-  }), [config.breakpoints, config.mobileBreakpoint, setTick]);
-
-  const layoutState = useMemo(() => createLayoutState(config), [config]);
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(layoutState.sidebar.collapsed);
-  const [headerVisible, setHeaderVisible] = useState(layoutState.header.visible);
-  const [headerFixed, setHeaderFixed] = useState(layoutState.header.fixed);
-  const [footerVisible, setFooterVisible] = useState(layoutState.footer.visible);
-  const [footerFixed, setFooterFixed] = useState(layoutState.footer.fixed);
-
-  const state = useMemo(() => ({
-    ...layoutState,
-    sidebar: { ...layoutState.sidebar, collapsed: sidebarCollapsed },
-    header: { ...layoutState.header, visible: headerVisible, fixed: headerFixed },
-    footer: { ...layoutState.footer, visible: footerVisible, fixed: footerFixed },
-  }), [layoutState, sidebarCollapsed, headerVisible, headerFixed, footerVisible, footerFixed]);
+  }), [config.breakpoints, config.mobileBreakpoint]);
 
   const actions: LayoutActions = useMemo(() => ({
     toggleSidebar: () => setSidebarCollapsed(prev => !prev),
@@ -83,11 +102,6 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
     setFooterVisible,
     setFooterFixed,
   }), []);
-
-  const responsive = useMemo<ResponsiveState>(() => createResponsive({
-    breakpoints: config.breakpoints,
-    mobileBreakpoint: config.mobileBreakpoint,
-  }), [config.breakpoints, config.mobileBreakpoint]);
 
   const styles = useMemo(() => createStylesheet(config, state, responsive, sidebarCollapsed), [config, state, responsive, sidebarCollapsed]);
 

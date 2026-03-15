@@ -1,8 +1,10 @@
 import React, { useMemo, type ReactNode, type CSSProperties } from 'react';
 import { useLayout } from './Layout';
-import type { HeaderProps } from '@openlayout/config';
+import type { HeaderConfig } from '@openlayout/config';
 
-export const Header: React.FC<HeaderProps & { children?: ReactNode }> = (props) => {
+export type HeaderProps = HeaderConfig & { children?: ReactNode; className?: string; style?: CSSProperties };
+
+export const Header: React.FC<HeaderProps> = (props) => {
   const { styles, state } = useLayout();
 
   if (state.header.visible === false) return null;

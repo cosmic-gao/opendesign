@@ -1,6 +1,8 @@
 import { defineComponent, inject, computed, type ComputedRef, type StyleValue } from 'vue';
-import type { FooterProps } from '@openlayout/config';
+import type { FooterConfig } from '@openlayout/config';
 import type { LayoutStyles } from '@openlayout/core';
+
+export type FooterProps = FooterConfig & { className?: string; style?: Record<string, string | number> };
 
 export const Footer = defineComponent((props: FooterProps, { slots }) => {
   const layoutStyles = inject<ComputedRef<LayoutStyles>>('layoutStyles');

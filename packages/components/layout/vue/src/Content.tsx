@@ -1,6 +1,8 @@
 import { defineComponent, inject, computed, type ComputedRef, type StyleValue } from 'vue';
-import type { ContentProps } from '@openlayout/config';
+import type { ContentConfig } from '@openlayout/config';
 import type { LayoutStyles } from '@openlayout/core';
+
+export type ContentProps = ContentConfig & { className?: string; style?: Record<string, string | number> };
 
 export const Content = defineComponent((props: ContentProps, { slots }) => {
   const layoutStyles = inject<ComputedRef<LayoutStyles>>('layoutStyles');

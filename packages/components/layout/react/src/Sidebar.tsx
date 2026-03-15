@@ -1,8 +1,10 @@
 import React, { useMemo, type ReactNode, type CSSProperties } from 'react';
 import { useLayout } from './Layout';
-import type { SidebarProps } from '@openlayout/config';
+import type { SidebarConfig } from '@openlayout/config';
 
-export const Sidebar: React.FC<SidebarProps & { children?: ReactNode }> = (props) => {
+export type SidebarProps = SidebarConfig & { children?: ReactNode; className?: string; style?: CSSProperties };
+
+export const Sidebar: React.FC<SidebarProps> = (props) => {
   const { styles, state } = useLayout();
 
   const isCollapsed = props.collapsed ?? state.sidebar.collapsed;

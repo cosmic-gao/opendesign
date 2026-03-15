@@ -1,6 +1,17 @@
-import { computed, type ComputedRef, inject, type Ref } from "vue";
+import { computed, type ComputedRef, inject } from "vue";
 import type { LayoutConfig } from "@openlayout/config";
-import type { LayoutState, LayoutActions, ResponsiveState } from "@openlayout/core";
+import type { LayoutState, ResponsiveState } from "@openlayout/core";
+
+interface LayoutActions {
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (value: boolean) => void;
+  toggleHeader: () => void;
+  setHeaderVisible: (value: boolean) => void;
+  setHeaderFixed: (value: boolean) => void;
+  toggleFooter: () => void;
+  setFooterVisible: (value: boolean) => void;
+  setFooterFixed: (value: boolean) => void;
+}
 
 export function useLayout() {
   const config = inject<ComputedRef<LayoutConfig>>("layoutConfig");

@@ -85,5 +85,3 @@ export interface LayoutConfig {
   animation?: AnimationConfig;
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
 }
-
-export type LayoutProps = LayoutConfig;

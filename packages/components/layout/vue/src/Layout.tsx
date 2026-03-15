@@ -1,23 +1,38 @@
-import { defineComponent, computed, provide, reactive, ref, onMounted, onUnmounted, type PropType } from 'vue';
-import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
-import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
-import type { LayoutState, LayoutStyles, LayoutActions, ResponsiveState } from '@openlayout/core';
+import { defineComponent, computed, provide, reactive, onMounted, onUnmounted, type PropType, type ExtractPropTypes } from 'vue';
+import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
+import type { LayoutConfig } from '@openlayout/config';
+import type { ResponsiveState } from '@openlayout/core';
+
+interface LayoutActions {
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (value: boolean) => void;
+  toggleHeader: () => void;
+  setHeaderVisible: (value: boolean) => void;
+  setHeaderFixed: (value: boolean) => void;
+  toggleFooter: () => void;
+  setFooterVisible: (value: boolean) => void;
+  setFooterFixed: (value: boolean) => void;
+}
+
+const propTypes = {
+  header: { type: Object as PropType<LayoutConfig['header']>, default: () => ({}) },
+  footer: { type: Object as PropType<LayoutConfig['footer']>, default: () => ({}) },
+  sidebar: { type: Object as PropType<LayoutConfig['sidebar']>, default: () => ({}) },
+  content: { type: Object as PropType<LayoutConfig['content']>, default: () => ({}) },
+  breakpoints: { type: Object as PropType<LayoutConfig['breakpoints']> },
+  mobileBreakpoint: { type: Number, default: 768 },
+  animation: { type: Object as PropType<LayoutConfig['animation']>, default: () => ({}) },
+  className: { type: String, default: '' },
+  style: { type: Object as PropType<Record<string, string | number>>, default: () => ({}) },
+  onBreakpointChange: { type: Function as PropType<LayoutConfig['onBreakpointChange']> },
+};
+
+export type LayoutProps = ExtractPropTypes<typeof propTypes>;
 
 export const Layout = defineComponent({
   name: 'ODLayout',
-  props: {
-    header: { type: Object as PropType<LayoutProps['header']>, default: () => ({}) },
-    footer: { type: Object as PropType<LayoutProps['footer']>, default: () => ({}) },
-    sidebar: { type: Object as PropType<LayoutProps['sidebar']>, default: () => ({}) },
-    content: { type: Object as PropType<LayoutProps['content']>, default: () => ({}) },
-    breakpoints: { type: Object as PropType<LayoutProps['breakpoints']>, default: undefined },
-    mobileBreakpoint: { type: Number, default: 768 },
-    animation: { type: Object as PropType<LayoutProps['animation']>, default: () => ({}) },
-    className: { type: String, default: '' },
-    style: { type: Object as PropType<Record<string, string | number>>, default: () => ({}) },
-    onBreakpointChange: { type: Function as PropType<LayoutProps['onBreakpointChange']>, default: undefined },
-  },
-  setup(props) {
+  props: propTypes,
+  setup(props: LayoutProps) {
     const config = computed<LayoutConfig>(() => props as LayoutConfig);
 
     const responsive = computed<ResponsiveState>(() => createResponsive({
@@ -25,7 +40,7 @@ export const Layout = defineComponent({
       mobileBreakpoint: props.mobileBreakpoint,
     }));
 
-    const layoutState = createLayoutState(config.value);
+    const layoutState = createStore(config.value);
     const state = reactive(layoutState);
 
     const actions: LayoutActions = {

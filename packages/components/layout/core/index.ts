@@ -2,7 +2,7 @@ import type { LayoutConfig, Breakpoint, Breakpoints } from '@openlayout/config';
 import { DEFAULT_BREAKPOINTS, DEFAULT_SIZES, DEFAULT_Z_INDEX, BREAKPOINT_ORDER } from '@openlayout/config';
 
 export type { Breakpoint, Breakpoints } from '@openlayout/config';
-export type { HeaderConfig, FooterConfig, SidebarConfig, ContentConfig, AnimationConfig, LayoutProps } from '@openlayout/config';
+export type { HeaderConfig, FooterConfig, SidebarConfig, ContentConfig, AnimationConfig } from '@openlayout/config';
 
 export interface ResponsiveState {
   breakpoint: Breakpoint;

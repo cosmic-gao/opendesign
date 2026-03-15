@@ -1,8 +1,10 @@
 import React, { useMemo, type ReactNode, type CSSProperties } from 'react';
 import { useLayout } from './Layout';
-import type { ContentProps } from '@openlayout/config';
+import type { ContentConfig } from '@openlayout/config';
 
-export const Content: React.FC<ContentProps & { children?: ReactNode }> = (props) => {
+export type ContentProps = ContentConfig & { children?: ReactNode; className?: string; style?: CSSProperties };
+
+export const Content: React.FC<ContentProps> = (props) => {
   const { styles, state } = useLayout();
 
   if (state.content.visible === false) return null;

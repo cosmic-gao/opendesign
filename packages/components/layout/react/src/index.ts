@@ -5,5 +5,5 @@ export { Sidebar } from './Sidebar';
 export { Content } from './Content';
 export { useSidebar, useHeader, useFooter, useContent } from './useLayout';
 
-export type { LayoutProps, HeaderProps, FooterProps, SidebarProps, ContentProps } from '@openlayout/config';
+export type { LayoutConfig } from '@openlayout/config';
 export type { LayoutContextValue } from './Layout';
