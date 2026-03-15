@@ -1,10 +1,7 @@
 {
   "extends": [
     "@opendesign/tsconfig/lib",
-    "@opendesign/tsconfig/browser",
+    "@opendesign/tsconfig/browser"
   ],
-  "compilerOptions": {
-    "rootDir": "src"
-  },
-  "include": ["src/**/*"]
+  "include": ["**/*"]
 }

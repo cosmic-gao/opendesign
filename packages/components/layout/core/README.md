@@ -1,6 +1,6 @@
 # @openlayout/core
 
-> 布局逻辑层 - 断点计算、样式生成、状态管理
+> 布局核心 - 响应式断点、状态管理、样式生成
 
 ## 安装
 
@@ -8,137 +8,176 @@
 pnpm add @openlayout/core
 ```
 
-## 功能
+## 依赖
+
+```bash
+pnpm add @openlayout/config
+```
+
+## API
 
 ### createResponsive
 
-创建响应式断点监听器。
+创建响应式状态，监听窗口变化。
 
 ```typescript
 import { createResponsive } from '@openlayout/core';
 
-const { breakpoint, isMobile, isAbove, isBelow } = createResponsive({
-  breakpoints: { md: 768 },
+const responsive = createResponsive({
+  breakpoints: { md: 768, lg: 992 },
   mobileBreakpoint: 768,
 });
 
-console.log(breakpoint); // 'lg'
-console.log(isMobile);   // false
-console.log(isAbove('md')); // true
-console.log(isBelow('lg')); // false
+console.log(responsive.breakpoint);  // 'xxl'
+console.log(responsive.width);         // 1400
+console.log(responsive.isMobile);     // false
+console.log(responsive.isAbove('md')); // true
+console.log(responsive.isBelow('lg')); // false
 ```
 
 **参数：**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| breakpoints | `Partial<Breakpoints>` | DEFAULT_BREAKPOINTS | 断点配置 |
-| mobileBreakpoint | `number` | 768 | 移动端断点阈值 |
-| onChange | `(breakpoint: Breakpoint) => void` | - | 断点变化回调 |
+| config | `Partial<LayoutConfig>` | - | 布局配置，支持 breakpoints 和 mobileBreakpoint |
 
-**返回值：**
+**返回值 - ResponsiveState：**
 
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | breakpoint | `Breakpoint` | 当前断点 |
-| isMobile | `boolean` | 是否移动端 |
+| breakpoints | `Breakpoints` | 断点配置 |
+| width | `number` | 当前窗口宽度 |
 | isAbove | `(bp: Breakpoint) => boolean` | 是否大于等于指定断点 |
 | isBelow | `(bp: Breakpoint) => boolean` | 是否小于指定断点 |
+| isMobile | `boolean` | 是否移动端 |
+
+---
+
+### createLayoutState
+
+根据配置创建布局状态。
+
+```typescript
+import { createLayoutState } from '@openlayout/core';
+
+const state = createLayoutState({
+  header: { enabled: true, height: 64, fixed: true, full: true },
+  footer: { enabled: false, height: 48 },
+  sidebar: { enabled: true, width: 200, min: 80, collapsed: false, overlay: true },
+  content: { enabled: true, scrollable: true },
+});
+
+console.log(state.header.visible);   // true
+console.log(state.sidebar.width);   // 200
+console.log(state.sidebar.collapsed); // false
+```
+
+**参数：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| config | `Partial<LayoutConfig>` | - | 布局配置 |
+
+**返回值 - LayoutState：**
+
+```typescript
+interface LayoutState {
+  header: { visible: boolean; fixed: boolean; height: number; full: boolean };
+  footer: { visible: boolean; fixed: boolean; height: number; full: boolean };
+  sidebar: { visible: boolean; width: number; min: number; collapsed: boolean; overlay: boolean; full: boolean };
+  content: { visible: boolean; scrollable: boolean };
+}
+```
+
+---
 
 ### createStylesheet
 
-生成布局样式。
+根据配置和状态生成 CSS 样式对象。
 
 ```typescript
 import { createStylesheet } from '@openlayout/core';
 
-const styles = createStylesheet({
-  config: {
-    header: { height: 64, fixed: true },
-    sidebar: { width: 200, collapsible: true },
-  },
-  breakpoint: 'lg',
-  isMobile: false,
-  collapsed: false,
-});
+const styles = createStylesheet(
+  { animation: { enabled: true, duration: 200, easing: 'ease' } },
+  state,
+  responsive,
+  false  // sidebarCollapsed
+);
 
 console.log(styles.root);
 console.log(styles.header);
 console.log(styles.sidebar);
+console.log(styles.cssVariables);
 ```
 
 **参数：**
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| config | `LayoutConfig` | 布局配置 |
-| breakpoint | `Breakpoint` | 当前断点 |
-| isMobile | `boolean` | 是否移动端 |
-| collapsed | `boolean` | 侧边栏是否折叠 |
+| config | `Partial<LayoutConfig>` | 布局配置 |
+| state | `LayoutState` | 布局状态 |
+| responsive | `ResponsiveState` | 响应式状态 |
+| sidebarCollapsed | `boolean` | 侧边栏是否折叠（可选） |
 
-**返回值：**
+**返回值 - LayoutStyles：**
 
 ```typescript
 interface LayoutStyles {
-  root: Record<string, string | number>;
-  header: Record<string, string | number>;
-  footer: Record<string, string | number>;
-  sidebar: Record<string, string | number>;
-  content: Record<string, string | number>;
-  cssVariables: Record<string, string | number>;
+  root: Record<string, string>;
+  header: Record<string, string>;
+  footer: Record<string, string>;
+  sidebar: Record<string, string>;
+  content: Record<string, string>;
+  cssVariables: Record<string, string>;
 }
 ```
 
-### createStore
+---
 
-创建布局状态仓库。
-
-```typescript
-import { createStore } from '@openlayout/core';
-
-const { state, actions } = createStore({
-  sidebar: { defaultCollapsed: true, width: 200 },
-  header: { height: 64, fixed: false },
-  footer: { height: 48 },
-});
-
-// 状态
-console.log(state.sidebar.collapsed); // true
-
-// 操作
-actions.sidebar.toggle();
-actions.sidebar.collapse();
-actions.sidebar.expand();
-actions.sidebar.show();
-actions.sidebar.hide();
-actions.sidebar.setCollapsed(false);
-```
-
-**参数：**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| options | `UseLayoutStateOptions` | 初始配置 |
-
-**返回值：**
+## 使用示例
 
 ```typescript
-interface LayoutStore {
-  state: LayoutState;
-  actions: LayoutActions;
-}
+import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
+import type { LayoutConfig } from '@openlayout/config';
+
+const config: Partial<LayoutConfig> = {
+  header: { enabled: true, height: 64, fixed: true },
+  footer: { enabled: true, height: 48 },
+  sidebar: { enabled: true, width: 200, collapsed: false, overlay: true },
+  content: { enabled: true, scrollable: true },
+  breakpoints: { md: 768, lg: 992 },
+  mobileBreakpoint: 768,
+};
+
+// 创建响应式状态
+const responsive = createResponsive(config);
+
+// 创建布局状态
+const state = createLayoutState(config);
+
+// 生成样式
+const styles = createStylesheet(config, state, responsive, false);
+
+// 应用样式
+Object.assign(container.style, styles.root);
+Object.assign(header.style, styles.header);
+Object.assign(sidebar.style, styles.sidebar);
+Object.assign(content.style, styles.content);
 ```
 
 ## CSS 变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `--od-header-height` | 64 | 头部高度 |
-| `--od-footer-height` | 48 | 底部高度 |
-| `--od-sidebar-width` | 200 | 侧边栏宽度 |
-| `--od-sidebar-collapsed-width` | 80 | 侧边栏折叠宽度 |
-| `--od-animated` | 1 | 是否启用动画 |
-| `--od-animation-duration` | 200 | 动画时长 |
+| `--od-header-height` | 64px | 头部高度 |
+| `--od-footer-height` | 48px | 底部高度 |
+| `--od-sidebar-width` | 200px | 侧边栏宽度 |
+| `--od-sidebar-min-width` | 80px | 侧边栏最小宽度 |
+| `--od-animation-enabled` | 1 | 是否启用动画 |
+| `--od-animation-duration` | 200ms | 动画时长 |
+| `--od-animation-easing` | ease | 动画缓动函数 |
 | `--od-breakpoint` | - | 当前断点 |
 | `--od-is-mobile` | 0/1 | 是否移动端 |
 
