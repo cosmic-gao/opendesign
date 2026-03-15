@@ -88,7 +88,7 @@ export function createResponsive(config?: Partial<LayoutConfig>): ResponsiveStat
   };
 }
 
-export function createLayoutState(config?: Partial<LayoutConfig>): LayoutState {
+export function createStore(config?: Partial<LayoutConfig>): LayoutState {
   const hc = config?.header ?? {};
   const fc = config?.footer ?? {};
   const sc = config?.sidebar ?? {};

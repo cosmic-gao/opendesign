@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createResponsive, createLayoutState, createStylesheet } from './index';
+import { createResponsive, createStore, createStylesheet } from './index';
 
 const mockWindow = (width: number) => {
   vi.stubGlobal('window', { innerWidth: width });
@@ -53,9 +53,9 @@ describe('createResponsive', () => {
   });
 });
 
-describe('createLayoutState', () => {
+describe('createStore', () => {
   it('should return default values', () => {
-    const state = createLayoutState();
+    const state = createStore();
     expect(state.header.visible).toBe(true);
     expect(state.header.height).toBe(64);
     expect(state.footer.visible).toBe(true);
@@ -65,7 +65,7 @@ describe('createLayoutState', () => {
   });
 
   it('should use custom header config', () => {
-    const state = createLayoutState({
+    const state = createStore({
       header: { enabled: false, height: 80, fixed: true, full: true },
     });
     expect(state.header.visible).toBe(false);
@@ -75,7 +75,7 @@ describe('createLayoutState', () => {
   });
 
   it('should use custom footer config', () => {
-    const state = createLayoutState({
+    const state = createStore({
       footer: { enabled: false, height: 60, fixed: true, full: true },
     });
     expect(state.footer.visible).toBe(false);
@@ -85,7 +85,7 @@ describe('createLayoutState', () => {
   });
 
   it('should use custom sidebar config', () => {
-    const state = createLayoutState({
+    const state = createStore({
       sidebar: { enabled: false, width: 300, min: 100, collapsed: true, overlay: true, full: true },
     });
     expect(state.sidebar.visible).toBe(false);
@@ -97,7 +97,7 @@ describe('createLayoutState', () => {
   });
 
   it('should use custom content config', () => {
-    const state = createLayoutState({
+    const state = createStore({
       content: { enabled: false, scrollable: false },
     });
     expect(state.content.visible).toBe(false);

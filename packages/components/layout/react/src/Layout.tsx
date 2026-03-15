@@ -1,19 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react';
-import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
-import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
+import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
+import type { LayoutConfig, LayoutProps, Breakpoint } from '@openlayout/config';
+import type { LayoutState, LayoutStyles, LayoutActions } from '@openlayout/core';
+
+interface ResponsiveInfo {
+  breakpoint: Breakpoint;
+  width: number;
+  isMobile: boolean;
+}
 
 interface LayoutContextValue {
   config: LayoutConfig;
-  state: ReturnType<typeof createStore>['state'];
-  styles: ReturnType<typeof createStylesheet>;
-  responsive: {
-    breakpoint: Breakpoint;
-    width: number;
-    isMobile: boolean;
-  };
+  state: LayoutState;
+  styles: LayoutStyles;
+  responsive: ResponsiveInfo;
+  actions: LayoutActions;
 }
-
-export type { LayoutContextValue };
 
 const LayoutContext = createContext<LayoutContextValue | null>(null);
 
@@ -37,41 +39,44 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
   const config = useMemo<LayoutConfig>(() => rest as LayoutConfig, [rest]);
 
   const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
-  const [width, setWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 0);
-  const isMobile = useMemo(() => width < (props.mobileBreakpoint ?? 768), [width, props.mobileBreakpoint]);
+  const [width, setWidth] = useState<number>(0);
 
   useEffect(() => {
     const updateResponsive = () => {
-      const current = createResponsive({ breakpoints: props.breakpoints });
-      if (current.breakpoint !== breakpoint) {
-        setBreakpoint(current.breakpoint);
-        props.onBreakpointChange?.(current.breakpoint, window.innerWidth);
-      }
-      setWidth(window.innerWidth);
+      const current = createResponsive({ breakpoints: props.breakpoints, mobileBreakpoint: props.mobileBreakpoint });
+      setBreakpoint(current.breakpoint);
+      setWidth(current.width);
+      props.onBreakpointChange?.(current.breakpoint, current.width);
     };
 
-    window.addEventListener('resize', updateResponsive);
-    updateResponsive();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', updateResponsive);
+      updateResponsive();
+    }
 
-    return () => window.removeEventListener('resize', updateResponsive);
-  }, [props.breakpoints, breakpoint, props.onBreakpointChange]);
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', updateResponsive);
+      }
+    };
+  }, [props.breakpoints, props.mobileBreakpoint, props.onBreakpointChange]);
 
-  const store = useMemo(() => createStore(config), [config]);
+  const layoutState = useMemo(() => createLayoutState(config), [config]);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(store.state.sidebar.collapsed);
-  const [headerVisible, setHeaderVisible] = useState(store.state.header.visible);
-  const [headerFixed, setHeaderFixed] = useState(store.state.header.fixed);
-  const [footerVisible, setFooterVisible] = useState(store.state.footer.visible);
-  const [footerFixed, setFooterFixed] = useState(store.state.footer.fixed);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(layoutState.sidebar.collapsed);
+  const [headerVisible, setHeaderVisible] = useState(layoutState.header.visible);
+  const [headerFixed, setHeaderFixed] = useState(layoutState.header.fixed);
+  const [footerVisible, setFooterVisible] = useState(layoutState.footer.visible);
+  const [footerFixed, setFooterFixed] = useState(layoutState.footer.fixed);
 
-  const layoutState = useMemo(() => ({
-    ...store.state,
-    sidebar: { ...store.state.sidebar, collapsed: sidebarCollapsed },
-    header: { ...store.state.header, visible: headerVisible, fixed: headerFixed },
-    footer: { ...store.state.footer, visible: footerVisible, fixed: footerFixed },
-  }), [store.state, sidebarCollapsed, headerVisible, headerFixed, footerVisible, footerFixed]);
+  const state = useMemo(() => ({
+    ...layoutState,
+    sidebar: { ...layoutState.sidebar, collapsed: sidebarCollapsed },
+    header: { ...layoutState.header, visible: headerVisible, fixed: headerFixed },
+    footer: { ...layoutState.footer, visible: footerVisible, fixed: footerFixed },
+  }), [layoutState, sidebarCollapsed, headerVisible, headerFixed, footerVisible, footerFixed]);
 
-  const actions = useMemo(() => ({
+  const actions: LayoutActions = useMemo(() => ({
     toggleSidebar: () => setSidebarCollapsed(prev => !prev),
     setSidebarCollapsed,
     toggleHeader: () => setHeaderVisible(prev => !prev),
@@ -80,25 +85,27 @@ export const Layout: React.FC<LayoutComponentProps> = (props) => {
     toggleFooter: () => setFooterVisible(prev => !prev),
     setFooterVisible,
     setFooterFixed,
-  }), [setSidebarCollapsed, setHeaderVisible, setHeaderFixed, setFooterVisible, setFooterFixed]);
+  }), []);
 
-  const styles = useMemo(() => createStylesheet({
-    config,
+  const responsive = useMemo<ResponsiveInfo>(() => ({
     breakpoint,
-    isMobile,
-    collapsed: sidebarCollapsed,
-  }), [config, breakpoint, isMobile, sidebarCollapsed]);
+    width,
+    isMobile: width < (config.mobileBreakpoint ?? config.breakpoints?.md ?? 768),
+  }), [breakpoint, width, config.mobileBreakpoint, config.breakpoints]);
+
+  const styles = useMemo(() => createStylesheet(config, state, responsive, sidebarCollapsed), [config, state, responsive, sidebarCollapsed]);
 
   const contextValue = useMemo(() => ({
     config,
-    state: layoutState,
+    state,
     styles,
-    responsive: { breakpoint, width, isMobile },
-  }), [config, layoutState, styles, breakpoint, width, isMobile]);
+    responsive,
+    actions,
+  }), [config, state, styles, responsive, actions]);
 
   return (
     <LayoutContext.Provider value={contextValue}>
-      <div className={`od-layout ${className ?? ''}`} style={{ ...styles.root, ...style } as CSSProperties}>
+      <div className={`od-layout ${className ?? ''}`} style={{ ...styles.root, ...style }}>
         {children}
       </div>
     </LayoutContext.Provider>

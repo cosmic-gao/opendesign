@@ -54,14 +54,14 @@ console.log(responsive.isBelow('lg')); // false
 
 ---
 
-### createLayoutState
+### createStore
 
 根据配置创建布局状态。
 
 ```typescript
-import { createLayoutState } from '@openlayout/core';
+import { createStore } from '@openlayout/core';
 
-const state = createLayoutState({
+const state = createStore({
   header: { enabled: true, height: 64, fixed: true, full: true },
   footer: { enabled: false, height: 48 },
   sidebar: { enabled: true, width: 200, min: 80, collapsed: false, overlay: true },
@@ -139,7 +139,7 @@ interface LayoutStyles {
 ## 使用示例
 
 ```typescript
-import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
+import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
 import type { LayoutConfig } from '@openlayout/config';
 
 const config: Partial<LayoutConfig> = {
@@ -155,7 +155,7 @@ const config: Partial<LayoutConfig> = {
 const responsive = createResponsive(config);
 
 // 创建布局状态
-const state = createLayoutState(config);
+const state = createStore(config);
 
 // 生成样式
 const styles = createStylesheet(config, state, responsive, false);

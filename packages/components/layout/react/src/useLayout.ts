@@ -11,7 +11,7 @@ export function useSidebar() {
     collapsed: context.state.sidebar.collapsed,
     visible: context.state.sidebar.visible,
     width: context.state.sidebar.width,
-    min: context.state.sidebar.width,
+    min: context.state.sidebar.min,
     toggle: context.actions.toggleSidebar,
     setCollapsed: context.actions.setSidebarCollapsed,
   };
@@ -27,6 +27,7 @@ export function useHeader() {
     visible: context.state.header.visible,
     fixed: context.state.header.fixed,
     height: context.state.header.height,
+    full: context.state.header.full,
     setVisible: context.actions.setHeaderVisible,
     setFixed: context.actions.setHeaderFixed,
   };
@@ -42,6 +43,7 @@ export function useFooter() {
     visible: context.state.footer.visible,
     fixed: context.state.footer.fixed,
     height: context.state.footer.height,
+    full: context.state.footer.full,
     setVisible: context.actions.setFooterVisible,
     setFixed: context.actions.setFooterFixed,
   };
@@ -55,6 +57,6 @@ export function useContent() {
 
   return {
     visible: context.state.content.visible,
-    scrollable: true,
+    scrollable: context.state.content.scrollable,
   };
 }

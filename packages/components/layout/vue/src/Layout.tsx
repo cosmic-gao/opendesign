@@ -1,6 +1,7 @@
 import { defineComponent, computed, provide, reactive, ref, onMounted, onUnmounted, type PropType } from 'vue';
-import { createResponsive, createStore, createStylesheet } from '@openlayout/core';
+import { createResponsive, createLayoutState, createStylesheet } from '@openlayout/core';
 import type { LayoutProps, LayoutConfig, Breakpoint } from '@openlayout/config';
+import type { LayoutState, LayoutStyles, LayoutActions } from '@openlayout/core';
 
 export const Layout = defineComponent({
   name: 'ODLayout',
@@ -19,57 +20,58 @@ export const Layout = defineComponent({
   setup(props) {
     const config = computed<LayoutConfig>(() => props as LayoutConfig);
 
-    const responsiveHelper = createResponsive({ breakpoints: props.breakpoints });
-    const breakpoint = ref<Breakpoint>(responsiveHelper.breakpoint);
-    const width = ref(typeof window !== 'undefined' ? window.innerWidth : 0);
-    const isMobile = computed(() => width.value < (props.mobileBreakpoint ?? 768));
+    const breakpoint = ref<Breakpoint>('lg');
+    const width = ref(0);
 
     const updateResponsive = () => {
-      const current = createResponsive({ breakpoints: props.breakpoints });
-      if (current.breakpoint !== breakpoint.value) {
-        breakpoint.value = current.breakpoint;
-        props.onBreakpointChange?.(current.breakpoint, window.innerWidth);
-      }
-      width.value = window.innerWidth;
+      const current = createResponsive({ breakpoints: props.breakpoints, mobileBreakpoint: props.mobileBreakpoint });
+      breakpoint.value = current.breakpoint;
+      width.value = current.width;
+      props.onBreakpointChange?.(current.breakpoint, current.width);
     };
 
     onMounted(() => {
-      window.addEventListener('resize', updateResponsive);
-      updateResponsive();
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', updateResponsive);
+        updateResponsive();
+      }
     });
 
     onUnmounted(() => {
-      window.removeEventListener('resize', updateResponsive);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', updateResponsive);
+      }
     });
 
-    const store = createStore(config.value);
-    const layoutState = reactive(store.state);
+    const layoutState = createLayoutState(config.value);
+    const state = reactive(layoutState);
 
-    const actions = {
-      toggleSidebar: () => { layoutState.sidebar.collapsed = !layoutState.sidebar.collapsed; },
-      setSidebarCollapsed: (v: boolean) => { layoutState.sidebar.collapsed = v; },
-      toggleHeader: () => { layoutState.header.visible = !layoutState.header.visible; },
-      setHeaderVisible: (v: boolean) => { layoutState.header.visible = v; },
-      setHeaderFixed: (v: boolean) => { layoutState.header.fixed = v; },
-      toggleFooter: () => { layoutState.footer.visible = !layoutState.footer.visible; },
-      setFooterVisible: (v: boolean) => { layoutState.footer.visible = v; },
-      setFooterFixed: (v: boolean) => { layoutState.footer.fixed = v; },
+    const actions: LayoutActions = {
+      toggleSidebar: () => { state.sidebar.collapsed = !state.sidebar.collapsed; },
+      setSidebarCollapsed: (v: boolean) => { state.sidebar.collapsed = v; },
+      toggleHeader: () => { state.header.visible = !state.header.visible; },
+      setHeaderVisible: (v: boolean) => { state.header.visible = v; },
+      setHeaderFixed: (v: boolean) => { state.header.fixed = v; },
+      toggleFooter: () => { state.footer.visible = !state.footer.visible; },
+      setFooterVisible: (v: boolean) => { state.footer.visible = v; },
+      setFooterFixed: (v: boolean) => { state.footer.fixed = v; },
     };
 
-    const styles = computed(() => createStylesheet({
-      config: config.value,
+    const responsive = computed(() => ({
       breakpoint: breakpoint.value,
-      isMobile: isMobile.value,
-      collapsed: layoutState.sidebar.collapsed,
+      width: width.value,
+      isMobile: width.value < (props.mobileBreakpoint ?? 768),
     }));
 
+    const styles = computed(() => createStylesheet(config.value, state, responsive.value, state.sidebar.collapsed));
+
     provide('layoutConfig', config);
-    provide('layoutState', layoutState);
+    provide('layoutState', state);
     provide('layoutActions', actions);
     provide('layoutStyles', styles);
-    provide('layoutResponsive', { breakpoint, width, isMobile });
+    provide('layoutResponsive', responsive);
 
-    return { styles, layoutState };
+    return { styles, state };
   },
   render() {
     const { styles, $slots, className, style } = this;
