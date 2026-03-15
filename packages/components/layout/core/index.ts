@@ -23,7 +23,7 @@ export interface LayoutStyles {
   footer: Record<string, string>;
   sidebar: Record<string, string>;
   content: Record<string, string>;
-  cssVariables: Record<string, string>;
+  variables: Record<string, string>;
 }
 
 type GlobalThis = typeof globalThis;
@@ -120,7 +120,7 @@ export function createStylesheet(
   const collapsed = sidebarCollapsed ?? ss.collapsed;
   const anim = config.animation ?? { enabled: true, duration: 200, easing: 'ease' };
 
-  const cssVariables: Record<string, string> = {
+  const variables: Record<string, string> = {
     '--od-header-height': `${hs.height}px`,
     '--od-footer-height': `${fs.height}px`,
     '--od-sidebar-width': collapsed ? `${ss.min}px` : `${ss.width}px`,
@@ -132,7 +132,7 @@ export function createStylesheet(
     '--od-is-mobile': isMobile ? '1' : '0',
   };
 
-  const root: Record<string, string> = { display: 'flex', flexDirection: 'column', minHeight: '100vh', ...cssVariables };
+  const root: Record<string, string> = { display: 'flex', flexDirection: 'column', minHeight: '100vh', ...variables };
 
   const header: Record<string, string> = { flexShrink: '0', height: `${hs.height}px` };
   if (hs.fixed) Object.assign(header, { position: 'fixed', top: '0', left: '0', right: '0', zIndex: String(DEFAULT_Z_INDEX.HEADER_FIXED) });
@@ -149,5 +149,5 @@ export function createStylesheet(
   const content: Record<string, string> = { flex: '1', minWidth: '0' };
   if (cs.scrollable) content.overflow = 'auto';
 
-  return { root, header, footer, sidebar, content, cssVariables };
+  return { root, header, footer, sidebar, content, variables };
 }
