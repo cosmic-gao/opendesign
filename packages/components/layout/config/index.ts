@@ -1,5 +1,7 @@
 export type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
 
+export const BREAKPOINT_ORDER: Breakpoint[] = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
+
 export interface Breakpoints {
   xs?: number;
   sm?: number;
@@ -9,14 +11,14 @@ export interface Breakpoints {
   xxl?: number;
 }
 
-export const DEFAULT_BREAKPOINTS: Breakpoints = {
+export const DEFAULT_BREAKPOINTS: Breakpoints = Object.freeze({
   xs: 480,
   sm: 576,
   md: 768,
   lg: 992,
   xl: 1200,
   xxl: 1400,
-};
+});
 
 export const DEFAULT_SIZES = Object.freeze({
   HEADER_HEIGHT: 64,
@@ -31,27 +33,31 @@ export const DEFAULT_Z_INDEX = Object.freeze({
   SIDEBAR_OVERLAY: 1001,
 });
 
-export interface HeaderConfig {
+export interface VisibilityConfig {
   enabled?: boolean;
-  height?: number;
-  fixed?: boolean;
   full?: boolean;
 }
 
-export interface FooterConfig {
-  enabled?: boolean;
-  height?: number;
+export interface FixedConfig {
   fixed?: boolean;
-  full?: boolean;
 }
 
-export interface SidebarConfig {
-  enabled?: boolean;
+export interface SizeConfig {
+  height?: number;
+}
+
+export interface WidthConfig {
   width?: number;
   min?: number;
+}
+
+export interface HeaderConfig extends VisibilityConfig, FixedConfig, SizeConfig {}
+
+export interface FooterConfig extends VisibilityConfig, FixedConfig, SizeConfig {}
+
+export interface SidebarConfig extends VisibilityConfig, WidthConfig {
   collapsible?: boolean;
   collapsed?: boolean;
-  full?: boolean;
   overlay?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
 }
@@ -61,10 +67,12 @@ export interface ContentConfig {
   scrollable?: boolean;
 }
 
+export type EasingType = 'linear' | 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | string;
+
 export interface AnimationConfig {
   enabled?: boolean;
   duration?: number;
-  easing?: string;
+  easing?: EasingType;
 }
 
 export interface LayoutConfig {
