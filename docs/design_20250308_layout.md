@@ -1545,3 +1545,687 @@ export default function RootLayout({ children }) {
 | 断点   | 默认值 (xxl)     | 实际检测          |
 | 交互   | 不可用           | 可用            |
 
+***
+
+## 11. 重构方案 - 基于开源最佳实践
+
+### 11.1 设计理念对齐
+
+参考 SoybeanAdmin 等成熟开源项目的架构设计，结合现有方案进行如下优化：
+
+| 维度         | 现有方案                          | 重构后方案                              | 参考来源              |
+| ------------ | ------------------------------- | ----------------------------------- | ------------------ |
+| 状态管理       | 框架原生响应式系统                    | Pinia (Vue) + Context (React)         | SoybeanAdmin      |
+| 样式方案       | CSS 变量 + 内联样式                  | UnoCSS 原子化样式 + CSS 变量              | SoybeanAdmin      |
+| 项目架构       | 单一配置包                         | pnpm monorepo 多包                     | SoybeanAdmin      |
+| 路由集成       | 独立使用                           | 布局与路由深度集成 (Elegant Router)          | SoybeanAdmin      |
+| 主题系统       | CSS 变量手动配置                    | UnoCSS 主题系统 + 内置明暗主题               | SoybeanAdmin      |
+| 国际化         | 无                                | 内置 i18n 支持                          | SoybeanAdmin      |
+| 移动端适配     | 基础响应式                         | 完整移动端适配 + 触摸优化                   | SoybeanAdmin      |
+
+### 11.2 状态管理重构 - 引入 Pinia
+
+> **核心理念**：参考 SoybeanAdmin 的状态管理方案，将布局状态从组件内部提升到全局 store 层面，支持多组件共享和持久化。
+
+```typescript
+// @openlayout/stores - layout store
+// 参考: SoybeanAdmin Pinia store 设计
+
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import type { LayoutConfig, SidebarConfig, HeaderConfig, FooterConfig } from '@openlayout/config';
+
+export const useLayoutStore = defineStore('layout', () => {
+  // ============ State ============
+  const config = ref<LayoutConfig>({
+    header: { enabled: true, height: 64, fixed: false, full: false },
+    footer: { enabled: true, height: 48, fixed: false, full: false },
+    sidebar: { enabled: true, width: 200, min: 80, collapsible: true, collapsed: false, full: true, overlay: false },
+    content: { enabled: true, scrollable: true },
+    animation: { enabled: true, duration: 200, easing: 'ease' },
+    breakpoints: { xs: 480, sm: 576, md: 768, lg: 992, xl: 1200, xxl: 1400 },
+    mobileBreakpoint: 768,
+  });
+
+  const breakpoint = ref<string>('xxl');
+  const isMobile = ref(false);
+  const isTablet = ref(false);
+  const isDesktop = ref(true);
+  const isDark = ref(false);
+  const isCollapsed = ref(false);
+  const isFixed = ref(false);
+  const mobileOpened = ref(false);
+
+  // ============ Getters ============
+  const headerHeight = computed(() => config.value.header?.height ?? 64);
+  const footerHeight = computed(() => config.value.footer?.height ?? 48);
+  const sidebarWidth = computed(() => isCollapsed.value
+    ? (config.value.sidebar?.min ?? 80)
+    : (config.value.sidebar?.width ?? 200)
+  );
+
+  const layoutClassName = computed(() => [
+    'od-layout',
+    {
+      'od-layout--mobile': isMobile.value,
+      'od-layout--tablet': isTablet.value,
+      'od-layout--desktop': isDesktop.value,
+      'od-layout--dark': isDark.value,
+      'od-layout--collapsed': isCollapsed.value,
+      'od-layout--fixed': isFixed.value,
+      'od-layout--mobile-opened': mobileOpened.value,
+    }
+  ]);
+
+  // ============ Actions ============
+  function setConfig(newConfig: Partial<LayoutConfig>) {
+    config.value = { ...config.value, ...newConfig };
+  }
+
+  function toggleSidebar() {
+    if (isMobile.value) {
+      mobileOpened.value = !mobileOpened.value;
+    } else {
+      isCollapsed.value = !isCollapsed.value;
+    }
+  }
+
+  function setCollapsed(collapsed: boolean) {
+    isCollapsed.value = collapsed;
+  }
+
+  function toggleMobile() {
+    mobileOpened.value = !mobileOpened.value;
+  }
+
+  function closeMobile() {
+    mobileOpened.value = false;
+  }
+
+  function setBreakpoint(bp: string) {
+    breakpoint.value = bp;
+  }
+
+  function setMobile(mobile: boolean) {
+    isMobile.value = mobile;
+  }
+
+  function setTablet(tablet: boolean) {
+    isTablet.value = tablet;
+  }
+
+  function setDesktop(desktop: boolean) {
+    isDesktop.value = desktop;
+  }
+
+  function toggleDark() {
+    isDark.value = !isDark.value;
+    if (import.meta.env.client) {
+      document.documentElement.classList.toggle('dark', isDark.value);
+    }
+  }
+
+  function toggleFixed() {
+    isFixed.value = !isFixed.value;
+  }
+
+  return {
+    // State
+    config,
+    breakpoint,
+    isMobile,
+    isTablet,
+    isDesktop,
+    isDark,
+    isCollapsed,
+    isFixed,
+    mobileOpened,
+    // Getters
+    headerHeight,
+    footerHeight,
+    sidebarWidth,
+    layoutClassName,
+    // Actions
+    setConfig,
+    toggleSidebar,
+    setCollapsed,
+    toggleMobile,
+    closeMobile,
+    setBreakpoint,
+    setMobile,
+    setTablet,
+    setDesktop,
+    toggleDark,
+    toggleFixed,
+  };
+});
+```
+
+**设计说明**：
+
+- 使用 Pinia 的 Setup Store 写法，代码更简洁
+- 状态分组清晰：配置、响应式状态、交互状态
+- 计算属性用于派生状态，避免重复计算
+- 支持 SSR 安全的客户端检测 (`import.meta.env.client`)
+
+### 11.3 样式系统重构 - 引入 UnoCSS
+
+> **核心理念**：参考 SoybeanAdmin 的 UnoCSS 集成方案，使用原子化 CSS 减少包体积，配合 CSS 变量实现主题切换。
+
+```typescript
+// @openlayout/core - UnoCSS preset 配置
+// 参考: SoybeanAdmin UnoCSS preset 设计
+
+import { defineConfig, presetUno, presetAttributify, presetIcons } from 'unocss';
+
+export default defineConfig({
+  presets: [
+    presetUno(),
+    presetAttributify(),
+    presetIcons({
+      scale: 1.2,
+      cdn: 'https://esm.sh/',
+    }),
+  ],
+  theme: {
+    colors: {
+      primary: {
+        DEFAULT: '#18a058',
+        light: '#36b076',
+        dark: '#0f7a45',
+      },
+    },
+    layout: {
+      headerHeight: '64px',
+      footerHeight: '48px',
+      sidebarWidth: '200px',
+      sidebarCollapsedWidth: '80px',
+    },
+  },
+  shortcuts: {
+    'layout-base': 'flex flex-col min-h-screen',
+    'layout-header': 'h-[--layout-header-height] flex-shrink-0',
+    'layout-footer': 'h-[--layout-footer-height] flex-shrink-0',
+    'layout-sidebar': 'w-[--layout-sidebar-width] flex-shrink-0 transition-all duration-200',
+    'layout-content': 'flex-1 min-w-0 overflow-auto',
+    'layout-fixed': 'fixed top-0 left-0 right-0 z-1000',
+    'layout-overlay': 'fixed top-0 left-0 bottom-0 z-1001',
+  },
+  variables: {
+    '--layout-header-height': '64px',
+    '--layout-footer-height': '48px',
+    '--layout-sidebar-width': '200px',
+    '--layout-sidebar-collapsed-width': '80px',
+    '--layout-transition': 'all 0.2s ease',
+  },
+});
+```
+
+**Vue 组件示例**：
+
+```vue
+<!-- @openlayout/vue - Layout.vue -->
+<script setup lang="ts">
+import { useLayoutStore } from '@openlayout/stores';
+import { storeToRefs } from 'pinia';
+
+const layoutStore = useLayoutStore();
+const { layoutClassName, config } = storeToRefs(layoutStore);
+</script>
+
+<template>
+  <div :class="layoutClassName" v-bind="$attrs">
+    <!-- Header -->
+    <layout-header
+      v-if="config.header?.enabled !== false"
+      :fixed="config.header?.fixed"
+      :full="config.header?.full"
+    >
+      <slot name="header" />
+    </layout-header>
+
+    <!-- Main Content Area -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
+      <layout-sidebar
+        v-if="config.sidebar?.enabled !== false"
+        :collapsed="layoutStore.isCollapsed"
+        :overlay="config.sidebar?.overlay || layoutStore.isMobile"
+        :width="config.sidebar?.width"
+        :min="config.sidebar?.min"
+      >
+        <slot name="sidebar" />
+      </layout-sidebar>
+
+      <!-- Content -->
+      <layout-content v-if="config.content?.enabled !== false">
+        <slot />
+      </layout-content>
+    </div>
+
+    <!-- Footer -->
+    <layout-footer
+      v-if="config.footer?.enabled !== false"
+      :fixed="config.footer?.fixed"
+      :full="config.footer?.full"
+    >
+      <slot name="footer" />
+    </layout-footer>
+  </div>
+</template>
+```
+
+### 11.4 路由集成 - 布局自动切换
+
+> **核心理念**：参考 SoybeanAdmin 的 Elegant Router 方案，实现布局与路由的深度集成。
+
+```typescript
+// @openlayout/core - 布局路由配置
+
+import type { RouteRecordRaw } from 'vue-router';
+
+interface LayoutRouteMeta {
+  layout?: 'default' | 'blank' | 'auth' | 'dashboard';
+  requiresAuth?: boolean;
+  roles?: string[];
+  title?: string;
+  icon?: string;
+}
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    component: () => import('@openlayout/vue/Layout.vue'),
+    meta: { layout: 'default' },
+    children: [
+      {
+        path: '',
+        name: 'home',
+        component: () => import('@/views/HomeView.vue'),
+        meta: { title: '首页', icon: 'mdi:home' },
+      },
+    ],
+  },
+  {
+    path: '/auth',
+    component: () => import('@openlayout/vue/Layout.vue'),
+    meta: { layout: 'auth' },
+    children: [
+      {
+        path: 'login',
+        name: 'login',
+        component: () => import('@/views/auth/LoginView.vue'),
+        meta: { title: '登录' },
+      },
+    ],
+  },
+];
+
+export { routes };
+```
+
+### 11.5 主题系统重构
+
+> **核心理念**：参考 SoybeanAdmin 的主题配置系统，支持明暗主题切换、主题色配置、紧凑模式等。
+
+```typescript
+// @openlayout/stores - theme store
+
+import { defineStore } from 'pinia';
+import { ref, watch } from 'vue';
+
+export type ThemeScheme = 'light' | 'dark' | 'auto';
+export type LayoutMode = 'vertical' | 'horizontal' | 'vertical-mixed';
+export type ColorPreset = 'default' | 'green' | 'blue' | 'purple' | 'orange' | 'red';
+
+export const useThemeStore = defineStore('theme', () => {
+  const scheme = ref<ThemeScheme>('light');
+  const layoutMode = ref<LayoutMode>('vertical');
+  const colorPreset = ref<ColorPreset>('default');
+  const compact = ref(false);
+  const radius = ref(6);
+
+  // 预设颜色
+  const colorPresets: Record<ColorPreset, string[]> = {
+    default: ['#18a058', '#36b076', '#0f7a45'],
+    green: ['#00947e', '#00b377', '#00725e'],
+    blue: ['#2080f0', '#4098fc', '#1060d0'],
+    purple: ['#9c27b0', '#ba68c8', '#7b1fa2'],
+    orange: ['#f57c00', '#ff9800', '#e65100'],
+    red: ['#d32f2f', '#ef5350', '#c62828'],
+  };
+
+  function setScheme(scheme: ThemeScheme) {
+    this.scheme = scheme;
+    applyScheme();
+  }
+
+  function applyScheme() {
+    if (!import.meta.env.client) return;
+
+    const isDark = scheme.value === 'dark' ||
+      (scheme.value === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  }
+
+  function setColorPreset(preset: ColorPreset) {
+    this.colorPreset = preset;
+    applyColor();
+  }
+
+  function applyColor() {
+    const colors = colorPresets[this.colorPreset];
+    const root = document.documentElement;
+    root.style.setProperty('--od-primary', colors[0]);
+    root.style.setProperty('--od-primary-light', colors[1]);
+    root.style.setProperty('--od-primary-dark', colors[2]);
+  }
+
+  function toggleCompact() {
+    this.compact = !this.compact;
+    document.documentElement.classList.toggle('compact', this.compact);
+  }
+
+  function setRadius(radius: number) {
+    this.radius = radius;
+    document.documentElement.style.setProperty('--od-radius', `${radius}px`);
+  }
+
+  // 监听系统主题变化
+  if (import.meta.env.client) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (scheme.value === 'auto') applyScheme();
+    });
+  }
+
+  return {
+    scheme,
+    layoutMode,
+    colorPreset,
+    compact,
+    radius,
+    colorPresets,
+    setScheme,
+    setColorPreset,
+    toggleCompact,
+    setRadius,
+  };
+});
+```
+
+### 11.6 国际化支持
+
+> **核心理念**：参考 SoybeanAdmin 的国际化方案，内置多语言支持。
+
+```typescript
+// @openlayout/i18n - 国际化配置
+
+import { createI18n } from 'vue-i18n';
+import zhCN from './locales/zh-CN';
+import enUS from './locales/en-US';
+
+export const i18n = createI18n({
+  legacy: false,
+  locale: 'zh-CN',
+  fallbackLocale: 'en-US',
+  messages: {
+    'zh-CN': zhCN,
+    'en-US': enUS,
+  },
+});
+
+// layout 相关翻译
+export const layoutMessages = {
+  'zh-CN': {
+    layout: {
+      toggleSidebar: '切换侧边栏',
+      collapse: '折叠',
+      expand: '展开',
+      fixed: '固定',
+      notFixed: '不固定',
+      theme: '主题',
+      light: '浅色',
+      dark: '深色',
+      auto: '跟随系统',
+    },
+  },
+  'en-US': {
+    layout: {
+      toggleSidebar: 'Toggle Sidebar',
+      collapse: 'Collapse',
+      expand: 'Expand',
+      fixed: 'Fixed',
+      notFixed: 'Not Fixed',
+      theme: 'Theme',
+      light: 'Light',
+      dark: 'Dark',
+      auto: 'Auto',
+    },
+  },
+};
+```
+
+### 11.7 移动端交互优化
+
+> **核心理念**：参考 SoybeanAdmin 的移动端适配方案，提供完整的触摸交互支持。
+
+```typescript
+// @openlayout/composables - useTouch 移动端交互
+
+import { ref, onMounted, onUnmounted } from 'vue';
+
+interface TouchOptions {
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
+  threshold?: number;
+}
+
+export function useTouch(options: TouchOptions = {}) {
+  const { onSwipeLeft, onSwipeRight, threshold = 50 } = options;
+
+  const startX = ref(0);
+  const startY = ref(0);
+  const currentX = ref(0);
+  const currentY = ref(0);
+  const isSwiping = ref(false);
+
+  function handleTouchStart(e: TouchEvent) {
+    const touch = e.touches[0];
+    startX.value = touch.clientX;
+    startY.value = touch.clientY;
+    currentX.value = touch.clientX;
+    currentY.value = touch.clientY;
+    isSwiping.value = true;
+  }
+
+  function handleTouchMove(e: TouchEvent) {
+    if (!isSwiping.value) return;
+
+    const touch = e.touches[0];
+    currentX.value = touch.clientX;
+    currentY.value = touch.clientY;
+  }
+
+  function handleTouchEnd() {
+    if (!isSwiping.value) return;
+
+    const deltaX = currentX.value - startX.value;
+    const deltaY = currentY.value - startY.value;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
+      if (deltaX > 0 && onSwipeRight) {
+        onSwipeRight();
+      } else if (deltaX < 0 && onSwipeLeft) {
+        onSwipeLeft();
+      }
+    }
+
+    isSwiping.value = false;
+  }
+
+  onMounted(() => {
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+  });
+
+  onUnmounted(() => {
+    document.removeEventListener('touchstart', handleTouchStart);
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+  });
+
+  return {
+    startX,
+    startY,
+    currentX,
+    currentY,
+    isSwiping,
+  };
+}
+```
+
+### 11.8 重构后的包结构
+
+```
+packages/components/layout/
+├── .vscode/
+│   └── settings.json
+│
+├── core/                    # @openlayout/core - 逻辑与样式层
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── createResponsive.ts
+│   │   ├── createStylesheet.ts
+│   │   └── utils.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── config/                  # @openlayout/config - 配置和类型
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── types.ts
+│   │   ├── layout.ts
+│   │   └── constants.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── stores/                  # @openlayout/stores - 状态管理 (新增)
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── layout.ts       # 布局状态
+│   │   └── theme.ts        # 主题状态
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── composables/             # @openlayout/composables - 组合式函数 (新增)
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── useTouch.ts     # 触摸交互
+│   │   ├── useBreakpoint.ts # 断点响应
+│   │   └── useSidebar.ts   # 侧边栏状态
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── i18n/                    # @openlayout/i18n - 国际化 (新增)
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── locales/
+│   │   │   ├── zh-CN.ts
+│   │   │   └── en-US.ts
+│   │   └── index.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── preset/                  # @openlayout/preset - UnoCSS 预设 (新增)
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── rules.ts
+│   │   └── shortcuts.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── vue/                     # @openlayout/vue - Vue3 实现
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── Layout.vue
+│   │   ├── Header.vue
+│   │   ├── Footer.vue
+│   │   ├── Sidebar.vue
+│   │   ├── Content.vue
+│   │   └── components/     # 内部组件
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── react/                   # @openlayout/react - React 实现
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── Layout.tsx
+│   │   ├── Header.tsx
+│   │   ├── Footer.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── Content.tsx
+│   ├── package.json
+│   └── tsconfig.json
+│
+└── package.json             # 根 workspace 配置
+```
+
+### 11.9 重构优先级
+
+| 阶段   | 任务                                    | 优先级 | 说明               |
+|------|---------------------------------------|------|------------------|
+| Phase 1 | 状态管理重构 (Pinia Store)                  | P0   | 核心功能，影响后续开发    |
+| Phase 1 | 样式系统重构 (UnoCSS 集成)                  | P0   | 性能优化，减少包体积     |
+| Phase 2 | 主题系统 (明暗主题、主题色)                    | P1   | 提升用户体验           |
+| Phase 2 | 路由集成 (布局自动切换)                     | P1   | 开发效率提升           |
+| Phase 3 | 国际化支持 (i18n)                         | P2   | 扩展功能             |
+| Phase 3 | 移动端优化 (触摸交互)                      | P2   | 移动端适配完善         |
+| Phase 4 | 组件增强 (标签页、面包屑、权限)                 | P3   | Admin 常用功能       |
+
+### 11.10 迁移路径
+
+```typescript
+// 旧版 API (兼容)
+import { Layout, Header, Sidebar, useLayout } from '@openlayout/vue';
+
+// 新版 API (推荐)
+import {
+  Layout,
+  Header,
+  Sidebar,
+  useLayoutStore,    // Pinia store
+  useThemeStore,    // 主题 store
+  useBreakpoint,    // 响应式 hook
+} from '@openlayout/vue';
+
+// 组合式兼容层
+import { useLayout } from '@openlayout/vue';
+
+// useLayout 内部已迁移到 Pinia
+function useLayout() {
+  const layoutStore = useLayoutStore();
+  const themeStore = useThemeStore();
+
+  return {
+    // 兼容旧版 API
+    collapsed: layoutStore.isCollapsed,
+    toggleSidebar: layoutStore.toggleSidebar,
+    // 新增功能
+    isMobile: layoutStore.isMobile,
+    isDark: themeStore.isDark,
+    toggleDark: themeStore.toggleDark,
+  };
+}
+```
+
+### 11.11 参考资料
+
+- [SoybeanAdmin](https://github.com/soybeanjs/soybean-admin) - Vue3 Admin 模板标杆
+- [Pinia](https://pinia.vuejs.org/) - Vue 官方推荐状态管理
+- [UnoCSS](https://unocss.dev/) - 原子化 CSS 引擎
+- [Elegant Router](https://github.com/soybeanjs/elegant-router) - 自动化文件路由
+- [VueUse](https://vueuse.org/) - Vue 组合式工具库
+
