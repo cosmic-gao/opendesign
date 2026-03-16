@@ -26,17 +26,17 @@
 
 ### 2.1 设计理念 - 核心与框架分离
 
-**核心原则**：采用微内核架构，core 层处理**断点计算**和**CSS 动态样式生成**，框架适配层（Vue/React）只负责渲染。
+**核心原则**：采用微内核架构，core 层处理**断点计算**和**CSS 动态样式生成**，Vue 层只负责渲染。
 
 **类型安全**：
 
 - 严格遵循 `@opendesign/tsconfig` 配置，启用 `strict: true`。
-- 所有组件 Props 使用 `@openlayout/config` 中定义的类型，确保跨框架一致性。
+- 所有组件 Props 使用 `@openlayout/config` 中定义的类型，确保类型一致性。
 
 | 层级            | 职责                     |
 | ------------- | ---------------------- |
 | **core**      | 断点计算、响应式样式生成、布局状态管理    |
-| **vue/react** | 组件渲染、DOM 事件绑定、框架特定 API |
+| **vue** | 组件渲染、DOM 事件绑定、框架特定 API |
 
 ### 2.2 组件 Props 设计
 
@@ -106,6 +106,7 @@ interface LayoutProps extends Partial<LayoutConfig> {
 ```
 
 **设计说明**：
+
 - 使用对象式配置 `header`、`footer`、`sidebar`、`content` 分组管理子组件属性
 - 层级清晰，避免属性平铺导致的混乱
 - 子组件仍可单独接收 props，根容器配置作为默认值
@@ -314,7 +315,7 @@ function getMediaQueries(
 > - 更好的性能（浏览器优化 CSS 变量）
 > - 便于 CSS-in-JS 方案迁移
 
-```typescript
+````typescript
 // @openlayout/core - CSS 变量与样式对象生成
 // 最佳实践: 使用 CSS 变量存储动态值，通过 JS 监听断点变化设置变量值
 
@@ -505,15 +506,15 @@ function createCSSVariables(prefix: string = 'od'): CSSVariablesExport {
   --od-footer-height: 36px;
   --od-sidebar-width: 160px;
 }
-```
+````
 
 #### 2.3.4 布局状态管理 (createStore)
 
-> **最佳实践**: 布局状态相对简单，使用框架原生响应式系统即可，无需引入 Redux/Zustand 等复杂状态管理库。
+> **最佳实践**: 布局状态相对简单，使用框架原生响应式系统即可，无需引入 Vuex/Pinia 等复杂状态管理库。
 
-```typescript
+````typescript
 // @openlayout/core - 布局状态管理
-// 最佳实践: 使用框架原生响应式系统（Vue: ref/reactive, React: useState/useReducer）
+// 最佳实践: 使用 Vue 原生响应式系统 (ref/reactive)
 
 import type { SidebarConfig } from '@openlayout/config';
 
@@ -597,7 +598,7 @@ function createStore(options: UseLayoutStateOptions = {}): LayoutStore {
 
 - 使用 `LayoutStore` 接口包装 `state` 和 `actions`，结构更清晰，避免交叉类型带来的类型推断问题
 - 框架层通过 `store.state` 访问状态，通过 `store.actions` 访问操作方法
-- 实际响应式逻辑由各框架适配层（Vue/React）实现
+- 实际响应式逻辑由 Vue 适配层实现
 
 ### 2.4 Vue 层 - TSX 组件实现
 
@@ -676,7 +677,7 @@ export const Layout = defineComponent((props: LayoutProps, { slots }) => {
     </div>
   );
 });
-```
+````
 
 ```tsx
 // @openlayout/vue - Header.tsx
@@ -764,30 +765,9 @@ export const Sidebar = defineComponent((props: SidebarProps, { slots }) => {
 - 代码更简洁，减少样板代码
 - 利用 Vue 3 的类型推断，确保类型安全
 
-### 2.5 React 层 - 设计思路
-
-React 层采用函数组件 + Context 实现，与 Vue 层类似：
-
-- 使用 `LayoutContext` 提供布局上下文
-- 使用 `useLayoutContext()` 获取状态和方法
-- 子组件（Header/Footer/Sidebar/Content）通过 Context 获取样式和状态
-
-**目录结构**：
-```
-react/
-├── Layout.tsx      # 根组件，提供 Context
-├── Header.tsx      # 头部组件
-├── Footer.tsx      # 底部组件
-├── Sidebar.tsx     # 侧边栏组件
-├── Content.tsx     # 内容组件
-└── useLayout.ts   # Hooks 导出
-```
-
-### 2.6 Hooks API 设计
+### 2.5 Hooks API 设计
 
 采用**按组件分组**的设计，简洁直观：
-
-#### Vue Hooks
 
 ```typescript
 // 从 @openlayout/vue 导入
@@ -809,29 +789,8 @@ const { visible, height, fixed, setVisible, setFixed } = useFooter();
 const { visible, scrollable } = useContent();
 ```
 
-#### React Hooks
-
-```typescript
-// 从 @openlayout/react 导入
-import { useLayout, useSidebar, useHeader, useFooter, useContent } from '@openlayout/react';
-
-// 响应式信息（断点、方向等）
-const { breakpoint, width, isMobile } = useLayout();
-
-// Sidebar 状态与方法
-const { collapsed, width, min, toggle, setCollapsed } = useSidebar();
-
-// Header 状态与方法
-const { visible, height, fixed, setVisible, setFixed } = useHeader();
-
-// Footer 状态与方法
-const { visible, height, fixed, setVisible, setFixed } = useFooter();
-
-// Content 状态与方法
-const { visible, scrollable } = useContent();
-```
-
 **Hooks 设计说明**：
+
 - `useLayout`: 全局响应式信息（断点、窗口尺寸等）
 - `useSidebar`: 侧边栏状态和方法
 - `useHeader`: 头部状态和方法
@@ -882,18 +841,6 @@ packages/components/layout/
 │   │   └── useLayout.ts         # Composition API hooks
 │   ├── package.json
 │   └── tsconfig.json
-│
-└── react/         # @openlayout/react - React 适配
-    ├── src/
-    │   ├── index.ts
-    │   ├── Layout.tsx
-    │   ├── Header.tsx
-    │   ├── Footer.tsx
-    │   ├── Sidebar.tsx
-    │   ├── Content.tsx
-    │   └── useLayout.ts
-    ├── package.json
-    └── tsconfig.json
 ```
 
 ### 3.2 严格类型配置
@@ -919,7 +866,7 @@ packages/components/layout/
 
 ```
 ┌─────────────────────────────────────┐
-│           vue / react               │
+│               vue                   │
 │         (框架适配层)                 │
 │   依赖: @openlayout/core           │
 │   依赖: @openlayout/config         │
@@ -943,8 +890,7 @@ packages/components/layout/
 | ------ | ------------------ | -------------- |
 | core   | @openlayout/core   | 断点计算、样式生成、状态管理 |
 | config | @openlayout/config | 类型定义和常量        |
-| vue    | @openlayout/vue    | Vue3 TSX 组件库   |
-| react  | @openlayout/react  | React 组件库      |
+| vue    | @openlayout/vue    | Vue3 组件库   |
 
 ### 3.5 职责分工
 
@@ -955,7 +901,7 @@ packages/components/layout/
 - 状态管理 (`createStore`)
 - 无 DOM 依赖，纯业务逻辑
 
-**框架渲染层（vue/react）**：
+**框架渲染层（vue）**：
 
 - 使用 TSX 编写组件
 - 调用 core 层 API
@@ -964,7 +910,7 @@ packages/components/layout/
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                    framework (vue/react)                    │
+│                         vue                                 │
 │  • 使用 TSX 渲染组件                                        │
 │  • 监听 window.resize                                      │
 │  • 处理主题切换（跟随系统）                                  │
@@ -1182,14 +1128,14 @@ content: {
 
 #### 全局配置
 
-| 字段                      | 类型                            | 默认值     | 说明               |
-| ----------------------- | ----------------------------- | ------- | ---------------- |
-| breakpoints             | Breakpoints                   | 见下方     | 响应式断点配置          |
-| mobileBreakpoint        | number                        | 768     | 移动端断点（小于此值视为移动端） |
-| onBreakpointChange      | (breakpoint) => void          | -       | 断点变化回调           |
-| animation               | AnimationConfig               | 见下方    | 动画配置对象           |
-| direction               | 'ltr' \| 'rtl'                | 'ltr'   | 文本方向（支持 RTL 语言）  |
-| initialState            | object                        | -       | Hydration 前的初始状态 |
+| 字段                 | 类型                   | 默认值   | 说明               |
+| ------------------ | -------------------- | ----- | ---------------- |
+| breakpoints        | Breakpoints          | 见下方   | 响应式断点配置          |
+| mobileBreakpoint   | number               | 768   | 移动端断点（小于此值视为移动端） |
+| onBreakpointChange | (breakpoint) => void | -     | 断点变化回调           |
+| animation          | AnimationConfig      | 见下方   | 动画配置对象           |
+| direction          | 'ltr' \| 'rtl'       | 'ltr' | 文本方向（支持 RTL 语言）  |
+| initialState       | object               | -     | Hydration 前的初始状态 |
 
 **AnimationConfig 默认值**：
 
@@ -1216,32 +1162,32 @@ content: {
 
 ### Sidebar（独立 Props）
 
-| 字段                | 类型                  | 默认值   | 说明        |
-| ----------------- | ------------------- | ----- | --------- |
-| enabled           | boolean             | true  | 是否启用/显示   |
-| collapsible       | boolean             | false | 是否可折叠     |
-| collapsed         | boolean             | -     | 折叠状态（受控）  |
-| onCollapsedChange | (collapsed) => void | -     | 变化回调      |
-| full              | boolean             | true  | 撑满上下      |
-| overlay           | boolean             | false | 遮罩层模式     |
-| width             | number              | 200   | 宽度        |
-| min               | number              | 80    | 折叠后宽度     |
+| 字段                | 类型                  | 默认值   | 说明       |
+| ----------------- | ------------------- | ----- | -------- |
+| enabled           | boolean             | true  | 是否启用/显示  |
+| collapsible       | boolean             | false | 是否可折叠    |
+| collapsed         | boolean             | -     | 折叠状态（受控） |
+| onCollapsedChange | (collapsed) => void | -     | 变化回调     |
+| full              | boolean             | true  | 撑满上下     |
+| overlay           | boolean             | false | 遮罩层模式    |
+| width             | number              | 200   | 宽度       |
+| min               | number              | 80    | 折叠后宽度    |
 
 ### Header/Footer（独立 Props）
 
-| 字段        | 类型      | 默认值   | 说明   |
-| --------- | ------- | ----- | ---- |
-| enabled   | boolean | true  | 是否启用/显示 |
-| fixed     | boolean | false | 固定定位 |
-| full     | boolean | false | 撑满左右 |
-| height    | number  | 64/48 | 高度   |
+| 字段      | 类型      | 默认值   | 说明      |
+| ------- | ------- | ----- | ------- |
+| enabled | boolean | true  | 是否启用/显示 |
+| fixed   | boolean | false | 固定定位    |
+| full    | boolean | false | 撑满左右    |
+| height  | number  | 64/48 | 高度      |
 
 ### Content（独立 Props）
 
-| 字段         | 类型      | 默认值  | 说明    |
-| ---------- | ------- | ---- | ----- |
+| 字段         | 类型      | 默认值  | 说明      |
+| ---------- | ------- | ---- | ------- |
 | enabled    | boolean | true | 是否启用/显示 |
-| scrollable | boolean | true | 是否可滚动 |
+| scrollable | boolean | true | 是否可滚动   |
 
 ***
 
@@ -1388,13 +1334,13 @@ const updateResponsive = useDebouncedCallback(() => {
 
 ### 9.1 测试框架
 
-| 层级 | 工具 | 说明 |
-|------|------|------|
-| 单元测试 | Vitest | core 层纯函数测试 |
-| 组件测试 | Vitest + @testing-library | Vue/React 组件渲染和交互测试 |
-| Storybook UI 测试 | @storybook/test | Storybook 交互测试 |
-| E2E 测试 | Playwright | 完整流程测试、多设备响应式 |
-| 无障碍测试 | axe-core | WCAG 合规性 |
+| 层级              | 工具                        | 说明                  |
+| --------------- | ------------------------- | ------------------- |
+| 单元测试            | Vitest                    | core 层纯函数测试         |
+| 组件测试            | Vitest + @testing-library | Vue 组件渲染和交互测试 |
+| Storybook UI 测试 | @storybook/test           | Storybook 交互测试      |
+| E2E 测试          | Playwright                | 完整流程测试、多设备响应式       |
+| 无障碍测试           | axe-core                  | WCAG 合规性            |
 
 ### 9.2 测试范围
 
@@ -1424,16 +1370,6 @@ packages/components/layout/
 │       │   └── Layout.stories.test.ts # Storybook 交互测试
 │       └── e2e/
 │           └── layout.spec.ts         # Playwright E2E 测试
-│
-└── react/                             # React 层
-    └── src/
-        ├── __tests__/
-        │   └── components.test.tsx   # 组件渲染、Props、Hooks 测试
-        ├── stories/
-        │   ├── Layout.stories.tsx    # Storybook 故事
-        │   └── Layout.stories.test.ts # Storybook 交互测试
-        └── e2e/
-            └── layout.spec.ts         # Playwright E2E 测试
 ```
 
 ### 9.4 Core 层单元测试
@@ -1445,7 +1381,7 @@ packages/components/layout/
 - `createStylesheet`: 根容器/Header/Footer/Sidebar/Content 样式生成、CSS 变量、动画配置、Z-Index 管理
 - `createStore`: 默认状态、自定义初始值、Actions
 
-### 9.5 Vue/React 组件测试
+### 9.5 Vue 组件测试
 
 组件测试覆盖：
 
@@ -1490,12 +1426,6 @@ npm run test          # 单元测试
 npm run test:storybook # Storybook 测试
 npm run test:e2e     # E2E 测试
 
-# React 层测试
-cd packages/components/layout/react
-npm run test          # 单元测试
-npm run test:storybook # Storybook 测试
-npm run test:e2e     # E2E 测试
-
 # 运行所有测试
 cd packages/components/layout
 npm run test:all
@@ -1515,35 +1445,29 @@ npm run test:all
 
 ### 10.1 服务端渲染配置
 
-```typescript
-// nextjs-app/app/layout.tsx
-import { Layout, Header, Sidebar, Content, Footer } from '@openlayout/react';
+```vue
+<!-- nextjs-app/app/layout.vue -->
+<script setup lang="ts">
+import { Layout, Header, Sidebar, Content, Footer } from '@openlayout/vue';
+</script>
 
-export default function RootLayout({ children }) {
-  return (
-    <html lang="zh-CN" suppressHydrationWarning>
-      <body>
-        <Layout
-          initialState={{ collapsed: false }}
-        >
-          <Header>我的应用</Header>
-          <Sidebar>导航</Sidebar>
-          <Content>{children}</Content>
-          <Footer>© 2026</Footer>
-        </Layout>
-      </body>
-    </html>
-  );
-}
+<template>
+  <Layout :initialState="{ collapsed: false }">
+    <Header>我的应用</Header>
+    <Sidebar>导航</Sidebar>
+    <Content><slot /></Content>
+    <Footer>© 2026</Footer>
+  </Layout>
+</template>
 ```
 
 ### 10.2 Hydration 对比
 
-| 阶段   | 服务端           | 客户端           |
-| ---- | ------------- | ------------- |
-| HTML | 完整渲染          | 完整渲染          |
-| 断点   | 默认值 (xxl)     | 实际检测          |
-| 交互   | 不可用           | 可用            |
+| 阶段   | 服务端       | 客户端  |
+| ---- | --------- | ---- |
+| HTML | 完整渲染      | 完整渲染 |
+| 断点   | 默认值 (xxl) | 实际检测 |
+| 交互   | 不可用       | 可用   |
 
 ***
 
@@ -1553,15 +1477,15 @@ export default function RootLayout({ children }) {
 
 参考 SoybeanAdmin 等成熟开源项目的架构设计，结合现有方案进行如下优化：
 
-| 维度         | 现有方案                          | 重构后方案                              | 参考来源              |
-| ------------ | ------------------------------- | ----------------------------------- | ------------------ |
-| 状态管理       | 框架原生响应式系统                    | Pinia (Vue) + Context (React)         | SoybeanAdmin      |
-| 样式方案       | CSS 变量 + 内联样式                  | UnoCSS 原子化样式 + CSS 变量              | SoybeanAdmin      |
-| 项目架构       | 单一配置包                         | pnpm monorepo 多包                     | SoybeanAdmin      |
-| 路由集成       | 独立使用                           | 布局与路由深度集成 (Elegant Router)          | SoybeanAdmin      |
-| 主题系统       | CSS 变量手动配置                    | UnoCSS 主题系统 + 内置明暗主题               | SoybeanAdmin      |
-| 国际化         | 无                                | 内置 i18n 支持                          | SoybeanAdmin      |
-| 移动端适配     | 基础响应式                         | 完整移动端适配 + 触摸优化                   | SoybeanAdmin      |
+| 维度    | 现有方案          | 重构后方案                      | 参考来源         |
+| ----- | ------------- | -------------------------- | ------------ |
+| 状态管理  | 框架原生响应式系统     | Pinia                      | SoybeanAdmin |
+| 样式方案  | CSS 变量 + 内联样式 | UnoCSS 原子化样式 + CSS 变量      | SoybeanAdmin |
+| 项目架构  | 单一配置包         | pnpm monorepo 多包           | SoybeanAdmin |
+| 路由集成  | 独立使用          | 布局与路由深度集成 (Elegant Router) | SoybeanAdmin |
+| 主题系统  | CSS 变量手动配置    | UnoCSS 主题系统 + 内置明暗主题       | SoybeanAdmin |
+| 国际化   | 无             | 内置 i18n 支持                 | SoybeanAdmin |
+| 移动端适配 | 基础响应式         | 完整移动端适配 + 触摸优化             | SoybeanAdmin |
 
 ### 11.2 状态管理重构 - 引入 Pinia
 
@@ -2159,31 +2083,20 @@ packages/components/layout/
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── react/                   # @openlayout/react - React 实现
-│   ├── src/
-│   │   ├── index.ts
-│   │   ├── Layout.tsx
-│   │   ├── Header.tsx
-│   │   ├── Footer.tsx
-│   │   ├── Sidebar.tsx
-│   │   └── Content.tsx
-│   ├── package.json
-│   └── tsconfig.json
-│
 └── package.json             # 根 workspace 配置
 ```
 
 ### 11.9 重构优先级
 
-| 阶段   | 任务                                    | 优先级 | 说明               |
-|------|---------------------------------------|------|------------------|
-| Phase 1 | 状态管理重构 (Pinia Store)                  | P0   | 核心功能，影响后续开发    |
-| Phase 1 | 样式系统重构 (UnoCSS 集成)                  | P0   | 性能优化，减少包体积     |
-| Phase 2 | 主题系统 (明暗主题、主题色)                    | P1   | 提升用户体验           |
-| Phase 2 | 路由集成 (布局自动切换)                     | P1   | 开发效率提升           |
-| Phase 3 | 国际化支持 (i18n)                         | P2   | 扩展功能             |
-| Phase 3 | 移动端优化 (触摸交互)                      | P2   | 移动端适配完善         |
-| Phase 4 | 组件增强 (标签页、面包屑、权限)                 | P3   | Admin 常用功能       |
+| 阶段      | 任务                   | 优先级 | 说明          |
+| ------- | -------------------- | --- | ----------- |
+| Phase 1 | 状态管理重构 (Pinia Store) | P0  | 核心功能，影响后续开发 |
+| Phase 1 | 样式系统重构 (UnoCSS 集成)   | P0  | 性能优化，减少包体积  |
+| Phase 2 | 主题系统 (明暗主题、主题色)      | P1  | 提升用户体验      |
+| Phase 2 | 路由集成 (布局自动切换)        | P1  | 开发效率提升      |
+| Phase 3 | 国际化支持 (i18n)         | P2  | 扩展功能        |
+| Phase 3 | 移动端优化 (触摸交互)         | P2  | 移动端适配完善     |
+| Phase 4 | 组件增强 (标签页、面包屑、权限)    | P3  | Admin 常用功能  |
 
 ### 11.10 迁移路径
 
