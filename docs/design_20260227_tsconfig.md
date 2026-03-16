@@ -15,7 +15,7 @@
 - **类型安全**：提供完整的类型定义和 IDE 支持
 - **可扩展**：便于自定义和扩展新的配置场景
 
----
+***
 
 ## 二、架构设计
 
@@ -23,9 +23,8 @@
 
 ```
 tsconfig/
-├── base/                    # 基础配置（所有项目共享）
-│   ├── base.json           # 基础编译选项
-│   └── strict.json         # 严格模式配置
+├── base.json              # 核心编译选项
+├── strict.json            # 严格模式配置
 ├── environments/           # 环境特定配置
 │   ├── node.json           # Node.js 环境 (18.x+)
 │   ├── node16.json         # Node.js 16 环境
@@ -105,12 +104,13 @@ tsconfig/
 8. **项目自身配置** - 最高优先级
 
 > **设计原则**：
+>
 > - React/Vue 项目通常使用 Vite 构建，继承自 vite.json
 > - Next.js/Nuxt.js 是全栈框架，直接继承 browser.json
 > - Node.js/Electron 框架继承自 node.json
 > - 确保配置层次清晰、避免重复
 
----
+***
 
 ## 三、包导出配置
 
@@ -171,7 +171,7 @@ tsconfig/
 }
 ```
 
----
+***
 
 ## 四、配置详情
 
@@ -209,6 +209,7 @@ tsconfig/
 ```
 
 > **说明**：
+>
 > - base.json 只包含通用编译选项，不含 JSX（React 特有）和 DOM 类型（浏览器特有）。这些由环境层配置添加。
 > - **不包含** `include`/`exclude`，由项目自身配置决定。
 
@@ -466,7 +467,7 @@ tsconfig/
 }
 ```
 
----
+***
 
 ## 五、使用方式
 
@@ -543,15 +544,15 @@ pnpm add @opendesign/tsconfig -D
 }
 ```
 
----
+***
 
 ## 六、类型定义
 
 无需额外类型定义，使用 `resolveJsonModule` 可直接导入 JSON 配置。
 
----
+***
 
----
+***
 
 ## 七、最佳实践
 
@@ -572,20 +573,20 @@ pnpm add @opendesign/tsconfig -D
 
 ### 6.3 常见场景组合
 
-| 场景 | 配置组合 | 继承链 |
-|------|---------|--------|
-| Node.js API 服务 | node.json + lib.json | lib → node → base → strict |
-| Node.js CLI 工具 | node.json + app.json | app → node → base → strict |
-| Vite 项目 | vite.json + app.json | app → vite → browser → base → strict |
+| 场景                  | 配置组合                  | 继承链                                          |
+| ------------------- | --------------------- | -------------------------------------------- |
+| Node.js API 服务      | node.json + lib.json  | lib → node → base → strict                   |
+| Node.js CLI 工具      | node.json + app.json  | app → node → base → strict                   |
+| Vite 项目             | vite.json + app.json  | app → vite → browser → base → strict         |
 | React Web 应用 (Vite) | react.json + app.json | app → react → vite → browser → base → strict |
-| Next.js 应用 | next.json + app.json | app → next → browser → base → strict |
-| Vue 3 应用 (Vite) | vue.json + app.json | app → vue → vite → browser → base → strict |
-| Nuxt.js 应用 | nuxt.json + app.json | app → nuxt → browser → base → strict |
-| React 组件库 (Vite) | react.json + lib.json | lib → react → vite → browser → base → strict |
-| Electron 主进程 | electron.json | electron → node → base → strict |
-| 单元测试 | test.json + node.json | test → node → base → strict |
+| Next.js 应用          | next.json + app.json  | app → next → browser → base → strict         |
+| Vue 3 应用 (Vite)     | vue.json + app.json   | app → vue → vite → browser → base → strict   |
+| Nuxt.js 应用          | nuxt.json + app.json  | app → nuxt → browser → base → strict         |
+| React 组件库 (Vite)    | react.json + lib.json | lib → react → vite → browser → base → strict |
+| Electron 主进程        | electron.json         | electron → node → base → strict              |
+| 单元测试                | test.json + node.json | test → node → base → strict                  |
 
----
+***
 
 ## 八、扩展指南
 
@@ -613,23 +614,23 @@ pnpm add @opendesign/tsconfig -D
 }
 ```
 
----
+***
 
 ## 九、版本兼容性
 
-| Node.js 版本 | 推荐配置 | 说明 |
-|-------------|---------|------|
-| 14.x | node.json + target ES2020 | 使用 bundler moduleResolution |
-| 16.x | node16.json | ES2021 target，支持 NodeNext |
-| 18.x+ | node.json | ES2022 target，NodeNext 模式 |
+| Node.js 版本 | 推荐配置                      | 说明                          |
+| ---------- | ------------------------- | --------------------------- |
+| 14.x       | node.json + target ES2020 | 使用 bundler moduleResolution |
+| 16.x       | node16.json               | ES2021 target，支持 NodeNext   |
+| 18.x+      | node.json                 | ES2022 target，NodeNext 模式   |
 
 ### 运行时支持
 
-| 运行时 | 推荐配置 | 说明 |
-|--------|---------|------|
+| 运行时     | 推荐配置      | 说明            |
+| ------- | --------- | ------------- |
 | Node.js | node.json | 通用 Node.js 环境 |
-| Bun | bun.json | Bun 运行时专用配置 |
-| Deno | deno.json | Deno 运行时专用配置 |
+| Bun     | bun.json  | Bun 运行时专用配置   |
+| Deno    | deno.json | Deno 运行时专用配置  |
 
 > **注意**：如需 Bun 或 Deno 配置，可按以下模板扩展：
 
@@ -647,7 +648,7 @@ pnpm add @opendesign/tsconfig -D
 }
 ```
 
----
+***
 
 ## 十、配置验证
 
@@ -661,11 +662,12 @@ npx tsc --project tsconfig.json --showConfig
 npx tsc --noEmit
 ```
 
----
+***
 
 ## 十一、总结
 
 本配置包通过分层设计实现了：
+
 - **灵活性**：按需组合配置
 - **一致性**：统一团队配置标准
 - **可维护性**：集中管理公共配置
