@@ -1,9 +1,20 @@
 # TypeScript 配置包设计方案
 
-- **版本**: 1.3.0
+- **版本**: 1.4.0
 - **更新日期**: 2026-03-16
 - **状态**: 草稿
 
+---
+
+## 修改记录 (Changelog)
+
+| 版本 | 日期 | 修改内容 |
+|------|------|----------|
+| 1.4.0 | 2026-03-16 | 优化：修正 extends 路径；nuxt 继承 vite；精简冗余配置；添加 jsxImportSource |
+| 1.3.0 | 2026-03-16 | 优化：移除所有配置文件中的 include/exclude/outDir，通用配置不包含项目特定目录 |
+| 1.2.0 | 2026-03-16 | 优化：base.json 移除 jsx 配置；lib.json 修正 composite 为 true；umd.json 修正 moduleResolution 大小写；next.json 添加明确 target；目录结构修正；新增运行时兼容性说明 |
+
+## 一、概述
 ---
 
 ## 一、概述
@@ -243,9 +254,8 @@ tsconfig/
 
 ```json
 {
-  "extends": "./base.json",
+  "extends": "../base.json",
   "compilerOptions": {
-    "lib": ["ES2022"],
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
@@ -274,7 +284,7 @@ tsconfig/
 
 ```json
 {
-  "extends": "./base.json",
+  "extends": "../base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "target": "ES2022",
@@ -293,7 +303,6 @@ tsconfig/
   "extends": "./vite.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["react", "react-dom"]
   }
 }
@@ -308,23 +317,22 @@ tsconfig/
   "extends": "./vite.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "@vitejs/plugin-vue"]
+    "jsxImportSource": "vue",
+    "types": ["@vitejs/plugin-vue"]
   }
 }
 ```
 
 #### nuxt.json - Nuxt.js 项目
 
-> **定位**：Nuxt.js 全栈框架配置，继承自 browser.json，添加 Nuxt 类型和 Vue 支持。Nuxt 同时服务端渲染，需要 Node.js 和浏览器类型。
+> **定位**：Nuxt.js 全栈框架配置，继承自 vite.json，添加 Nuxt 类型和 Vue 支持。
 
 ```json
 {
-  "extends": "./browser.json",
+  "extends": "./vite.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["nuxt", "vite/client"]
+    "types": ["nuxt"]
   }
 }
 ```
@@ -345,7 +353,7 @@ tsconfig/
 
 #### next.json - Next.js 项目
 
-> **定位**：Next.js React 全栈框架配置，继承自 browser.json，添加 Next.js 类型和 React JSX 支持。Next.js 同时支持服务端和客户端渲染。
+> **定位**：Next.js React 全栈框架配置，继承自 browser.json，添加 Next.js 类型和 React JSX 支持。
 
 ```json
 {
@@ -353,7 +361,6 @@ tsconfig/
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["next"]
   }
 }
@@ -368,7 +375,7 @@ tsconfig/
   "extends": "./node.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
-    "types": ["node", "electron"]
+    "types": ["electron"]
   }
 }
 ```

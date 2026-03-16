@@ -1,8 +1,7 @@
 {
-  "extends": "./browser.json",
+  "extends": "./vite.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["nuxt", "vite/client"]
+    "types": ["nuxt"]
   }
 }

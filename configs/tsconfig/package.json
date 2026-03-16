@@ -18,9 +18,9 @@
     "./app": "./packages/app.json",
     "./test": "./packages/test.json",
     "./monorepo": "./packages/monorepo.json",
-    "./modules/commonjs": "./modules/commonjs.json",
-    "./modules/esm": "./modules/esm.json",
-    "./modules/umd": "./modules/umd.json"
+    "./cjs": "./modules/commonjs.json",
+    "./esm/esm": "./modules/esm.json",
+    "./umd/umd": "./modules/umd.json"
   },
   "keywords": [
     "typescript",
