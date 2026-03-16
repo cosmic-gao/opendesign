@@ -18,7 +18,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/base.json"
+  "extends": "@opendesign/tsconfig/base"
 }
 ```
 
@@ -26,7 +26,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/browser.json"
+  "extends": "@opendesign/tsconfig/browser"
 }
 ```
 
@@ -34,7 +34,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/node.json"
+  "extends": "@opendesign/tsconfig/node"
 }
 ```
 
@@ -42,7 +42,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/react.json"
+  "extends": "@opendesign/tsconfig/react"
 }
 ```
 
@@ -50,7 +50,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/vue.json"
+  "extends": "@opendesign/tsconfig/vue"
 }
 ```
 
@@ -58,7 +58,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/next.json"
+  "extends": "@opendesign/tsconfig/next"
 }
 ```
 
@@ -66,7 +66,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/nuxt.json"
+  "extends": "@opendesign/tsconfig/nuxt"
 }
 ```
 
@@ -74,7 +74,7 @@ yarn add @opendesign/tsconfig -D
 
 ```json
 {
-  "extends": "@opendesign/tsconfig/electron.json"
+  "extends": "@opendesign/tsconfig/electron"
 }
 ```
 
@@ -85,8 +85,8 @@ yarn add @opendesign/tsconfig -D
 ```json
 {
   "extends": [
-    "@opendesign/tsconfig/react.json",
-    "@opendesign/tsconfig/lib.json"
+    "@opendesign/tsconfig/react",
+    "@opendesign/tsconfig/lib"
   ]
 }
 ```
@@ -96,8 +96,8 @@ yarn add @opendesign/tsconfig -D
 ```json
 {
   "extends": [
-    "@opendesign/tsconfig/react.json",
-    "@opendesign/tsconfig/app.json"
+    "@opendesign/tsconfig/react",
+    "@opendesign/tsconfig/app"
   ]
 }
 ```
@@ -107,8 +107,8 @@ yarn add @opendesign/tsconfig -D
 ```json
 {
   "extends": [
-    "@opendesign/tsconfig/node.json",
-    "@opendesign/tsconfig/lib.json"
+    "@opendesign/tsconfig/node",
+    "@opendesign/tsconfig/lib"
   ]
 }
 ```
@@ -116,11 +116,15 @@ yarn add @opendesign/tsconfig -D
 ## 配置继承链
 
 ```
-strict.json → base.json → browser.json → vite.json → react.json / vue.json
-                                     ↓
-                                next.json / nuxt.json
-                                     ↓
-                                node.json → electron.json
+base.json
+    ↑
+browser.json    ←→    node.json
+    ↑                         ↑
+vite.json                   electron.json
+    ↑                         ↑
+react.json ← vue.json ← nuxt.json    node16.json
+    ↑
+next.json
 ```
 
 ## 可用配置
@@ -131,8 +135,8 @@ strict.json → base.json → browser.json → vite.json → react.json / vue.js
 | `strict` | 严格模式配置 |
 | `browser` | 浏览器基础环境 |
 | `vite` | Vite 构建工具 |
-| `node` | Node.js 环境 |
-| `node18` | Node.js 18+ |
+| `node` | Node.js 环境 (18.x+) |
+| `node16` | Node.js 16 |
 | `react` | React + Vite |
 | `next` | Next.js |
 | `vue` | Vue + Vite |
