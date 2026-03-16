@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
     "module": "UMD",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "bundler"
   }
 }

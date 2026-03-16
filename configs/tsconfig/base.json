@@ -7,11 +7,9 @@
     "resolveJsonModule": true,
     "allowJs": false,
     "checkJs": false,
-    "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
     "removeComments": true,
     "noEmit": false,
     "isolatedModules": true,
@@ -24,6 +22,5 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
-  },
-  "exclude": ["node_modules", "dist", "build", ".turbo"]
+  }
 }

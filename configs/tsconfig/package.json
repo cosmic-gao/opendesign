@@ -8,7 +8,7 @@
     "./browser": "./environments/browser.json",
     "./vite": "./environments/vite.json",
     "./node": "./environments/node.json",
-    "./node18": "./environments/node18.json",
+    "./node16": "./environments/node16.json",
     "./react": "./environments/react.json",
     "./next": "./environments/next.json",
     "./vue": "./environments/vue.json",
@@ -18,9 +18,9 @@
     "./app": "./packages/app.json",
     "./test": "./packages/test.json",
     "./monorepo": "./packages/monorepo.json",
-    "./commonjs": "./modules/commonjs.json",
-    "./esm": "./modules/esm.json",
-    "./umd": "./modules/umd.json"
+    "./modules/commonjs": "./modules/commonjs.json",
+    "./modules/esm": "./modules/esm.json",
+    "./modules/umd": "./modules/umd.json"
   },
   "keywords": [
     "typescript",
