@@ -4,19 +4,6 @@
 - **更新日期**: 2026-03-16
 - **状态**: 草稿
 
----
-
-## 修改记录 (Changelog)
-
-| 版本 | 日期 | 修改内容 |
-|------|------|----------|
-| 1.4.0 | 2026-03-16 | 优化：修正 extends 路径；nuxt 继承 vite；精简冗余配置；添加 jsxImportSource |
-| 1.3.0 | 2026-03-16 | 优化：移除所有配置文件中的 include/exclude/outDir，通用配置不包含项目特定目录 |
-| 1.2.0 | 2026-03-16 | 优化：base.json 移除 jsx 配置；lib.json 修正 composite 为 true；umd.json 修正 moduleResolution 大小写；next.json 添加明确 target；目录结构修正；新增运行时兼容性说明 |
-
-## 一、概述
----
-
 ## 一、概述
 
 本方案旨在构建一个通用、可扩展的 TypeScript 配置包，支持 monorepo 架构下的多环境、多场景需求。通过分层配置和组合机制，实现一次定义、多处复用的目标。
