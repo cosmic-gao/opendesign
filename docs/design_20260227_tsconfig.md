@@ -1,16 +1,8 @@
 # TypeScript 配置包设计方案
 
-- **版本**: 1.1.0
-- **更新日期**: 2026-03-14
+- **版本**: 1.3.0
+- **更新日期**: 2026-03-16
 - **状态**: 草稿
-
----
-
-## 修改记录 (Changelog)
-
-| 版本 | 日期 | 修改内容 |
-|------|------|----------|
-| 1.1.0 | 2026-03-14 | 优化：统一 node.json 使用 NodeNext；修正 next.json target；新增 node16.json；完善版本兼容性说明 |
 
 ---
 
@@ -35,13 +27,10 @@
 tsconfig/
 ├── base/                    # 基础配置（所有项目共享）
 │   ├── base.json           # 基础编译选项
-│   ├── types/              # 内置类型引用
-│   │   ├── node.json       # Node.js 类型
-│   │   └── browser.json    # 浏览器类型
 │   └── strict.json         # 严格模式配置
 ├── environments/           # 环境特定配置
-│   ├── node.json           # Node.js 环境
-│   ├── node18.json         # Node.js 18+
+│   ├── node.json           # Node.js 环境 (18.x+)
+│   ├── node16.json         # Node.js 16 环境
 │   ├── browser.json        # 浏览器环境
 │   ├── vite.json           # Vite 构建工具
 │   ├── react.json          # React 项目
@@ -202,11 +191,9 @@ tsconfig/
     "resolveJsonModule": true,
     "allowJs": false,
     "checkJs": false,
-    "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
     "removeComments": true,
     "noEmit": false,
     "isolatedModules": true,
@@ -219,10 +206,13 @@ tsconfig/
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
-  },
-  "exclude": ["node_modules", "dist", "build", ".turbo"]
+  }
 }
 ```
+
+> **说明**：
+> - base.json 只包含通用编译选项，不含 JSX（React 特有）和 DOM 类型（浏览器特有）。这些由环境层配置添加。
+> - **不包含** `include`/`exclude`，由项目自身配置决定。
 
 #### strict.json - 严格模式配置
 
@@ -259,11 +249,8 @@ tsconfig/
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": ["node"],
-    "outDir": "./dist"
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+    "types": ["node"]
+  }
 }
 ```
 
@@ -292,12 +279,8 @@ tsconfig/
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": [],
-    "outDir": "./dist"
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+    "moduleResolution": "bundler"
+  }
 }
 ```
 
@@ -368,6 +351,7 @@ tsconfig/
 {
   "extends": "./browser.json",
   "compilerOptions": {
+    "target": "ES2022",
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["next"]
@@ -420,7 +404,7 @@ tsconfig/
 {
   "compilerOptions": {
     "module": "UMD",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "bundler"
   }
 }
 ```
@@ -429,13 +413,15 @@ tsconfig/
 
 #### lib.json - 类库开发
 
+> **定位**：用于开发可发布的 npm 包，生成类型声明文件供其他项目引用。
+
 ```json
 {
   "extends": "./base.json",
   "compilerOptions": {
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "composite": false,
     "stripInternal": true,
     "emitDeclarationOnly": false
   }
@@ -458,6 +444,8 @@ tsconfig/
 
 #### test.json - 测试配置
 
+> **定位**：测试项目配置，继承自 base.json，添加 Vitest 类型支持。
+
 ```json
 {
   "extends": "./base.json",
@@ -465,8 +453,7 @@ tsconfig/
     "lib": ["ES2022", "DOM"],
     "types": ["vitest", "node"],
     "skipLibCheck": true
-  },
-  "include": ["src/**/*", "tests/**/*", "*.test.ts", "*.spec.ts"]
+  }
 }
 ```
 
@@ -498,6 +485,8 @@ pnpm add @opendesign/tsconfig -D
 ```
 
 ### 5.2 项目引用
+
+> **注意**：以下示例展示项目自身配置应包含的内容（`include`、`exclude`、`outDir` 等），这些由使用者自行定义。
 
 #### Node.js API 项目
 
@@ -639,6 +628,30 @@ pnpm add @opendesign/tsconfig -D
 | 14.x | node.json + target ES2020 | 使用 bundler moduleResolution |
 | 16.x | node16.json | ES2021 target，支持 NodeNext |
 | 18.x+ | node.json | ES2022 target，NodeNext 模式 |
+
+### 运行时支持
+
+| 运行时 | 推荐配置 | 说明 |
+|--------|---------|------|
+| Node.js | node.json | 通用 Node.js 环境 |
+| Bun | bun.json | Bun 运行时专用配置 |
+| Deno | deno.json | Deno 运行时专用配置 |
+
+> **注意**：如需 Bun 或 Deno 配置，可按以下模板扩展：
+
+```json
+// bun.json 示例
+{
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun-types"]
+  }
+}
+```
 
 ---
 
