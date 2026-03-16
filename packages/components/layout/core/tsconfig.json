@@ -1,7 +1,0 @@
-{
-  "extends": [
-    "@opendesign/tsconfig/lib",
-    "@opendesign/tsconfig/browser"
-  ],
-  "include": ["**/*"]
-}

@@ -1,9 +1,0 @@
-{
-  "extends": [
-    "@opendesign/tsconfig/lib",
-    "@opendesign/tsconfig/vue"
-  ],
-  "include": [
-    "src/**/*"
-  ]
-}
