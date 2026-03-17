@@ -1,0 +1,12 @@
+{
+  "extends": [
+    "@opendesign/tsconfig/base",
+    "@opendesign/tsconfig/strict",
+    "@opendesign/tsconfig/esm/esm"
+  ],
+  "compilerOptions": {
+    "rootDir": "src",
+    "jsx": "preserve"
+  },
+  "include": ["src/**/*"]
+}
