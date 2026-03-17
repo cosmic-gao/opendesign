@@ -43,7 +43,7 @@
 #### Layout 根容器
 
 ```typescript
-import type { Breakpoint, Breakpoints, CSSProperties, ReactNode } from '@openlayout/config';
+import type { Breakpoint, Breakpoints, CSSProperties, VNode } from '@openlayout/config';
 
 interface LayoutConfig {
   header?: HeaderConfig;
@@ -101,7 +101,7 @@ interface LayoutProps extends Partial<LayoutConfig> {
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
   className?: string;
   style?: CSSProperties;
-  children?: ReactNode;
+  children?: VNode;
 }
 ```
 
@@ -121,7 +121,7 @@ interface HeaderProps extends Partial<HeaderConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;
-  children?: ReactNode;
+  children?: VNode;
 }
 ```
 
@@ -134,7 +134,7 @@ interface FooterProps extends Partial<FooterConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;
-  children?: ReactNode;
+  children?: VNode;
 }
 ```
 
@@ -148,7 +148,7 @@ interface SidebarProps extends Partial<SidebarConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;
-  children?: ReactNode;
+  children?: VNode;
 }
 ```
 
@@ -161,7 +161,7 @@ interface ContentProps extends Partial<ContentConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;
-  children?: ReactNode;
+  children?: VNode;
 }
 ```
 
@@ -1263,12 +1263,7 @@ function MyComponent() {
 
 ## 7. 参考资料
 
-- [Ant Design Layout](https://ant.design/components/layout/)
-- [Soybean Admin Layout](https://github.com/soybeanjs/soybean-admin-layout)
-- [Headless UI](https://headlessui.com/)
-- [React Aria](https://react-spectrum.adobe.com/react-aria/)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [Radix UI](https://www.radix-ui.com/)
+- [Ant Design Vue Layout](https://antdv.com/components/layout)
 
 ***
 
@@ -1278,9 +1273,7 @@ function MyComponent() {
 
 | 优化策略          | 说明               | 适用场景                |
 | ------------- | ---------------- | ------------------- |
-| `React.memo`  | 缓存子组件，避免不必要重渲染   | Header、Footer 等静态区域 |
 | `useMemo`     | 缓存复杂计算结果         | 响应式样式计算、断点判断        |
-| `useCallback` | 缓存回调函数           | 事件处理器、状态更新函数        |
 | CSS 变量        | 减少 JS 内存分配，浏览器优化 | 主题切换、响应式调整          |
 
 ### 8.2 CSS 变量 vs 内联样式
@@ -1309,7 +1302,6 @@ const headerStyle = {
 | ------------ | ------------------------------------------------------ |
 | Tree-shaking | core 层使用纯函数，确保未使用代码可被剔除                                |
 | 按需导入         | 用户只导入使用的组件（`import { Layout } from '@openlayout/vue'`） |
-| 动态导入         | 大型组件使用 `React.lazy()` 懒加载                              |
 
 ### 8.4 事件监听优化
 
