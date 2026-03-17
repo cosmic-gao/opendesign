@@ -1329,8 +1329,7 @@ const updateResponsive = useDebouncedCallback(() => {
 | 层级              | 工具                        | 说明                  |
 | --------------- | ------------------------- | ------------------- |
 | 单元测试            | Vitest                    | core 层纯函数测试         |
-| 组件测试            | Vitest + @testing-library | Vue 组件渲染和交互测试 |
-| Storybook UI 测试 | @storybook/test           | Storybook 交互测试      |
+| 组件测试            | Vitest + @testing-library/vue | 组件渲染和交互测试（自动化） |
 | E2E 测试          | Playwright                | 完整流程测试、多设备响应式       |
 | 无障碍测试           | axe-core                  | WCAG 合规性            |
 
