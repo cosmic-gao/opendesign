@@ -9,14 +9,10 @@ export interface Breakpoints {
   xxl?: number;
 }
 
-export interface CSSProperties {
-  [key: string]: string | number;
-}
+export type CSSProperties = Record<string, string | number>;
 
-export type ElementType = string;
-
-export interface VNode<Props = unknown> {
-  type: ElementType;
+export interface VNode<Props = Record<string, unknown>> {
+  type: string;
   props: Props;
-  children?: VNode<Props> | VNode<Props>[];
+  children?: VNode | VNode[];
 }

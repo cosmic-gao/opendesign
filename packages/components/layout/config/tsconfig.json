@@ -1,12 +1,14 @@
 {
   "extends": [
-    "@opendesign/tsconfig/base",
+    "@opendesign/tsconfig/browser",
+    "@opendesign/tsconfig/lib",
     "@opendesign/tsconfig/strict",
-    "@opendesign/tsconfig/esm/esm"
+    "@opendesign/tsconfig/esm"
   ],
   "compilerOptions": {
     "rootDir": "src",
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "composite": true
   },
   "include": ["src/**/*"]
 }
