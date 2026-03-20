@@ -1,4 +1,4 @@
-import type { ElementType, CSSProperties, VNode } from './types';
+import type { ElementType } from './types';
 
 export interface FooterConfig {
   enabled?: boolean;
@@ -7,7 +7,7 @@ export interface FooterConfig {
   full?: boolean;
 }
 
-export interface FooterProps extends Partial<FooterConfig> {
+export interface FooterProps<VNode, CSSProperties> extends Partial<FooterConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;

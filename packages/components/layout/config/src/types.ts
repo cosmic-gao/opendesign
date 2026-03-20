@@ -1,5 +1,7 @@
 export type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
 
+export type ElementType = string;
+
 export interface Breakpoints {
   xs?: number;
   sm?: number;
@@ -11,8 +13,11 @@ export interface Breakpoints {
 
 export type CSSProperties = Record<string, string | number>;
 
-export interface VNode<Props = Record<string, unknown>> {
-  type: string;
+export interface VNode<
+  Type extends string = string,
+  Props extends Record<string, unknown> = Record<string, unknown>
+> {
+  type: Type;
   props: Props;
-  children?: VNode | VNode[];
+  children?: VNode[];
 }

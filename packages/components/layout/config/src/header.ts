@@ -1,4 +1,4 @@
-import type { ElementType, CSSProperties, VNode } from './types';
+import type { ElementType } from './types';
 
 export interface HeaderConfig {
   enabled?: boolean;
@@ -7,7 +7,7 @@ export interface HeaderConfig {
   full?: boolean;
 }
 
-export interface HeaderProps extends Partial<HeaderConfig> {
+export interface HeaderProps<VNode, CSSProperties> extends Partial<HeaderConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;

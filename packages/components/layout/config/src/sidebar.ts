@@ -1,4 +1,4 @@
-import type { ElementType, CSSProperties, VNode } from './types';
+import type { ElementType } from './types';
 
 export interface SidebarConfig {
   enabled?: boolean;
@@ -10,7 +10,7 @@ export interface SidebarConfig {
   overlay?: boolean;
 }
 
-export interface SidebarProps extends Partial<SidebarConfig> {
+export interface SidebarProps<VNode, CSSProperties> extends Partial<SidebarConfig> {
   onCollapsedChange?: (collapsed: boolean) => void;
   as?: ElementType;
   className?: string;

@@ -1,11 +1,11 @@
-import type { ElementType, CSSProperties, VNode } from './types';
+import type { ElementType } from './types';
 
 export interface ContentConfig {
   enabled?: boolean;
   scrollable?: boolean;
 }
 
-export interface ContentProps extends Partial<ContentConfig> {
+export interface ContentProps<VNode, CSSProperties> extends Partial<ContentConfig> {
   as?: ElementType;
   className?: string;
   style?: CSSProperties;

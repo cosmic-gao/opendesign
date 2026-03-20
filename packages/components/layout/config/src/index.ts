@@ -7,3 +7,4 @@ export * from './sidebar';
 export * from './content';
 export * from './layout';
 export * from './merge';
+export * from './validate';
