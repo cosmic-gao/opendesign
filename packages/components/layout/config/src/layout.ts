@@ -15,7 +15,7 @@ export interface LayoutConfig {
   animation: AnimationConfig;
 }
 
-export interface LayoutProps<VNode, CSSProperties> extends Partial<LayoutConfig> {
+export interface LayoutProps<VNode, CSSProperties, Element> extends Partial<LayoutConfig> {
   onBreakpointChange?: (breakpoint: Breakpoint, width: number) => void;
   className?: string;
   style?: CSSProperties;

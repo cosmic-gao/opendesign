@@ -1,5 +1,3 @@
-import type { ElementType } from './types';
-
 export interface HeaderConfig {
   enabled?: boolean;
   height?: number;
@@ -7,8 +5,8 @@ export interface HeaderConfig {
   full?: boolean;
 }
 
-export interface HeaderProps<VNode, CSSProperties> extends Partial<HeaderConfig> {
-  as?: ElementType;
+export interface HeaderProps<VNode, CSSProperties, Element> extends Partial<HeaderConfig> {
+  as?: Element;
   className?: string;
   style?: CSSProperties;
   children?: VNode;
