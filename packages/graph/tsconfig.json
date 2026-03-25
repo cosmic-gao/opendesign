@@ -1,0 +1,12 @@
+{
+  "extends": [
+    "@opendesign/tsconfig/base",
+    "@opendesign/tsconfig/strict",
+    "@opendesign/tsconfig/lib"
+  ],
+  "compilerOptions": {
+    "rootDir": "src",
+    "composite": true
+  },
+  "include": ["src/**/*"]
+}
