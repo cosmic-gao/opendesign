@@ -56,6 +56,6 @@ export interface Graph<
   T = unknown
 > {
   id?: string;
-  nodes: Map<NI, Node<NI, SI, T>>;
+  nodes: Record<NI, Node<NI, SI, T>>;
   edges: Map<EI, Edge<EI, NI, SI>>;
 }
