@@ -1,6 +1,19 @@
 {
-  "title": "OpenDesign",
-  "description": "Nuxt 4、Tailwind CSS v4、Nuxt i18n 与 shadcn-vue 默认配置已经接入完成。",
-  "primaryAction": "开始设计",
-  "secondaryAction": "查看组件"
+  "eyebrow": "现代化工作台已准备就绪",
+  "title": "为设计系统与产品原型，提供一块更现代的前端画布。",
+  "description": "基于 Nuxt 4、Tailwind CSS v4、Nuxt i18n 与 shadcn 生态构建，当前首页已经升级为更适合正式项目起步的展示风格。",
+  "primaryAction": "继续构建",
+  "secondaryAction": "浏览组件",
+  "featureDesign": {
+    "title": "更清晰的视觉层级",
+    "description": "用更强的标题、留白和层次感，让首页第一眼就像一个真实产品，而不是初始化模板。"
+  },
+  "featureSystem": {
+    "title": "组件与样式保持统一",
+    "description": "延续 shadcn 的 open-code 方式与 Tailwind v4 主题变量，后续扩展页面时风格能持续一致。"
+  },
+  "featureI18n": {
+    "title": "中文体验作为默认起点",
+    "description": "国际化结构已经就位，当前以 zh-CN 为默认语言，未来增加英文或更多语种会更顺滑。"
+  }
 }
