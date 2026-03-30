@@ -1,0 +1,6 @@
+{
+  "title": "OpenDesign",
+  "description": "Nuxt 4、Tailwind CSS v4、Nuxt i18n 与 shadcn-vue 默认配置已经接入完成。",
+  "primaryAction": "开始设计",
+  "secondaryAction": "查看组件"
+}
