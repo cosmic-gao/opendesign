@@ -1,9 +1,0 @@
-{
-  "extends": "@opendesign/tsconfig/lib",
-  "compilerOptions": {
-    "rootDir": "src",
-    "composite": true,
-    "lib": ["esnext"]
-  },
-  "include": ["src/**/*"]
-}
