@@ -1,73 +1,217 @@
 <script setup lang="ts">
-import { ArrowRight, Blocks, Languages, Sparkles } from 'lucide-vue-next'
+import {
+  ArrowRight,
+  Blocks,
+  ChevronRight,
+  Languages,
+  LayoutPanelTop,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from 'lucide-vue-next'
 
 const { t } = useI18n()
 
-const featureCards = [
+const metrics = [
   {
-    key: 'featureDesign',
-    icon: Sparkles,
+    key: 'metricLaunchSpeed',
   },
   {
-    key: 'featureSystem',
+    key: 'metricConsistency',
+  },
+  {
+    key: 'metricScale',
+  },
+]
+
+const workspaceCards = [
+  {
+    key: 'workspaceBoards',
+    icon: LayoutPanelTop,
+  },
+  {
+    key: 'workspaceSystem',
     icon: Blocks,
   },
   {
-    key: 'featureI18n',
+    key: 'workspaceLocale',
     icon: Languages,
   },
 ]
 </script>
 
 <template>
-  <main class="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_28%),radial-gradient(circle_at_80%_20%,_rgba(249,115,22,0.16),_transparent_24%),linear-gradient(180deg,_#fcfcfd_0%,_#f4f7fb_52%,_#eef2f7_100%)] px-6 py-10 text-foreground">
-    <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.03)_1px,transparent_1px)] bg-[size:72px_72px]" />
+  <main class="relative min-h-screen bg-slate-50 px-6 py-6 text-foreground sm:px-8 lg:px-10">
+    <!-- 简洁背景 - 去除过度装饰 -->
+    <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#fff_0%,#f8fafc_100%)]" />
 
-    <div class="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center">
-      <section class="grid w-full gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-end">
+    <div class="relative mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl flex-col">
+      <!-- 简洁 Header -->
+      <header class="flex items-center justify-between rounded-2xl border border-slate-200/60 bg-white/80 px-5 py-3.5 backdrop-blur-sm">
+        <div class="flex items-center gap-3">
+          <div class="flex size-9 items-center justify-center rounded-xl bg-slate-950 text-white">
+            <Sparkles class="size-4" />
+          </div>
+          <div>
+            <p class="text-sm font-semibold tracking-wider text-slate-950">{{ t('brand') }}</p>
+            <p class="text-xs text-slate-400">{{ t('brandTagline') }}</p>
+          </div>
+        </div>
+
+        <nav class="hidden items-center gap-8 text-sm text-slate-500 md:flex">
+          <a href="#overview" class="transition-colors hover:text-slate-900">{{ t('navOverview') }}</a>
+          <a href="#workspace" class="transition-colors hover:text-slate-900">{{ t('navWorkspace') }}</a>
+          <a href="#system" class="transition-colors hover:text-slate-900">{{ t('navSystem') }}</a>
+        </nav>
+
+        <div class="hidden items-center gap-2 sm:flex">
+          <Button variant="ghost" class="rounded-xl px-4 text-slate-600 hover:text-slate-900">
+            {{ t('secondaryAction') }}
+          </Button>
+          <Button class="rounded-xl px-5">
+            {{ t('primaryAction') }}
+          </Button>
+        </div>
+      </header>
+
+      <!-- 主内容区 -->
+      <section
+        id="overview"
+        class="grid flex-1 gap-12 py-12 lg:grid-cols-[1fr_480px] lg:items-center lg:py-16"
+      >
+        <!-- 左侧文案区 -->
         <div class="space-y-8">
-          <div class="inline-flex items-center gap-3 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm text-slate-600 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
-            <span class="h-2 w-2 rounded-full bg-emerald-500" />
+          <div class="inline-flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-white px-4 py-1.5 text-sm text-slate-600">
+            <span class="flex size-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <ShieldCheck class="size-3" />
+            </span>
             <span>{{ t('eyebrow') }}</span>
           </div>
 
-          <div class="space-y-5">
-            <p class="text-sm uppercase tracking-[0.32em] text-slate-500">apps/codex</p>
-            <h1 class="max-w-4xl text-5xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-6xl lg:text-7xl">
+          <div class="space-y-4">
+            <h1 class="max-w-2xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-[3.5rem]">
               {{ t('title') }}
             </h1>
-            <p class="max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+            <p class="max-w-xl text-base leading-relaxed text-slate-500 sm:text-lg">
               {{ t('description') }}
             </p>
           </div>
 
-          <div class="flex flex-col gap-3 sm:flex-row">
-            <Button class="group h-11 rounded-full px-6 text-sm shadow-[0_14px_30px_rgba(15,23,42,0.14)]">
+          <div class="flex flex-wrap items-center gap-3">
+            <Button class="group h-10 rounded-xl px-5 text-sm">
               {{ t('primaryAction') }}
               <ArrowRight class="size-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
-            <Button variant="outline" class="h-11 rounded-full border-white/70 bg-white/70 px-6 text-sm text-slate-700 backdrop-blur hover:bg-white">
+            <Button
+              variant="outline"
+              class="h-10 rounded-xl border-slate-200 bg-white px-5 text-sm text-slate-600 hover:bg-slate-50"
+            >
               {{ t('secondaryAction') }}
             </Button>
           </div>
+
+          <!-- 指标卡片 - 简化 -->
+          <div class="grid grid-cols-3 gap-3">
+            <article
+              v-for="metric in metrics"
+              :key="metric.key"
+              class="rounded-xl border border-slate-200/60 bg-white p-4"
+            >
+              <p class="text-xl font-semibold tracking-tight text-slate-950">
+                {{ t(`${metric.key}.value`) }}
+              </p>
+              <p class="mt-1 text-xs text-slate-500">
+                {{ t(`${metric.key}.label`) }}
+              </p>
+            </article>
+          </div>
         </div>
 
-        <div class="grid gap-4">
-          <article
-            v-for="card in featureCards"
-            :key="card.key"
-            class="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur"
-          >
-            <div class="mb-5 inline-flex rounded-2xl bg-slate-950 p-3 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]">
-              <component :is="card.icon" class="size-5" />
+        <!-- 右侧预览区 -->
+        <div id="workspace" class="relative">
+          <div class="absolute inset-x-8 -top-4 h-20 rounded-full bg-slate-200/30 blur-2xl" />
+          <div class="relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white/90 p-4 shadow-xl shadow-slate-200/40 sm:p-5">
+            <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <p class="text-xs font-medium text-slate-400">{{ t('previewLabel') }}</p>
+                  <h2 class="mt-0.5 text-base font-semibold text-slate-950">{{ t('previewTitle') }}</h2>
+                </div>
+                <div class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                  <Zap class="size-3" />
+                  {{ t('previewStatus') }}
+                </div>
+              </div>
+
+              <div class="mt-4 space-y-3">
+                <!-- Hero Card -->
+                <section class="rounded-xl border border-slate-200 bg-slate-900 p-4 text-white">
+                  <div class="flex items-center justify-between">
+                    <p class="text-xs text-white/50">{{ t('workspaceHeroLabel') }}</p>
+                    <span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">
+                      {{ t('workspaceHeroTag') }}
+                    </span>
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold text-white">{{ t('workspaceHeroTitle') }}</h3>
+                  <p class="mt-1.5 text-xs leading-5 text-white/60">
+                    {{ t('workspaceHeroDescription') }}
+                  </p>
+                </section>
+
+                <div class="grid gap-3 lg:grid-cols-[1fr_180px]">
+                  <!-- 能力面板 -->
+                  <div class="rounded-xl border border-slate-200 bg-white p-4">
+                    <div class="flex items-center justify-between">
+                      <h3 class="text-xs font-semibold text-slate-900">{{ t('panelTitle') }}</h3>
+                      <span class="text-xs text-slate-400">{{ t('panelMeta') }}</span>
+                    </div>
+
+                    <div class="mt-3 space-y-2">
+                      <article
+                        v-for="card in workspaceCards"
+                        :key="card.key"
+                        class="flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50/60 p-3"
+                      >
+                        <div class="mt-0.5 flex size-8 items-center justify-center rounded-lg bg-white text-slate-950">
+                          <component :is="card.icon" class="size-3.5" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <h4 class="text-xs font-medium text-slate-950">{{ t(`${card.key}.title`) }}</h4>
+                          <p class="mt-0.5 text-xs leading-4 text-slate-400">
+                            {{ t(`${card.key}.description`) }}
+                          </p>
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+
+                  <!-- 技术栈面板 -->
+                  <aside
+                    id="system"
+                    class="rounded-xl border border-slate-200 bg-white p-4"
+                  >
+                    <p class="text-xs font-semibold text-slate-900">{{ t('stackTitle') }}</p>
+                    <div class="mt-3 space-y-1.5">
+                      <div
+                        v-for="item in ['Nuxt 4', 'Tailwind v4', 'shadcn', 'i18n']"
+                        :key="item"
+                        class="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-2.5 py-2 text-xs text-slate-500"
+                      >
+                        <span>{{ item }}</span>
+                        <ChevronRight class="size-3 text-slate-300" />
+                      </div>
+                    </div>
+                    <div class="mt-3 rounded-lg bg-slate-900 px-3 py-3 text-white">
+                      <p class="text-[10px] uppercase tracking-widest text-white/40">{{ t('stackFootnoteLabel') }}</p>
+                      <p class="mt-1.5 text-xs leading-4 text-white/60">
+                        {{ t('stackFootnote') }}
+                      </p>
+                    </div>
+                  </aside>
+                </div>
+              </div>
             </div>
-            <h2 class="text-xl font-semibold tracking-tight text-slate-950">
-              {{ t(`${card.key}.title`) }}
-            </h2>
-            <p class="mt-3 text-sm leading-7 text-slate-600">
-              {{ t(`${card.key}.description`) }}
-            </p>
-          </article>
+          </div>
         </div>
       </section>
     </div>
