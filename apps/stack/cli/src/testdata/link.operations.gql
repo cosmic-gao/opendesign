@@ -1,0 +1,35 @@
+# Query to get user information and their repositories
+query GetUserAndRepositories($username: String!) {
+  user: getUserByName(username: $username) {
+    username
+    uuid
+    repositories: getRepositoriesByOwner(username: $username) {
+      slug
+      owner {
+        username
+      }
+    }
+  }
+}
+
+# Query to get a specific repository and its open pull requests
+query GetRepositoryAndPullRequests($username: String!, $slug: String!) {
+  repository: getRepository(username: $username, slug: $slug) {
+    slug
+    owner {
+      username
+    }
+    pullRequests: getPullRequestsByRepository(username: $username, slug: $slug, state: OPEN) {
+      id
+      title
+      author {
+        username
+      }
+    }
+  }
+}
+
+# Mutation to merge a pull request
+mutation MergePullRequest($username: String!, $slug: String!, $pid: String!) {
+  mergePullRequest(username: $username, slug: $slug, pid: $pid)
+}

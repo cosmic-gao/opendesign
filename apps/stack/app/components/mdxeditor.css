@@ -1,0 +1,93 @@
+.mdxeditor {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+.mdxeditor h1,
+.mdxeditor h2,
+.mdxeditor h3 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.mdxeditor h1 {
+  font-size: 2em;
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 0.3em;
+}
+
+.mdxeditor h2 {
+  font-size: 1.5em;
+}
+
+.mdxeditor h3 {
+  font-size: 1.25em;
+}
+
+.mdxeditor blockquote {
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  padding: 0 1em;
+  margin: 0 0 16px;
+}
+
+.mdxeditor p {
+  margin-bottom: 16px;
+}
+
+.mdxeditor ul,
+.mdxeditor ol {
+  padding-left: 2em;
+  margin-bottom: 16px;
+}
+
+.mdxeditor li {
+  margin-bottom: 4px;
+}
+
+.mdxeditor ul {
+  list-style-type: disc;
+}
+
+.mdxeditor ol {
+  list-style-type: decimal;
+}
+
+.mdxeditor li::marker {
+  color: #6a737d;
+}
+
+.mdxeditor code {
+  background-color: rgba(27, 31, 35, 0.05);
+  border-radius: 3px;
+  font-size: 85%;
+  margin: 0;
+  padding: 0.2em 0.4em;
+}
+
+.mdxeditor pre {
+  background-color: #f6f8fa;
+  border-radius: 3px;
+  font-size: 85%;
+  line-height: 1.45;
+  overflow: auto;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.mdxeditor a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.mdxeditor a:hover {
+  text-decoration: underline;
+}
+
+.mdxeditor img {
+  max-width: 100%;
+  box-sizing: content-box;
+}

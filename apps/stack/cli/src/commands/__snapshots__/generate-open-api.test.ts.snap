@@ -1,0 +1,51 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`generate-open-api should generate open api 1`] = `
+"if (!process.env.INFERABLE_SERVICE_LINK_URL) {
+  throw new Error("Missing environment variable: INFERABLE_SERVICE_LINK_URL");
+}
+  
+const config = {
+  axiosDefaults() {
+    return {
+      baseURL: process.env.INFERABLE_SERVICE_LINK_URL,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+  },
+};
+
+export default config;
+"
+`;
+
+exports[`generate-open-api should generate open api 2`] = `
+"import fs from "fs";
+import path from "path";
+
+const functions = fs
+  .readdirSync(path.join(__dirname, "functions"))
+  .filter((f) => {
+    const [service, operationId, ext, ...rest] = f.split(".");
+    const isService = service === "link" && (ext === "ts" || ext === "js") && operationId && !rest.length;
+
+    if (!isService) {
+      console.debug("Skipping function file", f);
+    }
+
+    return isService;
+  })
+  .map((f) => require(\`./functions/\${f}\`).default)
+  .filter(Boolean);
+
+if (functions.length === 0) {
+  throw new Error("No valid functions found for service link");
+}
+
+export default {
+  name: "link",
+  functions,
+};
+"
+`;

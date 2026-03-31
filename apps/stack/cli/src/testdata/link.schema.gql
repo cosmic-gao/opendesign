@@ -1,0 +1,43 @@
+# Types
+type User {
+  username: String!
+  uuid: String!
+}
+
+type Repository {
+  slug: String!
+  owner: User!
+}
+
+type PullRequest {
+  id: Int!
+  title: String!
+  repository: Repository!
+  author: User!
+}
+
+enum PullRequestState {
+  OPEN
+  MERGED
+  DECLINED
+}
+
+# Queries
+type Query {
+  getUserByName(username: String!): User!
+  getRepositoriesByOwner(username: String!): [Repository!]!
+  getRepository(username: String!, slug: String!): Repository!
+  getPullRequestsByRepository(username: String!, slug: String!, state: PullRequestState): [PullRequest!]!
+  getPullRequestById(username: String!, slug: String!, pid: String!): PullRequest!
+}
+
+# Mutations
+type Mutation {
+  mergePullRequest(username: String!, slug: String!, pid: String!): Boolean!
+}
+
+# Schema
+schema {
+  query: Query
+  mutation: Mutation
+}

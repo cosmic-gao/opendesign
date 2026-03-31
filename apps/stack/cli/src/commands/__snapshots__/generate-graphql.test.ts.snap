@@ -1,0 +1,90 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`generate-graphql-api should generate graphql api 1`] = `
+"if (!process.env.INFERABLE_SERVICE_LINK_URL) {
+  throw new Error("Missing environment variable: INFERABLE_SERVICE_LINK_URL");
+}
+
+const config = {
+  axiosDefaults() {
+    return {
+      baseURL: process.env.INFERABLE_SERVICE_LINK_URL,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+  },
+};
+
+export default config;
+"
+`;
+
+exports[`generate-graphql-api should generate graphql api 2`] = `
+"import fs from "fs";
+import path from "path";
+
+const functions = fs
+  .readdirSync(path.join(__dirname, "functions"))
+  .filter((f) => {
+    const [service, name, ext, ...rest] = f.split(".");
+    const isService = service === "link" && (ext === "ts" || ext === "js") && name && !rest.length;
+
+    if (!isService) {
+      console.debug("Skipping function file", f);
+    }
+
+    return isService;
+  })
+  .map((f) => require(\`./functions/\${f}\`).default)
+  .filter(Boolean);
+
+if (functions.length === 0) {
+  throw new Error("No valid functions found for service link");
+}
+
+export default {
+  name: "link",
+  functions,
+};
+"
+`;
+
+exports[`generate-graphql-api should generate graphql api 3`] = `
+"import axios from 'axios';
+import z from 'zod';
+import config from '../link.config';
+
+const inputSchema = z.object({ "username": z.string(), "slug": z.string(), "pid": z.string() })
+
+const query = \`
+mutation MergePullRequest($username: String!, $slug: String!, $pid: String!) {
+  mergePullRequest(username: $username, slug: $slug, pid: $pid)
+}
+\`
+
+export default {
+  name: "MergePullRequest",
+  description: "Function for the MergePullRequest operation",
+  func: async (input: Zod.infer<typeof inputSchema>) => {
+
+   const result = await axios({
+      ...config.axiosDefaults(),
+     method: "POST",
+     data: {
+       query,
+       variables: input
+     },
+    });
+
+    return result.data
+  },
+  schema: {
+    input: inputSchema
+  },
+  config: {
+    requiresApproval: true
+  }
+}
+ "
+`;
