@@ -5,26 +5,25 @@
  */
 
 export type Key = string | symbol;
-export type Events = Record<Key, unknown>;
-export type EventType<E extends Events> = Extract<keyof E, Key>;
+export type EventType<E extends object> = Extract<keyof E, Key>;
 
 export type Handler<T = unknown> = (event: T) => void;
-export type WildcardHandler<E extends Events = Events> = (
+export type WildcardHandler<E extends object = Record<string, unknown>> = (
   type: EventType<E>,
   event: E[EventType<E>],
 ) => void;
 
-type Callback<E extends Events> = Handler<E[EventType<E>]> | WildcardHandler<E>;
+type Callback<E extends object> = Handler<E[EventType<E>]> | WildcardHandler<E>;
 
 /**
  * 内部使用的监听器定义，用于存储 once 的原始处理程序引用
  */
 export type Listener<T = unknown, S = Handler<T>> = Handler<T> & { source?: S };
 
-export type Handlers<E extends Events> = Array<
+export type Handlers<E extends object> = Array<
   Listener<E[EventType<E>], Callback<E>> | WildcardHandler<E>
 >;
-export type Registry<E extends Events> = Map<
+export type Registry<E extends object> = Map<
   EventType<E> | "*",
   Handlers<E>
 >;
@@ -32,7 +31,7 @@ export type Registry<E extends Events> = Map<
 /**
  * Signal 接口定义
  */
-export interface Emitter<E extends Events> {
+export interface Emitter<E extends object> {
   all: Registry<E>;
 
   on<K extends EventType<E>>(type: K, handler: Handler<E[K]>): () => void;
@@ -53,7 +52,7 @@ export interface Emitter<E extends Events> {
 /**
  * Signal 类实现
  */
-export class Signal<E extends Events = Record<string, unknown>>
+export class Signal<E extends object = Record<string, unknown>>
   implements Emitter<E> {
   public all = new Map<EventType<E> | "*", Handlers<E>>();
 

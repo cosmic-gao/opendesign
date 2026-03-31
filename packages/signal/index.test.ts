@@ -9,7 +9,7 @@ interface TestEvents {
 }
 
 describe('Signal', () => {
-  it('emits typed payloads to matching handlers', () => {
+  it('向匹配的监听器发送带类型的事件载荷', () => {
     const signal = new Signal<TestEvents>();
     const handler = vi.fn();
 
@@ -20,7 +20,7 @@ describe('Signal', () => {
     expect(handler).toHaveBeenCalledWith({ ok: true });
   });
 
-  it('supports wildcard listeners', () => {
+  it('支持通配符监听器', () => {
     const signal = new Signal<TestEvents>();
     const wildcard = vi.fn();
 
@@ -32,7 +32,7 @@ describe('Signal', () => {
     expect(wildcard.mock.calls[0]?.[1]).toBeInstanceOf(Error);
   });
 
-  it('runs once handlers only once', () => {
+  it('只执行一次 once 监听器', () => {
     const signal = new Signal<TestEvents>();
     const handler = vi.fn();
 
@@ -44,7 +44,7 @@ describe('Signal', () => {
     expect(handler).toHaveBeenCalledWith({ ok: true });
   });
 
-  it('removes once handlers by original handler reference', () => {
+  it('可以通过原始处理函数引用移除 once 监听器', () => {
     const signal = new Signal<TestEvents>();
     const handler = vi.fn();
 
@@ -55,7 +55,7 @@ describe('Signal', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('clears event-specific and global listeners', () => {
+  it('可以清除事件级和全局监听器', () => {
     const signal = new Signal<TestEvents>();
     const readyHandler = vi.fn();
     const wildcard = vi.fn();
