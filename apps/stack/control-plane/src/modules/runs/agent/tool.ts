@@ -27,7 +27,6 @@ export class AgentTool {
   }: {
     name: string;
     description: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     func: (input: any) => Promise<string | undefined>;
     schema?: string | z.ZodObject<any>;
   }) {

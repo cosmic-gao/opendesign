@@ -104,7 +104,6 @@ const envSchema = z
     ];
 
     for (const key of EE_REQUIRED) {
-      //eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (!(value as any)[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -121,7 +120,6 @@ try {
 } catch (e: any) {
   // Use console.error rather than logger.error here because the logger
   // depends on the environment variables to be parsed
-  // eslint-disable-next-line no-console
   console.error("Invalid environment variables provided", {
     errors: JSON.stringify(e.errors),
   });

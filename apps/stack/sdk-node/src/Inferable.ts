@@ -50,7 +50,6 @@ export const log = debug("inferable:client");
  */
 export class Inferable {
   static getVersion(): string {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     return require(path.join(__dirname, "..", "package.json")).version;
   }
 
@@ -154,7 +153,6 @@ export class Inferable {
         name: input.name,
         description: input.description,
         func: input.func,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         inputSchema: input.schema?.input ?? (z.object({}).passthrough() as any),
         config: input.config,
       });
@@ -216,7 +214,6 @@ export class Inferable {
     description,
   }: {
     name: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     func: (input: ToolInput<T>, context: JobContext) => any;
     inputSchema: T;
     config?: ToolConfig;

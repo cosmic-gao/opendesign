@@ -19,7 +19,6 @@ type ValidationError = {
   error: string;
 };
 
-// Name restriction for Services and Functions
 const ALLOWED_NAME_CHARACTERS = /^[a-zA-Z0-9]+$/;
 
 export const validateFunctionArgs = (schema: any, args: unknown) => {
@@ -175,7 +174,6 @@ export const ajvErrorToFailures = (
   ];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const isZodType = (input: any): input is z.ZodTypeAny => {
   return input?._def?.typeName;
 };

@@ -98,30 +98,25 @@ export const getRunMessagesForDisplay = async ({
   const parsed = messages
     .map(message => {
       // handle result messages before they were renamed
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((message as any).type === "result") {
         message.type = "invocation-result";
       }
 
       // Handle invocation-result messages before resutlType and toolName were added
       if (message.type === "invocation-result") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (!('resultType' in (message.data as any))) {
           (message.data as any).resultType = "resolution";
         }
 
         if (!('toolName' in (message.data as any))) {
           // Intentionally setting this to a "falsy" value as it will calculated below
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (message.data as any).toolName = "";
         }
       }
 
       if (message.type === "agent") {
         // handle result messages before they were renamed
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((message.data as any).summary) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (message.data as any).message = (message.data as any).summary;
           delete (message.data as any).summary;
         }
@@ -174,10 +169,8 @@ export const getRunMessagesForDisplay = async ({
 
       // Remove nested result ulid which is present for result grounding but makes the result difficult to type on the client
       if (message.data.id in message.data.result) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nested = message.data.result[message.data.id] as any;
         if ('result' in nested) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           message.data.result = nested.result as any;
         }
       }
@@ -270,13 +263,11 @@ export const getRunMessages = async ({
   return messages
     .map(message => {
       // handle result messages before they were renamed
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((message as any).type === "result") {
         message.type = "invocation-result";
       }
       if (message.type === "agent") {
         // handle result messages before they were renamed
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((message.data as any).summary) {
           (message.data as any).message = (message.data as any).summary;
           delete (message.data as any).summary;

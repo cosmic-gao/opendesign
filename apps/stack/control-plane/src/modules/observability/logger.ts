@@ -35,7 +35,6 @@ const winston = createLogger({
     .map((t) => t!),
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LogMeta = Record<string, any>;
 type LogLevel = "error" | "warn" | "info" | "debug";
 

@@ -141,7 +141,6 @@ function createTypeSchema(
   const properties: Record<string, JSONSchema4Type> = {};
   const required: string[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (type as any).fields?.forEach((field: any) => {
     const { jsonSchema, isRequired } = jsonSchemaFromGraphQL(
       field,

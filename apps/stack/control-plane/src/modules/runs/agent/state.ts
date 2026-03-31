@@ -30,7 +30,6 @@ export type RunGraphState = {
     providerKey?: string | null;
   };
   waitingJobs: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
 };
 

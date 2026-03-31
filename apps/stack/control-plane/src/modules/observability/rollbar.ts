@@ -22,7 +22,6 @@ export class RollbarTransport extends TransportStream {
     this.level = opts.level || "warn";
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   log(info: any, callback: () => void): void {
     const level = info[Symbol.for("level")];
     const message = info.message;

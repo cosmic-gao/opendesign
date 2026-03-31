@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
 
 import cors from "@fastify/cors";
 import { initServer } from "@ts-rest/fastify";

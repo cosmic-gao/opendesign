@@ -95,7 +95,6 @@ export class FastifySlackReceiver implements Receiver {
           throw new Error("Expected Slack request body to be a string");
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (req as any).rawBody = Buffer.from(request.body);
 
         bufferedReq = await boltHelpers.parseAndVerifyHTTPRequest(
@@ -113,7 +112,6 @@ export class FastifySlackReceiver implements Receiver {
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let body: any;
       try {
         body = boltHelpers.parseHTTPRequestBody(bufferedReq);

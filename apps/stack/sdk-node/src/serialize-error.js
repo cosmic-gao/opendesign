@@ -81,7 +81,6 @@ const toJSON = (from) => {
 
 const getErrorConstructor = (name) => errorConstructors.get(name) ?? Error;
 
-// eslint-disable-next-line complexity
 const destroyCircular = ({
   from,
   seen,
@@ -129,7 +128,6 @@ const destroyCircular = ({
     });
 
   for (const [key, value] of Object.entries(from)) {
-    // eslint-disable-next-line node/prefer-global/buffer
     if (typeof Buffer === "function" && Buffer.isBuffer(value)) {
       to[key] = "[object Buffer]";
       continue;

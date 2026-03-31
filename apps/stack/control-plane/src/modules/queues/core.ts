@@ -82,7 +82,6 @@ export class QueueWrapper<T extends BaseMessage> {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const queueMap = new Map<string, QueueWrapper<any>>();
 
 export function createQueue<T extends BaseMessage>(

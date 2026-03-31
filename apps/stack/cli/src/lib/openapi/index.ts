@@ -71,7 +71,6 @@ const buildServiceFunction = ({
   method,
   path,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   pathObj: any;
   method: (typeof HTTP_METHODS)[number];
   path: string;
@@ -113,7 +112,6 @@ const buildServiceFunction = ({
   }
 
   // Append parameter args to the input schema
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   pathObj[method].parameters?.forEach((param: any) => {
     inputSchema.properties[param.name] = {
       type: param.schema.type,
@@ -123,7 +121,6 @@ const buildServiceFunction = ({
   });
 
   const inputMap = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query:
       pathObj[method].parameters
         ?.filter((param: any) => param.in === "query")

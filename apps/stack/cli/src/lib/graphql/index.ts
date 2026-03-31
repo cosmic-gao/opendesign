@@ -38,7 +38,6 @@ export const fromGraphQL = async ({
       )
         .map(([name, schema]) => {
           const definition = document?.definitions.find(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (def: any) => def.name?.value === name,
           );
 

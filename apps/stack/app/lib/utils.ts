@@ -7,7 +7,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const unpack = (data: any): any => {
   try {
     return JSON.parse(data).value;
@@ -16,7 +15,6 @@ export const unpack = (data: any): any => {
   }
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const pack = (data: any): string => JSON.stringify(data);
 
 export const formatServiceName = (name: string) => {
@@ -34,7 +32,6 @@ export const isInternalService = (name: string) => name.startsWith("i_");
  * Creates an error toast from a response or a fallback if none is found.
  * Uses the hash of the error message as the toast id to avoid duplicates.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createErrorToast = (response: any, fallback: string) => {
   const errorMessage =
     response?.body?.error?.message ||

@@ -11,7 +11,6 @@ type ModelInvocationOutput = {
 
 export type ModelOutput = {
   invocations?: ModelInvocationOutput[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   message?: string;
   done?: boolean;

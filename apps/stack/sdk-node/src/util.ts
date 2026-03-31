@@ -183,7 +183,6 @@ export const ajvErrorToFailures = (
   ];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const isZodType = (input: any): input is z.ZodTypeAny => {
   return input?._def?.typeName;
 };

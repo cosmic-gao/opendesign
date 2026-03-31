@@ -47,7 +47,6 @@ class InferablePromptfooProvider implements ApiProvider {
   callApi: CallApiFunction = async (rawInput, _context, _options) => {
     // Check if prompt is JSON string
     let message: string | undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let inputObject: any | undefined;
     try {
       inputObject = JSON.parse(rawInput);
@@ -164,7 +163,6 @@ class InferablePromptfooProvider implements ApiProvider {
       mocks?: Record<
         string,
         {
-          //eslint-disable-next-line @typescript-eslint/no-explicit-any
           output: Record<string, any>;
         }
       >;

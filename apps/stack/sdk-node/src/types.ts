@@ -17,7 +17,6 @@ export type ToolInput<T extends z.ZodTypeAny | JsonSchemaInput> =
     ? {
         [K in keyof Input]: z.infer<Input[K]>;
       }
-    : // eslint-disable-next-line @typescript-eslint/no-explicit-any
       any;
 
 /**
@@ -80,7 +79,6 @@ export type ToolSchema<T extends z.ZodTypeAny | JsonSchemaInput> = {
 
 export type ToolRegistrationInput<T extends z.ZodTypeAny | JsonSchemaInput> = {
   name: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   func: (input: ToolInput<T>, context: JobContext) => Promise<any>;
   schema?: ToolSchema<T>;
   config?: ToolConfig;

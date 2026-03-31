@@ -24,7 +24,6 @@ export const buildTool = ({
   name: string;
   toolCallId: string;
   description?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema?: string;
   run: {
     clusterId: string;

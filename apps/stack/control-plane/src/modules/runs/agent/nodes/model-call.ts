@@ -35,7 +35,6 @@ export const handleModelCall = (
  * Sometimes the Claude gets confused and returns a stringified JSON object, which doesn't get parsed by the Anthropic SDK.
  */
 function attemptRescueStringifiedStructuredResult(response: unknown) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = (response as any)?.structured;
 
   if ("result" in s && typeof s.result === "string") {
@@ -158,7 +157,6 @@ const _handleModelCall = async (
           type: "agent-invalid",
           data: {
             message: "Produced model output",
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             details: response.raw as any,
           },
           runId: state.run.id,
@@ -203,7 +201,6 @@ const _handleModelCall = async (
 
       // Add them to the invocation array to be handled as if they were provided correctly
       data.invocations.push(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(invocations as any),
       );
 

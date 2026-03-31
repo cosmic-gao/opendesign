@@ -161,7 +161,6 @@ export const buildModel = ({
               tools: tools as Anthropic.Tool[],
             });
 
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             trackModelUsage({
               clusterId: trackingOptions?.clusterId,
               runId: trackingOptions?.runId,
@@ -253,7 +252,6 @@ export const buildModel = ({
               ],
             });
 
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             trackModelUsage({
               ...trackingOptions,
               modelId,
@@ -350,7 +348,6 @@ export const buildMockModel = ({
   responseCount: number;
 }): Model => {
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     identifier: "mock" as any,
     embedQuery: async () => {
       throw new Error("Not implemented");
@@ -444,7 +441,6 @@ const trackModelUsage = async ({
   });
 
   if (runId) {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     trackCustomerTelemetry({
       type: "modelCall",
       clusterId,
