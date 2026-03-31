@@ -1,45 +1,51 @@
 /**
- * @openspace/signal
+ * @opendesign/signal
  * 
  * 轻量级、类型安全的事件发射器，支持通配符监听。
  */
 
 export type EventType = string | symbol;
+export type EventMap = Record<EventType, unknown>;
+export type EventKey<E extends EventMap> = Extract<keyof E, EventType>;
 
-export type Handler<T = any> = (event: T) => void;
-export type WildcardHandler<E = Record<string, any>> = (
-  type: keyof E,
-  event: E[keyof E]
+export type Handler<T = unknown> = (event: T) => void;
+export type WildcardHandler<E extends EventMap = EventMap> = (
+  type: EventKey<E>,
+  event: E[EventKey<E>]
 ) => void;
+
+type SignalHandler<E extends EventMap> = Handler<E[EventKey<E>]> | WildcardHandler<E>;
 
 /**
  * 内部使用的监听器定义，用于存储 once 的原始处理程序引用
  */
-export type Listener<T = any> = Handler<T> & { source?: Handler<T> | WildcardHandler<any> };
+export type Listener<T = unknown, S = Handler<T>> = Handler<T> & { source?: S };
 
-export type EventHandlerList<T = any> = Array<Listener<T> | WildcardHandler<any>>;
-export type EventHandlerMap<E = Record<string, any>> = Map<
-  keyof E | '*',
-  EventHandlerList<E[keyof E] | E>
+export type EventHandlerList<E extends EventMap> = Array<
+  Listener<E[EventKey<E>], SignalHandler<E>> | WildcardHandler<E>
+>;
+export type EventHandlerMap<E extends EventMap> = Map<
+  EventKey<E> | '*',
+  EventHandlerList<E>
 >;
 
 /**
  * Signal 接口定义
  */
-export interface Emitter<E extends Record<EventType, any>> {
+export interface Emitter<E extends EventMap> {
   all: EventHandlerMap<E>;
 
-  on<K extends keyof E>(type: K, handler: Handler<E[K]>): () => void;
+  on<K extends EventKey<E>>(type: K, handler: Handler<E[K]>): () => void;
   on(type: '*', handler: WildcardHandler<E>): () => void;
 
-  once<K extends keyof E>(type: K, handler: Handler<E[K]>): () => void;
+  once<K extends EventKey<E>>(type: K, handler: Handler<E[K]>): () => void;
   once(type: '*', handler: WildcardHandler<E>): () => void;
 
-  off<K extends keyof E>(type: K, handler?: Handler<E[K]>): void;
+  off<K extends EventKey<E>>(type: K, handler?: Handler<E[K]>): void;
   off(type: '*', handler?: WildcardHandler<E>): void;
 
-  emit<K extends keyof E>(type: K, event: E[K]): void;
-  emit<K extends keyof E>(type: undefined extends E[K] ? K : never): void;
+  emit<K extends EventKey<E>>(type: K, event: E[K]): void;
+  emit<K extends EventKey<E>>(type: undefined extends E[K] ? K : never): void;
 
   clear(): void;
 }
@@ -47,8 +53,8 @@ export interface Emitter<E extends Record<EventType, any>> {
 /**
  * Signal 类实现
  */
-export class Signal<E extends Record<EventType, any> = Record<string, any>> implements Emitter<E> {
-  public all = new Map<keyof E | '*', EventHandlerList>();
+export class Signal<E extends EventMap = Record<string, unknown>> implements Emitter<E> {
+  public all = new Map<EventKey<E> | '*', EventHandlerList<E>>();
 
   /**
    * 监听事件
@@ -63,15 +69,26 @@ export class Signal<E extends Record<EventType, any> = Record<string, any>> impl
    * off(); // 取消监听
    * ```
    */
-  public on<K extends keyof E>(type: K | '*', handler: Handler<E[K]> | WildcardHandler<E>): () => void {
+  public on<K extends EventKey<E>>(type: K, handler: Handler<E[K]>): () => void;
+  public on(type: '*', handler: WildcardHandler<E>): () => void;
+  public on(type: EventKey<E> | '*', handler: SignalHandler<E>): () => void {
     const handlers = this.all.get(type);
+    const nextHandler = handler as EventHandlerList<E>[number];
+
     if (handlers) {
-      handlers.push(handler as Listener);
+      handlers.push(nextHandler);
     } else {
-      this.all.set(type, [handler as Listener] as EventHandlerList);
+      this.all.set(type, [nextHandler]);
     }
 
-    return () => this.off(type, handler);
+    return () => {
+      if (type === '*') {
+        this.off('*', handler as WildcardHandler<E>);
+        return;
+      }
+
+      this.off(type, handler as Handler<E[typeof type]>);
+    };
   }
 
   /**
@@ -86,16 +103,27 @@ export class Signal<E extends Record<EventType, any> = Record<string, any>> impl
    * signal.once('init', () => console.log('Initialized'));
    * ```
    */
-  public once<K extends keyof E>(type: K | '*', handler: Handler<E[K]> | WildcardHandler<E>): () => void {
-    const wrapper = ((...args: any[]) => {
-      this.off(type, wrapper);
-      return (handler as Function).apply(this, args);
-    }) as Listener;
+  public once<K extends EventKey<E>>(type: K, handler: Handler<E[K]>): () => void;
+  public once(type: '*', handler: WildcardHandler<E>): () => void;
+  public once(type: EventKey<E> | '*', handler: SignalHandler<E>): () => void {
+    const wrapper = ((...args: unknown[]) => {
+      if (type === '*') {
+        this.off('*', wrapper as unknown as WildcardHandler<E>);
+      } else {
+        this.off(type, wrapper as Handler<E[typeof type]>);
+      }
+
+      return (handler as (...event: unknown[]) => void)(...args);
+    }) as Listener<E[EventKey<E>], SignalHandler<E>>;
 
     // 保存原始handler引用以便off能正确移除(如果在触发前手动调用off)
     wrapper.source = handler;
 
-    return this.on(type, wrapper);
+    if (type === '*') {
+      return this.on('*', wrapper as unknown as WildcardHandler<E>);
+    }
+
+    return this.on(type, wrapper as Handler<E[typeof type]>);
   }
 
   /**
@@ -110,21 +138,24 @@ export class Signal<E extends Record<EventType, any> = Record<string, any>> impl
    * signal.off('login'); // 移除所有 login 监听器
    * ```
    */
-  public off<K extends keyof E>(type: K | '*', handler?: Handler<E[K]> | WildcardHandler<E>): void {
+  public off<K extends EventKey<E>>(type: K, handler?: Handler<E[K]>): void;
+  public off(type: '*', handler?: WildcardHandler<E>): void;
+  public off(type: EventKey<E> | '*', handler?: SignalHandler<E>): void {
     const handlers = this.all.get(type);
     if (!handlers) return;
 
-    if (handler) {
-      // 查找 handler 或其原始 handler (针对 once 封装的情况)
-      const index = handlers.findIndex(h =>
-        h === handler || (h as Listener).source === handler
-      );
+    if (!handler) {
+      this.all.delete(type);
+      return;
+    }
 
-      if (index !== -1) {
-        handlers.splice(index, 1);
-      }
-    } else {
-      this.all.set(type, []);
+    // 查找 handler 或其原始 handler (针对 once 封装的情况)
+    const index = handlers.findIndex(h =>
+      h === handler || (h as Listener<E[EventKey<E>], SignalHandler<E>>).source === handler
+    );
+
+    if (index !== -1) {
+      handlers.splice(index, 1);
     }
 
     if (handlers.length === 0) {
@@ -143,17 +174,15 @@ export class Signal<E extends Record<EventType, any> = Record<string, any>> impl
    * signal.emit('login', { id: 1 });
    * ```
    */
-  public emit<K extends keyof E>(type: K, event?: E[K]): void {
+  public emit<K extends EventKey<E>>(type: K, event: E[K]): void;
+  public emit<K extends EventKey<E>>(type: undefined extends E[K] ? K : never): void;
+  public emit<K extends EventKey<E>>(type: K, event?: E[K]): void {
     // 触发具体事件监听器
     const handlers = this.all.get(type);
     if (handlers) {
       // 使用 slice() 创建浅拷贝，防止在事件处理中修改监听器列表导致的问题
       for (const handler of handlers.slice()) {
-        try {
-          (handler as Handler<E[K]>)(event!);
-        } catch (e) {
-          console.error(`[Signal] Error in handler for event "${String(type)}":`, e);
-        }
+        (handler as Handler<E[K]>)(event!);
       }
     }
 
@@ -161,11 +190,7 @@ export class Signal<E extends Record<EventType, any> = Record<string, any>> impl
     const wildcards = this.all.get('*');
     if (wildcards) {
       for (const handler of wildcards.slice()) {
-        try {
-          (handler as WildcardHandler<E>)(type, event!);
-        } catch (e) {
-          console.error(`[Signal] Error in wildcard handler for event "${String(type)}":`, e);
-        }
+        (handler as WildcardHandler<E>)(type, event!);
       }
     }
   }
