@@ -25,10 +25,6 @@ const projectMap: Record<
     ref: string;
   }
 > = {
-  node: {
-    url: "https://git.inferable.ai/inferablehq/inferable/raw/refs/heads/main/archives/bootstrap-node.zip",
-    ref: "bootstrap-node",
-  },
   go: {
     url: "https://git.inferable.ai/inferablehq/inferable/raw/refs/heads/main/archives/bootstrap-go.zip",
     ref: "bootstrap-go",
@@ -52,7 +48,7 @@ export const Bootstrap: CommandModule<{}, BootstrapArgs> = {
       .positional("type", {
         describe: "Project type to create",
         type: "string",
-        choices: ["node", "go", "dotnet", "proxy"],
+        choices: ["go", "dotnet", "proxy"],
         demandOption: false,
       })
       .option("dir", {
@@ -97,7 +93,6 @@ export const Bootstrap: CommandModule<{}, BootstrapArgs> = {
 
     switch (type) {
       case "proxy":
-      case "node":
         console.log("Installing dependencies...");
         try {
           await execAsync("npm install", { cwd: dir });
@@ -115,6 +110,9 @@ export const Bootstrap: CommandModule<{}, BootstrapArgs> = {
           console.error("❌ Failed to install dependencies:", error);
           process.exit(1);
         }
+        break;
+      case "dotnet":
+        console.log(`✅ Inferable ${type} project created in ${dir}`);
         break;
     }
   },

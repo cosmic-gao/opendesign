@@ -4,19 +4,18 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { coldarkDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useState } from "react";
 
-type ProgrammingLanguage = "node" | "golang" | "dotnet";
+type ProgrammingLanguage = "golang" | "dotnet";
 
 export function ServicesQuickstart({ clusterId }: { clusterId: string }) {
   const [copied, setCopied] = useState(false);
   const [selectedLanguage, setSelectedLanguage] =
-    useState<ProgrammingLanguage>("node");
+    useState<ProgrammingLanguage>("golang");
 
   const getCommands = (language: ProgrammingLanguage) => {
     const baseCommands = `npm i @inferable/cli -g && \\
 inf auth login`;
 
     const languageSpecificCommands = {
-      node: `inf bootstrap node --dir=inferable-app-${clusterId}`,
       golang: `inf bootstrap go --dir=inferable-app-${clusterId}`,
       dotnet: `inf bootstrap dotnet --dir=inferable-app-${clusterId}`,
     };
@@ -25,7 +24,7 @@ inf auth login`;
 ${languageSpecificCommands[language]} && \\
 cd inferable-app-${clusterId} && \\
 inf auth keys create my_key --clusterId=${clusterId} --env=true && \\
-${language === "node" ? "npm run dev" : language === "golang" ? "go run ." : "dotnet run"}`;
+${language === "golang" ? "go run ." : "dotnet run"}`;
   };
 
   const handleCopy = async () => {
@@ -58,7 +57,6 @@ ${language === "node" ? "npm run dev" : language === "golang" ? "go run ." : "do
               }
               className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="node">Node.js</option>
               <option value="golang">Go</option>
               <option value="dotnet">.NET</option>
             </select>
@@ -93,9 +91,7 @@ ${language === "node" ? "npm run dev" : language === "golang" ? "go run ." : "do
             <li>Install the Inferable CLI</li>
             <li>
               Create a new{" "}
-              {selectedLanguage === "node"
-                ? "Node.js"
-                : selectedLanguage === "golang"
+              {selectedLanguage === "golang"
                   ? "Go"
                   : ".NET"}{" "}
               service
