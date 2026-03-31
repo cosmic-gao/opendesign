@@ -1,7 +1,5 @@
 /**
- * @opendesign/signal
- *
- * 轻量级、类型安全的事件发射器，支持通配符监听。
+ * @opendesign/signal - 轻量级、类型安全的事件发射器，支持通配符监听
  */
 
 export type Key = string | symbol;
@@ -16,7 +14,7 @@ export type WildcardHandler<E extends object = Record<string, unknown>> = (
 type Callback<E extends object> = Handler<E[EventType<E>]> | WildcardHandler<E>;
 
 /**
- * 内部使用的监听器定义，用于存储 once 的原始处理程序引用
+ * 内部监听器类型，用于存储 once 的原始处理程序引用
  */
 export type Listener<T = unknown, S = Handler<T>> = Handler<T> & { source?: S };
 
@@ -29,7 +27,7 @@ export type Registry<E extends object> = Map<
 >;
 
 /**
- * Signal 接口定义
+ * Signal 事件发射器接口
  */
 export interface Emitter<E extends object> {
   all: Registry<E>;
@@ -50,7 +48,7 @@ export interface Emitter<E extends object> {
 }
 
 /**
- * Signal 类实现
+ * Signal 事件发射器实现
  */
 export class Signal<E extends object = Record<string, unknown>>
   implements Emitter<E> {
@@ -58,11 +56,9 @@ export class Signal<E extends object = Record<string, unknown>>
 
   /**
    * 监听事件
-   *
-   * @param type 事件类型或 '*'
+   * @param type 事件类型或通配符 '*'
    * @param handler 处理函数
    * @returns 取消订阅函数
-   *
    * @example
    * ```typescript
    * const off = signal.on('login', (user) => console.log(user));
@@ -95,12 +91,10 @@ export class Signal<E extends object = Record<string, unknown>>
   }
 
   /**
-   * 监听一次性事件
-   *
-   * @param type 事件类型或 '*'
+   * 监听一次性事件（触发后自动移除）
+   * @param type 事件类型或通配符 '*'
    * @param handler 处理函数
    * @returns 取消订阅函数
-   *
    * @example
    * ```typescript
    * signal.once('init', () => console.log('Initialized'));
@@ -134,10 +128,8 @@ export class Signal<E extends object = Record<string, unknown>>
 
   /**
    * 取消监听
-   *
-   * @param type 事件类型或 '*'
-   * @param handler 处理函数
-   *
+   * @param type 事件类型或通配符 '*'
+   * @param handler 处理函数（可选，不传则移除该类型所有监听器）
    * @example
    * ```typescript
    * signal.off('login', loginHandler);
@@ -172,10 +164,8 @@ export class Signal<E extends object = Record<string, unknown>>
 
   /**
    * 触发事件
-   *
    * @param type 事件类型
    * @param event 事件数据
-   *
    * @example
    * ```typescript
    * signal.emit('login', { id: 1 });
@@ -206,7 +196,6 @@ export class Signal<E extends object = Record<string, unknown>>
 
   /**
    * 清空所有监听器
-   *
    * @example
    * ```typescript
    * signal.clear();
