@@ -176,6 +176,7 @@ export class LGraph {
       return null;
     }
 
+    // 输入槽是单连接模型：若目标输入已有 link，先断开旧连接再建立新连接。
     if (input.link != null) {
       this.disconnectInput(targetNode, targetSlot);
     }
@@ -248,6 +249,7 @@ export class LGraph {
       }
     }
     if (originNode && targetNode) {
+      // 断开时以目标输入槽为主语上报，便于消费方按“谁失去输入”来处理状态。
       this.onNodeConnectionChange?.(
         SLOT_INPUT,
         targetNode,
@@ -301,6 +303,7 @@ export class LGraph {
           if (!node) {
             continue;
           }
+          // deferred actions 在节点常规执行前被冲刷，保证动作事件不会被长期饿死。
           if (LiteGraph.use_deferred_actions && node._waiting_actions?.length) {
             node.executePendingActions();
           }
@@ -380,6 +383,7 @@ export class LGraph {
           continue;
         }
         for (const linkId of output.links) {
+          // 一个 link 可能通过不同路径被扫描到，visitedLinks 保证每条边只消费一次入度。
           if (visitedLinks.has(linkId)) {
             continue;
           }
@@ -401,6 +405,7 @@ export class LGraph {
     }
 
     for (const node of pending.values()) {
+      // 如果图里有环，仍有入度的节点会留在 pending，这里兜底追加确保可执行。
       ordered.push(node);
     }
 
@@ -409,6 +414,7 @@ export class LGraph {
     }
 
     ordered.sort((a, b) => {
+      // 先按拓扑顺序产出，再按节点类静态 priority 二次稳定排序。
       const ap = (a.constructor as { priority?: number }).priority ?? 0;
       const bp = (b.constructor as { priority?: number }).priority ?? 0;
       if (ap === bp) {
@@ -671,6 +677,7 @@ export class LGraph {
     this.extra = cloneValue(data.extra ?? {});
 
     const decodedLinks: Record<string, LLink> = {};
+    // 先恢复 links，再恢复 nodes，避免节点 configure 时读不到 link 元数据。
     for (const serializedLink of data.links ?? []) {
       if (!serializedLink) {
         continue;
@@ -687,6 +694,7 @@ export class LGraph {
       const node = LiteGraph.createNode(nodeData.type, nodeData.title);
       const realNode = node ?? new LGraphNode(nodeData.title);
       if (!node) {
+        // 缺失节点类型时退化为基础节点，保留原始序列化数据并标记错误，便于后续诊断。
         realNode.last_serialization = nodeData;
         realNode.has_errors = true;
         hasError = true;
@@ -720,6 +728,7 @@ export class LGraph {
         if (!active) {
           return;
         }
+        // 帧驱动模式：每帧一个 step，适合跟随 UI 刷新节奏。
         this.onBeforeStep?.();
         this.runStep(1, !this.catch_errors);
         this.onAfterStep?.();
@@ -737,6 +746,7 @@ export class LGraph {
     }
 
     if (globalWithTimer.setInterval && globalWithTimer.clearInterval) {
+      // 定时器模式：无 rAF 环境或显式 interval 时使用固定时间片调度。
       const id = globalWithTimer.setInterval(() => {
         this.onBeforeStep?.();
         this.runStep(1, !this.catch_errors);

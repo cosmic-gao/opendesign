@@ -53,6 +53,7 @@ class LiteGraphNamespace {
     if (!nodeClass.title) {
       nodeClass.title = className || type;
     }
+    // 允许注册“普通构造器”：把 LGraphNode 原型能力按缺失项补到目标类上。
     for (const key of Object.getOwnPropertyNames(LGraphNode.prototype)) {
       if (key === 'constructor') {
         continue;
@@ -107,6 +108,7 @@ class LiteGraphNamespace {
           this.addOutputs(object.outputs as Array<[string, string | number]>);
         }
         if (object.properties && typeof object.properties === 'object') {
+          // 仅在构造时做浅合并，保留父类默认属性与外部声明属性。
           this.properties = {
             ...this.properties,
             ...(object.properties as Record<string, unknown>),
@@ -164,6 +166,7 @@ class LiteGraphNamespace {
     }
 
     const node = new nodeClass(title) as LGraphNode;
+    // 统一兜底字段，确保不同来源（class/object/plain ctor）的节点实例结构一致。
     this.hydrateNodeInstance(node, title);
     node.type = type;
     if (!node.title && nodeClass.title) {

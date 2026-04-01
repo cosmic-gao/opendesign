@@ -155,6 +155,7 @@ export class LGraphNode {
       return link.data;
     }
     if (typeof node.onExecute === 'function') {
+      // forceUpdate 只触发上游 onExecute，不会走 doExecute 的统计与 action_call 管道。
       node.onExecute();
     }
     return link.data;
@@ -336,6 +337,7 @@ export class LGraphNode {
       }
       const targetConnection = targetNode.inputs[linkInfo.target_slot];
       if (targetNode.mode === ON_TRIGGER) {
+        // ON_TRIGGER 模式把事件当“执行信号”，直接进入 doExecute 分支。
         if (!options.action_call) {
           options.action_call = `${String(this.id)}_trigg_${randomId()}`;
         }
@@ -351,6 +353,7 @@ export class LGraphNode {
       if (!options.action_call) {
         options.action_call = `${String(this.id)}_act_${randomId()}`;
       }
+      // 默认事件节点走 onAction；若开启 deferred 则先入队，等待目标节点在 runStep 中统一消费。
       if (LiteGraph.use_deferred_actions && typeof targetNode.onExecute === 'function') {
         if (!targetNode._waiting_actions) {
           targetNode._waiting_actions = [];
@@ -380,6 +383,7 @@ export class LGraphNode {
   public configure(info: SerializedNode): void {
     for (const [key, value] of Object.entries(info)) {
       if (key === 'properties' && value && typeof value === 'object') {
+        // properties 走增量合并，并触发 onPropertyChanged，避免直接覆盖丢失联动逻辑。
         const propEntries = Object.entries(value as Record<string, unknown>);
         for (const [propKey, propValue] of propEntries) {
           this.properties[propKey] = propValue;
@@ -427,6 +431,7 @@ export class LGraphNode {
 
   public serialize(): SerializedNode {
     if (this.constructor === LGraphNode && this.last_serialization) {
+      // 对“降级节点”直接回放原始数据，保证未知节点类型也能无损往返序列化。
       return this.last_serialization;
     }
 
@@ -446,6 +451,7 @@ export class LGraphNode {
     if (this.outputs.length) {
       const outputs = cloneValue(this.outputs);
       for (const output of outputs) {
+        // 运行期缓存值不入库，序列化只保留结构与连线元数据。
         delete output._data;
       }
       data.outputs = outputs;

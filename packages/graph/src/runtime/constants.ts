@@ -3,6 +3,9 @@ export const SLOT_OUTPUT = 2;
 
 export const EVENT = -1;
 export const ACTION = -1;
+// EVENT 与 ACTION 共享同一数值，仅靠“所处位置”区分语义：
+// - 输出槽上的 -1 代表 EVENT（可触发）
+// - 输入槽上的 -1 代表 ACTION（可响应）
 
 export const ALWAYS = 0;
 export const ON_EVENT = 1;

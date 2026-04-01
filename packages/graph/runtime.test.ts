@@ -70,6 +70,7 @@ class PlainCtorNode {
 }
 
 describe('graph runtime', () => {
+  // 学习入口 1：最小数据流（const -> add）可帮助理解 runStep 与连线传值。
   it('支持数据流执行', () => {
     LiteGraph.registerNodeType('test/const', ConstNode);
     LiteGraph.registerNodeType('test/add', AddNode);
@@ -91,6 +92,7 @@ describe('graph runtime', () => {
     expect(add.outputs[0]?._data).toBe(7);
   });
 
+  // 学习入口 2：触发流（ACTION/EVENT）对照 node.triggerSlot 的分发策略。
   it('支持事件触发 ON_TRIGGER 节点', () => {
     LiteGraph.registerNodeType('test/counter_action', CounterActionNode);
     const source = new LGraphNode('Source');
@@ -108,6 +110,7 @@ describe('graph runtime', () => {
     expect(target.count).toBe(1);
   });
 
+  // 学习入口 3：看 configure/serialize 的往返，理解图恢复顺序与兼容行为。
   it('支持图序列化与反序列化', () => {
     LiteGraph.registerNodeType('test/empty', EmptyNode);
     const graph = new LGraph();

@@ -35,11 +35,13 @@ export class SubgraphNode extends LGraphNode {
       return;
     }
     for (const [index, input] of this.inputs.entries()) {
+      // 父图输入 -> 子图全局输入：按“同名端口”做一次镜像。
       const value = this.getInputData(index);
       this.subgraph.setInputData(input.name, value);
     }
     this.subgraph.runStep(1, true);
     for (const [index, output] of this.outputs.entries()) {
+      // 子图全局输出 -> 父图输出：执行完成后统一回写到当前节点输出槽。
       const value = this.subgraph.getOutputData(output.name);
       this.setOutputData(index, value);
     }
@@ -64,6 +66,7 @@ export class SubgraphNode extends LGraphNode {
   }
 
   public onSubgraphInputAdded(name: string, type: string): void {
+    // 子图结构变化会实时同步到外层节点，保证“容器节点”接口始终一致。
     if (this.findInputSlot(name) === -1) {
       this.addInput(name, type);
     }
