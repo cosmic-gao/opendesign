@@ -1,4 +1,10 @@
-import { ALWAYS, STATUS_RUNNING, STATUS_STOPPED } from './constants';
+import {
+  ALWAYS,
+  SLOT_INPUT,
+  SLOT_OUTPUT,
+  STATUS_RUNNING,
+  STATUS_STOPPED,
+} from './constants';
 import { cloneValue } from './clone';
 import type { SerializedGraph, SerializedLinkTuple, TriggerOptions } from './contracts';
 import { LLink } from './link';
@@ -50,6 +56,21 @@ export class LGraph {
   public onSerialize?: (data: SerializedGraph) => void;
   public onConfigure?: (data: SerializedGraph) => void;
   public onTrigger?: (action: string, param?: unknown) => void;
+  public onInputAdded?: (name: string, type: string) => void;
+  public onInputRenamed?: (oldName: string, newName: string) => void;
+  public onInputTypeChanged?: (name: string, type: string) => void;
+  public onInputRemoved?: (name: string) => void;
+  public onOutputAdded?: (name: string, type: string) => void;
+  public onOutputRenamed?: (oldName: string, newName: string) => void;
+  public onOutputTypeChanged?: (name: string, type: string) => void;
+  public onOutputRemoved?: (name: string) => void;
+  public onNodeConnectionChange?: (
+    type: number,
+    node: LGraphNode,
+    slot: number,
+    targetNode: LGraphNode,
+    targetSlot: number,
+  ) => void;
 
   private _nodes: LGraphNode[] = [];
   private _nodes_by_id: GraphNodeMap = {};
@@ -113,6 +134,7 @@ export class LGraph {
     if (!skipComputeOrder) {
       this.updateExecutionOrder();
     }
+    node.onAdded?.();
   }
 
   public remove(node: LGraphNode): void {
@@ -135,6 +157,7 @@ export class LGraph {
     this._nodes = this._nodes.filter((candidate) => candidate !== node);
     node.graph = null;
     this.updateExecutionOrder();
+    node.onRemoved?.();
   }
 
   public getNodeById(id: number | string): LGraphNode | null {
@@ -173,6 +196,15 @@ export class LGraph {
     }
     output.links.push(linkId);
     input.link = linkId;
+    originNode.onConnectionsChange?.(SLOT_OUTPUT, originSlot, true, link, output);
+    targetNode.onConnectionsChange?.(SLOT_INPUT, targetSlot, true, link, input);
+    this.onNodeConnectionChange?.(
+      SLOT_OUTPUT,
+      originNode,
+      originSlot,
+      targetNode,
+      targetSlot,
+    );
     this.updateExecutionOrder();
     return linkId;
   }
@@ -199,13 +231,30 @@ export class LGraph {
         if (!output.links.length) {
           output.links = null;
         }
+        originNode.onConnectionsChange?.(
+          SLOT_OUTPUT,
+          link.origin_slot,
+          false,
+          link,
+          output,
+        );
       }
     }
     if (targetNode) {
       const input = targetNode.inputs[link.target_slot];
       if (input) {
         input.link = null;
+        targetNode.onConnectionsChange?.(SLOT_INPUT, link.target_slot, false, link, input);
       }
+    }
+    if (originNode && targetNode) {
+      this.onNodeConnectionChange?.(
+        SLOT_INPUT,
+        targetNode,
+        link.target_slot,
+        originNode,
+        link.origin_slot,
+      );
     }
     delete this.links[String(linkId)];
     this.updateExecutionOrder();
@@ -420,8 +469,82 @@ export class LGraph {
     this.onTrigger?.(action, param);
   }
 
-  public addInput(name: string, type = ''): void {
-    this.inputs[name] = { name, type, value: undefined };
+  public addInput(name: string, type = '', value?: unknown): void {
+    if (this.inputs[name]) {
+      return;
+    }
+    this.inputs[name] = { name, type, value };
+    this.onInputAdded?.(name, type);
+  }
+
+  public setInputDataType(name: string, type: string): boolean {
+    const input = this.inputs[name];
+    if (!input) {
+      return false;
+    }
+    input.type = type;
+    this.onInputTypeChanged?.(name, type);
+    return true;
+  }
+
+  public renameInput(oldName: string, newName: string): boolean {
+    if (!this.inputs[oldName] || this.inputs[newName]) {
+      return false;
+    }
+    const current = this.inputs[oldName]!;
+    delete this.inputs[oldName];
+    current.name = newName;
+    this.inputs[newName] = current;
+    this.onInputRenamed?.(oldName, newName);
+    return true;
+  }
+
+  public removeInput(name: string): boolean {
+    if (!this.inputs[name]) {
+      return false;
+    }
+    delete this.inputs[name];
+    this.onInputRemoved?.(name);
+    return true;
+  }
+
+  public addOutput(name: string, type = '', value?: unknown): void {
+    if (this.outputs[name]) {
+      return;
+    }
+    this.outputs[name] = { name, type, value };
+    this.onOutputAdded?.(name, type);
+  }
+
+  public setOutputDataType(name: string, type: string): boolean {
+    const output = this.outputs[name];
+    if (!output) {
+      return false;
+    }
+    output.type = type;
+    this.onOutputTypeChanged?.(name, type);
+    return true;
+  }
+
+  public renameOutput(oldName: string, newName: string): boolean {
+    if (!this.outputs[oldName] || this.outputs[newName]) {
+      return false;
+    }
+    const current = this.outputs[oldName]!;
+    delete this.outputs[oldName];
+    current.name = newName;
+    this.outputs[newName] = current;
+    this.onOutputRenamed?.(oldName, newName);
+    return true;
+  }
+
+  public removeOutput(name: string): boolean {
+    if (!this.outputs[name]) {
+      return false;
+    }
+    delete this.outputs[name];
+    this.onOutputRemoved?.(name);
+    return true;
   }
 
   public setInputData(name: string, value: unknown): void {
@@ -435,10 +558,6 @@ export class LGraph {
     return this.inputs[name]?.value;
   }
 
-  public addOutput(name: string, type = ''): void {
-    this.outputs[name] = { name, type, value: undefined };
-  }
-
   public setOutputData(name: string, value: unknown): void {
     if (!this.outputs[name]) {
       this.addOutput(name);
@@ -449,6 +568,79 @@ export class LGraph {
   public getOutputData(name: string): unknown {
     return this.outputs[name]?.value;
   }
+
+  public findNodesByType(type: string): LGraphNode[] {
+    return this._nodes.filter((node) => node.type === type);
+  }
+
+  public findNodesByClass<T extends LGraphNode>(
+    klass: new (...args: unknown[]) => T,
+  ): T[] {
+    return this._nodes.filter((node) => node instanceof klass) as T[];
+  }
+
+  public getNodeByTitle(title: string): LGraphNode | null {
+    return this._nodes.find((node) => node.title === title) ?? null;
+  }
+
+  public getTime(): number {
+    return this.globaltime;
+  }
+
+  public runStepAsync(
+    num = 1,
+    doNotCatchErrors = false,
+    limit?: number,
+  ): Promise<void> {
+    return Promise.resolve().then(() => {
+      this.runStep(num, doNotCatchErrors, limit);
+    });
+  }
+
+  public arrange(margin = 100): void {
+    const nodes = this.computeExecutionOrder(false);
+    const columns = new Map<number, LGraphNode[]>();
+    const levels = new Map<number | string, number>();
+    for (const node of nodes) {
+      levels.set(node.id, 1);
+    }
+    for (const node of nodes) {
+      let level = levels.get(node.id) ?? 1;
+      for (const input of node.inputs) {
+        if (input.link == null) {
+          continue;
+        }
+        const link = this.links[String(input.link)];
+        if (!link) {
+          continue;
+        }
+        const sourceLevel = levels.get(link.origin_id) ?? 1;
+        level = Math.max(level, sourceLevel + 1);
+      }
+      levels.set(node.id, level);
+      if (!columns.has(level)) {
+        columns.set(level, []);
+      }
+      columns.get(level)!.push(node);
+    }
+    let x = margin;
+    const sortedLevels = [...columns.keys()].sort((a, b) => a - b);
+    for (const level of sortedLevels) {
+      const column = columns.get(level)!;
+      let y = margin + LiteGraph.NODE_TITLE_HEIGHT;
+      let maxWidth = 100;
+      for (const node of column) {
+        node.pos[0] = x;
+        node.pos[1] = y;
+        y += node.size[1] + margin + LiteGraph.NODE_TITLE_HEIGHT;
+        if (node.size[0] > maxWidth) {
+          maxWidth = node.size[0];
+        }
+      }
+      x += maxWidth + margin;
+    }
+  }
+
 
   public serialize(): SerializedGraph {
     const nodes = this._nodes.map((node) => node.serialize());

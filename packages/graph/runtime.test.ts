@@ -214,4 +214,112 @@ describe('graph runtime', () => {
     expect(node?.findInputSlot('in')).toBe(0);
     expect(node?.findOutputSlot('out')).toBe(0);
   });
+
+  it('连接与断开会触发节点连接变更回调', () => {
+    const graph = new LGraph();
+    const a = new LGraphNode('A');
+    const b = new LGraphNode('B');
+    a.addOutput('out', 'number');
+    b.addInput('in', 'number');
+    const calls: number[] = [];
+
+    a.onConnectionsChange = () => {
+      calls.push(1);
+    };
+    b.onConnectionsChange = () => {
+      calls.push(1);
+    };
+
+    graph.add(a);
+    graph.add(b);
+    const linkId = a.connect(0, b, 0);
+    expect(linkId).not.toBeNull();
+    graph.removeLink(linkId as number);
+    expect(calls.length).toBe(4);
+  });
+
+  it('支持图级输入输出管理 API', () => {
+    const graph = new LGraph();
+    graph.addInput('in', 'number', 1);
+    graph.renameInput('in', 'in2');
+    graph.setInputDataType('in2', 'string');
+    graph.setInputData('in2', 'x');
+    graph.addOutput('out', 'number', 2);
+    graph.renameOutput('out', 'out2');
+    graph.setOutputDataType('out2', 'string');
+    graph.setOutputData('out2', 'y');
+
+    expect(graph.getInputData('in2')).toBe('x');
+    expect(graph.getOutputData('out2')).toBe('y');
+    expect(graph.removeInput('in2')).toBe(true);
+    expect(graph.removeOutput('out2')).toBe(true);
+  });
+
+  it('支持节点按类型连接与按名称取数', () => {
+    const graph = new LGraph();
+    const a = new LGraphNode('A');
+    const b = new LGraphNode('B');
+    a.addOutput('out', 'number');
+    b.addInput('in', 'number');
+    b.onExecute = () => {
+      const value = b.getInputDataByName('in');
+      b.setOutputData(0, value);
+    };
+    b.addOutput('echo', 'number');
+    graph.add(a);
+    graph.add(b);
+    a.connectByType(0, b, 'number');
+    a.setOutputData(0, 8);
+    expect(b.isInputConnected(0)).toBe(true);
+    expect(a.isOutputConnected(0)).toBe(true);
+    b.onExecute?.();
+    expect(b.getOutputDataByName('echo')).toBe(8);
+    a.disconnectOutput(0, b);
+    expect(b.isInputConnected(0)).toBe(false);
+  });
+
+  it('deferred actions 会走 actionDo 管道', () => {
+    const graph = new LGraph();
+    const source = new LGraphNode('Source');
+    const target = new LGraphNode('Target');
+    source.addOutput('run', ACTION);
+    target.addInput('run', ACTION);
+    target.onAction = () => {};
+    target.onExecute = () => {};
+    graph.add(source);
+    graph.add(target);
+    source.connect(0, target, 0);
+    source.trigger('run');
+    expect(target._waiting_actions?.length).toBe(1);
+    target.executePendingActions();
+    expect(typeof target.action_call).toBe('string');
+  });
+
+  it('支持 LiteGraph 扩展 API', () => {
+    LiteGraph.clearRegisteredTypes();
+    LiteGraph.addNodeMethod('hello', function hello(this: LGraphNode) {
+      return this.title;
+    });
+    const Wrapped = LiteGraph.wrapFunctionAsNode(
+      'math/sum',
+      (a, b) => a + b,
+      ['number', 'number'],
+      'number',
+    );
+    const Dynamic = LiteGraph.buildNodeClassFromObject('basic/dyn', {
+      title: 'Dyn',
+      inputs: [['a', 'number']],
+      outputs: [['b', 'number']],
+      onExecute(this: LGraphNode) {
+        this.setOutputData(0, this.getInputData(0));
+      },
+    });
+
+    expect(typeof Wrapped).toBe('function');
+    expect(typeof Dynamic).toBe('function');
+    const node = LiteGraph.createNode('basic/dyn') as LGraphNode & {
+      hello?: () => string;
+    };
+    expect(node.hello?.()).toBe('Dyn');
+  });
 });

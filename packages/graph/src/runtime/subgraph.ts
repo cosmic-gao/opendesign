@@ -19,6 +19,14 @@ export class SubgraphNode extends LGraphNode {
       this.executeSubgraph();
     };
     this.subgraph.onAction = this.onSubgraphAction.bind(this);
+    this.subgraph.onInputAdded = this.onSubgraphInputAdded.bind(this);
+    this.subgraph.onInputRenamed = this.onSubgraphInputRenamed.bind(this);
+    this.subgraph.onInputTypeChanged = this.onSubgraphInputTypeChanged.bind(this);
+    this.subgraph.onInputRemoved = this.onSubgraphInputRemoved.bind(this);
+    this.subgraph.onOutputAdded = this.onSubgraphOutputAdded.bind(this);
+    this.subgraph.onOutputRenamed = this.onSubgraphOutputRenamed.bind(this);
+    this.subgraph.onOutputTypeChanged = this.onSubgraphOutputTypeChanged.bind(this);
+    this.subgraph.onOutputRemoved = this.onSubgraphOutputRemoved.bind(this);
   }
 
   public executeSubgraph(): void {
@@ -52,6 +60,60 @@ export class SubgraphNode extends LGraphNode {
     const slot = this.findOutputSlot(action);
     if (slot !== -1) {
       this.triggerSlot(slot, param);
+    }
+  }
+
+  public onSubgraphInputAdded(name: string, type: string): void {
+    if (this.findInputSlot(name) === -1) {
+      this.addInput(name, type);
+    }
+  }
+
+  public onSubgraphInputRenamed(oldName: string, newName: string): void {
+    const slot = this.findInputSlot(oldName);
+    if (slot !== -1) {
+      this.inputs[slot]!.name = newName;
+    }
+  }
+
+  public onSubgraphInputTypeChanged(name: string, type: string): void {
+    const slot = this.findInputSlot(name);
+    if (slot !== -1) {
+      this.inputs[slot]!.type = type;
+    }
+  }
+
+  public onSubgraphInputRemoved(name: string): void {
+    const slot = this.findInputSlot(name);
+    if (slot !== -1) {
+      this.removeInput(slot);
+    }
+  }
+
+  public onSubgraphOutputAdded(name: string, type: string): void {
+    if (this.findOutputSlot(name) === -1) {
+      this.addOutput(name, type);
+    }
+  }
+
+  public onSubgraphOutputRenamed(oldName: string, newName: string): void {
+    const slot = this.findOutputSlot(oldName);
+    if (slot !== -1) {
+      this.outputs[slot]!.name = newName;
+    }
+  }
+
+  public onSubgraphOutputTypeChanged(name: string, type: string): void {
+    const slot = this.findOutputSlot(name);
+    if (slot !== -1) {
+      this.outputs[slot]!.type = type;
+    }
+  }
+
+  public onSubgraphOutputRemoved(name: string): void {
+    const slot = this.findOutputSlot(name);
+    if (slot !== -1) {
+      this.removeOutput(slot);
     }
   }
 
