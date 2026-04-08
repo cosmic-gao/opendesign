@@ -167,3 +167,135 @@ interface Node<In extends Endpoints, Out extends Endpoints> {
 **理由**:
 - TypeScript：统一前端/后端生态，AI 场景集成方便
 - Redis/Kafka：成熟的分布式基础设施
+
+---
+
+## 决策 11: Endpoint 命名规则
+
+**选项**: 复合命名
+
+**结论**:
+- 格式：`in.<name>` 或 `out.<name>`
+- 支持层级结构：`in.user`, `out.llm`, `in.tool.result`, `out.agent.response`
+- 点号分隔命名空间，支持分组管理
+
+**理由**:
+- 兼顾灵活性和可读性
+- 支持层级结构，可分组管理
+- 适合复杂项目
+
+**示例**:
+```typescript
+// 节点端点定义
+interface LLMAgentEndpoints {
+  in: {
+    user: Slot<UserMessage>;      // in.user
+    tool: Slot<ToolResult>;       // in.tool
+  };
+  out: {
+    llm: Slot<LLMRequest>;        // out.llm
+    error: Slot<ErrorMessage>;    // out.error
+  };
+}
+```
+
+---
+
+## 决策 12: 边的连接方式
+
+**选项**: 显式端点连接 + 广播
+
+**结论**:
+- 显式连接：`A.out:llm -> B.in:tool`（精确指定源和目标）
+- 广播连接：`A.out:events -> *`（发送到所有匹配的订阅者）
+- 支持多目标：`A.out:llm -> B.in:tool, C.in:request`
+
+**理由**:
+- 显式连接：精确控制，无歧义，易于调试
+- 广播：支持一对多场景，适合事件通知
+- 组合使用满足大多数拓扑需求
+
+**示例**:
+```typescript
+// 显式连接
+graph.connect('Agent.out:llm', 'LLM.in:request');
+graph.connect('Agent.out:error', 'ErrorHandler.in:error');
+
+// 广播
+graph.broadcast('Events.out:update', '*');
+
+// 多目标
+graph.connect('Agent.out:result', ['Parser.in:json', 'Validator.in:data']);
+```
+
+---
+
+## 决策 13: 消息路由规则
+
+**选项**: 全部支持（精确 + 广播 + 条件 + 通配符）
+
+**结论**:
+| 路由类型 | 说明 | 场景 |
+|---------|------|------|
+| **精确路由** | 消息只发送到指定的 Endpoint | 点对点通信 |
+| **广播路由** | 消息发送到所有匹配的订阅者 | 事件通知 |
+| **条件路由** | 根据消息内容决定路由目标 | 动态路由 |
+| **通配符路由** | 使用 `*` 匹配任意端点名 | 批量订阅 |
+
+**理由**:
+- 不同场景需要不同的路由策略
+- 精确路由：强控制、可预测
+- 广播路由：解耦、事件驱动
+- 条件路由：动态逻辑
+- 通配符路由：简化批量连接
+
+**路由优先级**:
+1. 精确匹配 > 通配符匹配
+2. 条件路由在精确/广播之后判断
+3. 多个匹配时都发送（除非设置 single-target）
+
+---
+
+## 决策 14: 类型安全设计方案
+
+**选项**: 泛型约束 + 运行时校验
+
+**结论**:
+- 编译时：TypeScript 泛型约束确保类型正确
+- 运行时：Schema 验证确保数据有效
+- 组合使用兼顾安全性和灵活性
+
+**理由**:
+- 泛型：编译时检查，IDE 补全
+- 运行时校验：防御性编程，数据验证
+- 组合方案适合生产级应用
+
+**示例**:
+```typescript
+// 泛型约束 - 编译时类型安全
+interface Node<In extends Endpoints, Out extends Endpoints> {
+  handle(endpoint: keyof In, msg: In[keyof In]): Promise<Partial<Out>>;
+}
+
+// 运行时校验 - Schema 定义
+const UserMessageSchema = {
+  type: 'object',
+  properties: {
+    content: { type: 'string' },
+    role: { type: 'enum', values: ['user', 'assistant'] }
+  },
+  required: ['content', 'role']
+};
+
+// 节点实现
+class LLMAgent implements Node<
+  { user: Slot<UserMessage>; tool: Slot<ToolResult> },
+  { llm: Slot<LLMRequest>; error: Slot<ErrorMessage> }
+> {
+  async handle(endpoint, msg) {
+    // 运行时校验
+    validateSchema(msg, UserMessageSchema);
+    // 处理逻辑...
+  }
+}
+```
