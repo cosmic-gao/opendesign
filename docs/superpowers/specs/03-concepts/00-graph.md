@@ -38,40 +38,66 @@ interface GraphConfig {
 
 ## 3. 边定义
 
+### 3.1 Edge 抽象基类（轻量设计）
+
 ```typescript
-interface Edge {
-  id: string;
-  
-  // 连接信息
-  source: {
-    nodeId: string;
-    endpoint: string;                   // 源端点（如 'out:llm'）
-  };
-  
-  target: {
-    nodeId: string;
-    endpoint: string;                    // 目标端点（如 'in'）
-  };
-  
-  // 边属性
-  type: EdgeType;
-  weight?: number;
-  
-  // 路由配置
-  routing?: RoutingConfig;
-  
-  // 元数据
-  metadata?: Record<string, unknown>;
+// Edge 抽象基类
+abstract class Edge {
+  readonly id: string;
+  readonly source: Endpoint;              // 源端点（使用 Endpoint 实体类）
+  readonly target: Endpoint | '*';         // 目标端点或 '*' 表示广播
+
+  constructor(id: string, source: Endpoint, target: Endpoint | '*') {
+    this.id = id;
+    this.source = source;
+    this.target = target;
+  }
+
+  abstract readonly type: string;           // 边类型标识
+
+  // 判断是否为广播边
+  isBroadcast(): boolean {
+    return this.target === '*';
+  }
+
+  // 匹配消息
+  abstract matches(msg: Message, sourceNodeId: string): boolean;
 }
 
-type EdgeType = 
-  | 'control'     // 控制流
-  | 'data'        // 数据流
-  | 'condition';  // 条件分支
+// 直接边 - 点对点连接
+class DirectEdge extends Edge {
+  readonly type = 'direct';
 
-interface RoutingConfig {
-  mode: 'exact' | 'broadcast' | 'conditional';
-  filter?: (msg: TypedMessage) => boolean;
+  matches(msg: Message, sourceNodeId: string): boolean {
+    const msgEndpoint = `${sourceNodeId}.${msg.endpoint}`;
+    const sourceEndpoint = this.source.fullName();
+    return msgEndpoint === sourceEndpoint && !this.isBroadcast();
+  }
+}
+
+// 边的路由行为在 Router 中处理，Edge 本身保持简单
+```
+
+### 3.2 边与广播的说明
+
+**广播边的设计决策**：
+- 广播（`target: '*'`）是路由层的特殊标记，不单独作为 Edge 类型
+- 广播只在 **推模式（Push）** 场景下有意义
+- 拉模式（Pull）使用点对点的请求-响应，不需要广播
+
+| 模式 | 广播需要 | 说明 |
+|------|---------|------|
+| 推模式 | 是 | 生产者主动推送，广播到多个消费者 |
+| 拉模式 | 否 | 消费者主动拉取，点对点请求-响应 |
+
+### 3.3 简化边定义（旧版接口 - 兼容）
+
+```typescript
+// 向后兼容的接口定义
+interface Edge {
+  id: string;
+  source: string;  // e.g., "NodeA.out:llm"
+  target: string;  // e.g., "NodeB.in:tool" or "*"
 }
 ```
 

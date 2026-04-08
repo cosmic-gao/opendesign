@@ -299,3 +299,108 @@ class LLMAgent implements Node<
   }
 }
 ```
+
+---
+
+## 决策 15: Endpoint 实体类
+
+**选项**: 作为独立实体类
+
+**结论**:
+- `Endpoint` 作为接口，`InEndpoint` 和 `OutEndpoint` 作为实现类
+- 提供类型安全的端点表示
+- 支持层级名称（如 `tool.result`）
+- 端点与节点解耦，可独立存在
+
+**理由**:
+- 更好的类型安全性和可读性
+- 方法封装端点逻辑（如 `fullName()`, `isCompatibleWith()`）
+- 适合复杂场景的扩展
+
+**示例**:
+```typescript
+interface Endpoint {
+  readonly id: string;
+  readonly direction: 'in' | 'out';
+  readonly name: string;
+  readonly parts: string[];
+  readonly nodeId?: string;
+  
+  fullName(): string;
+  isCompatibleWith(other: Endpoint): boolean;
+}
+
+class InEndpoint implements Endpoint { /* ... */ }
+class OutEndpoint implements Endpoint { /* ... */ }
+```
+
+---
+
+## 决策 16: Edge 基类轻量化
+
+**选项**: 保持轻量，不单独区分 BroadcastEdge
+
+**结论**:
+- `Edge` 作为抽象基类
+- `DirectEdge` 作为唯一实现类
+- 广播功能通过 `target === '*'` 在 Router 层处理
+- 不单独设计 `BroadcastEdge` 类
+
+**理由**:
+- 广播是路由行为，不是边的类型
+- 简化类层次结构
+- 保持 Edge 简单，扩展通过 Router 实现
+
+---
+
+## 决策 17: Node 继承层级
+
+**选项**: 仅抽象类
+
+**结论**:
+- `NodeInterface` 作为接口定义契约
+- `Node` 作为抽象基类，提供通用实现
+- 具体节点继承 `Node` 抽象类
+
+**理由**:
+- 抽象类提供默认实现，减少子类重复代码
+- 接口定义严格契约，用于类型约束
+- 适合需要继承扩展的场景
+
+**结构**:
+```typescript
+interface NodeInterface<In extends InEndpoints, Out extends OutEndpoints> {
+  readonly id: string;
+  readonly name: string;
+  status: NodeStatus;
+  handle(endpoint: keyof In, msg: Message): Promise<Message[]>;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+
+abstract class Node<In, Out> implements NodeInterface<In, Out> {
+  // 通用属性和方法实现
+}
+```
+
+---
+
+## 决策 18: 推模式与拉模式的广播差异
+
+**选项**: 区分推拉模式下的广播行为
+
+**结论**:
+- **推模式（Push）**: 支持广播，生产者主动推送消息到多个消费者
+- **拉模式（Pull）**: 不需要广播，消费者主动拉取，点对点请求-响应
+
+**理由**:
+- 广播是推模式的特性
+- 拉模式天然是点对点的
+- 简化拉模式的设计
+
+**广播使用场景（仅推模式）**:
+| 场景 | 示例 |
+|------|------|
+| 日志/监控 | 日志节点输出 -> 所有监听节点 |
+| 事件通知 | 订单节点 -> 通知/分析/审计节点 |
+| 数据分发 | 数据源 -> 多个处理器 |

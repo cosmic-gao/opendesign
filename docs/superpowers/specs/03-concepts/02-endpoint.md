@@ -1,6 +1,6 @@
 # Endpoint / Slot 端点设计
 
-**状态**: 已确认需要类型安全，多方向多端点；命名/连接/路由规则待确认
+**状态**: 已确认需要类型安全，Endpoint 作为独立实体类
 
 ---
 
@@ -86,6 +86,126 @@ type OutEndpoints = {
 interface NodeEndpoints {
   in: InEndpoints;
   out: OutEndpoints;
+}
+```
+
+### 2.2 Endpoint 实体类（基类架构）
+
+Endpoint 作为独立实体类，提供更好的类型安全和可读性：
+
+```typescript
+// Endpoint 接口
+interface Endpoint {
+  readonly id: string;                    // 唯一标识
+  readonly direction: EndpointDirection;  // 'in' | 'out'
+  readonly name: string;                  // 名称如 "llm", "tool.result"
+  readonly parts: string[];               // 层级分解: ["tool", "result"]
+  readonly nodeId?: string;               // 所属节点 ID（可选）
+  
+  fullName(): string;                      // 完整名称 "in.llm" 或 "out.tool.result"
+  isCompatibleWith(other: Endpoint): boolean;
+}
+
+// 输入端点实现
+class InEndpoint implements Endpoint {
+  readonly id: string;
+  readonly direction: 'in' = 'in';
+  readonly name: string;
+  readonly parts: string[];
+  readonly nodeId?: string;
+  
+  constructor(id: string, name: string, nodeId?: string) {
+    this.id = id;
+    this.name = name;
+    this.parts = name.split('.');
+    this.nodeId = nodeId;
+  }
+  
+  fullName(): string {
+    return this.nodeId 
+      ? `${this.nodeId}.in.${this.name}` 
+      : `in.${this.name}`;
+  }
+  
+  isCompatibleWith(other: Endpoint): boolean {
+    return other.direction === 'out' && other.name === this.name;
+  }
+}
+
+// 输出端点实现
+class OutEndpoint implements Endpoint {
+  readonly id: string;
+  readonly direction: 'out' = 'out';
+  readonly name: string;
+  readonly parts: string[];
+  readonly nodeId?: string;
+  
+  constructor(id: string, name: string, nodeId?: string) {
+    this.id = id;
+    this.name = name;
+    this.parts = name.split('.');
+    this.nodeId = nodeId;
+  }
+  
+  fullName(): string {
+    return this.nodeId 
+      ? `${this.nodeId}.out.${this.name}` 
+      : `out.${this.name}`;
+  }
+  
+  isCompatibleWith(other: Endpoint): boolean {
+    return other.direction === 'in' && other.name === this.name;
+  }
+}
+
+// Endpoint 解析错误
+class EndpointParseError extends Error {
+  constructor(message: string, public readonly rawEndpoint: string) {
+    super(message);
+    this.name = 'EndpointParseError';
+  }
+}
+```
+
+### 2.3 Endpoint 字符串格式
+
+| 格式 | 示例 | 说明 |
+|------|------|------|
+| `in.<name>` | `in.user` | 当前节点的输入端点 |
+| `out.<name>` | `out.llm` | 当前节点的输出端点 |
+| `<nodeId>.in.<name>` | `Agent.in.user` | 指定节点的输入端点 |
+| `<nodeId>.out.<name>` | `Agent.out.tool.result` | 指定节点的输出端点（支持层级） |
+
+### 2.4 Endpoint 解析工具
+
+```typescript
+// 解析端点字符串
+function parseEndpointString(endpoint: string): {
+  nodeId?: string;
+  direction: EndpointDirection;
+  name: string;
+  parts: string[];
+} {
+  const match = endpoint.match(/^(.+?)\.(in|out):(.+)$/);
+  if (match) {
+    return {
+      nodeId: match[1],
+      direction: match[2] as EndpointDirection,
+      name: match[3],
+      parts: match[3].split('.'),
+    };
+  }
+  
+  const simpleMatch = endpoint.match(/^(in|out):(.+)$/);
+  if (simpleMatch) {
+    return {
+      direction: simpleMatch[1] as EndpointDirection,
+      name: simpleMatch[2],
+      parts: simpleMatch[2].split('.'),
+    };
+  }
+  
+  throw new EndpointParseError(`Invalid endpoint format: ${endpoint}`, endpoint);
 }
 ```
 
