@@ -16,7 +16,7 @@ Endpoint（端点）是节点的消息接入点，定义了消息的输入或输
 │                                                                  │
 │  输入 Endpoints (多个):                                           │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │
-│  │in:user  │ │in:tool  │ │in:memory│ │in:ctrl  │            │
+│  │in.user  │ │in.tool  │ │in.memory│ │in.ctrl  │            │
 │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘            │
 │       │             │             │             │                │
 │       └─────────────┴─────────────┴─────────────┘                │
@@ -28,7 +28,7 @@ Endpoint（端点）是节点的消息接入点，定义了消息的输入或输
 │                           │                                        │
 │  输出 Endpoints (多个):                                           │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │
-│  │out:llm  │ │out:tool │ │out:mem  │ │out:err  │            │
+│  │out.llm  │ │out.tool │ │out.mem  │ │out.err  │            │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘            │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
@@ -169,33 +169,39 @@ class EndpointParseError extends Error {
 
 ### 2.3 Endpoint 字符串格式
 
+**注意**：代码实现使用冒号分隔符 (`direction:name`)，文档为保持可读性在描述时使用点号分隔，但在指明具体格式时以冒号为准。
+
 | 格式 | 示例 | 说明 |
 |------|------|------|
-| `in.<name>` | `in.user` | 当前节点的输入端点 |
-| `out.<name>` | `out.llm` | 当前节点的输出端点 |
-| `<nodeId>.in.<name>` | `Agent.in.user` | 指定节点的输入端点 |
-| `<nodeId>.out.<name>` | `Agent.out.tool.result` | 指定节点的输出端点（支持层级） |
+| `in:<name>` | `in:user` | 当前节点的输入端点 |
+| `out:<name>` | `out:llm` | 当前节点的输出端点 |
+| `<nodeId>.in:<name>` | `Agent.in:user` | 指定节点的输入端点 |
+| `<nodeId>.out:<name>` | `Agent.out:tool` | 指定节点的输出端点（支持层级如 `Agent.out:tool.result`） |
 
 ### 2.4 Endpoint 解析工具
 
 ```typescript
 // 解析端点字符串
+// 格式: "<nodeId>.in:<name>" 或 "in:<name>"
+// 示例: "Agent.out:tool.result" -> nodeId="Agent", direction="out", name="tool.result"
 function parseEndpointString(endpoint: string): {
   nodeId?: string;
   direction: EndpointDirection;
   name: string;
   parts: string[];
 } {
+  // 匹配 nodeId.direction:name 格式
   const match = endpoint.match(/^(.+?)\.(in|out):(.+)$/);
   if (match) {
     return {
       nodeId: match[1],
       direction: match[2] as EndpointDirection,
       name: match[3],
-      parts: match[3].split('.'),
+      parts: match[3].split('.'),  // 支持层级名称如 "tool.result"
     };
   }
   
+  // 匹配 direction:name 格式（无 nodeId）
   const simpleMatch = endpoint.match(/^(in|out):(.+)$/);
   if (simpleMatch) {
     return {
@@ -337,27 +343,18 @@ interface OutputSlotState {
 
 ## 4. 端点与边的连接
 
-### 4.1 连接语法（待确认）
+### 4.1 连接语法
 
 ```typescript
-// 语法草案 1: 显式端点
+// 语法: graph.connect(source, target)
+// source/target 格式: "<nodeId>.in:<name>" 或 "in:<name>"
 const graph = new Graph();
 graph.addNode('llm', new LLMNode());
 graph.addNode('tool', new ToolNode());
 
-graph.connect({
-  from: { node: 'llm', endpoint: 'out:tool' },
-  to: { node: 'tool', endpoint: 'in' }
-});
-
-// 语法草案 2: 简化的端点引用
-graph.connect('llm.out:tool', 'tool.in');
-graph.connect('llm.out:llm', 'user.in');
-
-// 语法草案 3: 管道式
-graph.pipe('llm', 'tool')
-  .via('out:tool', 'in')
-  .make();
+// 显式端点连接
+graph.connect('llm.out:tool', 'tool.in:request');
+graph.connect('llm.out:llm', 'user.in:response');
 ```
 
 ### 4.2 连接验证
@@ -444,16 +441,16 @@ interface RouteRule {
 class LLMAgentNode implements TypedNode {
   readonly endpoints = {
     in: {
-      user: { name: 'in:user', direction: 'in', payloadType: UserMessage },
-      tool: { name: 'in:tool', direction: 'in', payloadType: ToolResult },
-      memory: { name: 'in:memory', direction: 'in', payloadType: MemoryQuery },
-      control: { name: 'in:control', direction: 'in', payloadType: ControlMessage },
+      user: { name: 'user', direction: 'in', payloadType: UserMessage },
+      tool: { name: 'tool', direction: 'in', payloadType: ToolResult },
+      memory: { name: 'memory', direction: 'in', payloadType: MemoryQuery },
+      control: { name: 'control', direction: 'in', payloadType: ControlMessage },
     },
     out: {
-      llm: { name: 'out:llm', direction: 'out', payloadType: LLMRequest },
-      tool: { name: 'out:tool', direction: 'out', payloadType: ToolCall },
-      memory: { name: 'out:memory', direction: 'out', payloadType: MemoryStore },
-      error: { name: 'out:error', direction: 'out', payloadType: ErrorMessage },
+      llm: { name: 'llm', direction: 'out', payloadType: LLMRequest },
+      tool: { name: 'tool', direction: 'out', payloadType: ToolCall },
+      memory: { name: 'memory', direction: 'out', payloadType: MemoryStore },
+      error: { name: 'error', direction: 'out', payloadType: ErrorMessage },
     }
   };
 
@@ -478,12 +475,12 @@ class LLMAgentNode implements TypedNode {
 class ToolNode implements TypedNode {
   readonly endpoints = {
     in: {
-      request: { name: 'in', direction: 'in', payloadType: ToolCall },
-      cancel: { name: 'in:cancel', direction: 'in', payloadType: { toolCallId: string } },
+      request: { name: 'request', direction: 'in', payloadType: ToolCall },
+      cancel: { name: 'cancel', direction: 'in', payloadType: { toolCallId: string } },
     },
     out: {
-      result: { name: 'out:result', direction: 'out', payloadType: ToolResult },
-      error: { name: 'out:error', direction: 'out', payloadType: ErrorMessage },
+      result: { name: 'result', direction: 'out', payloadType: ToolResult },
+      error: { name: 'error', direction: 'out', payloadType: ErrorMessage },
     }
   };
 
@@ -495,18 +492,8 @@ class ToolNode implements TypedNode {
 
 ---
 
-## 7. 待确认事项
-
-| 项目 | 状态 | 参考 |
-|------|------|------|
-| Endpoint 命名规则 | **待确认** | [04-decisions/00-pending](../04-decisions/00-pending.md) |
-| 边的连接方式 | **待确认** | [04-decisions/00-pending](../04-decisions/00-pending.md) |
-| 消息路由规则 | **待确认** | [04-decisions/00-pending](../04-decisions/00-pending.md) |
-
----
-
-## 8. 相关文档
+## 7. 相关文档
 
 - [Node 节点概念](./01-node.md)
 - [Message 消息概念](./03-message.md)
-- [待确认决策](../04-decisions/00-pending.md)
+- [已确认决策](../04-decisions/01-confirmed.md)

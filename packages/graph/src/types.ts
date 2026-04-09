@@ -33,22 +33,43 @@ export interface NodeEndpoints<In extends InEndpoints, Out extends OutEndpoints>
 }
 
 // 解析端点字符串为结构
-// "in.user" -> { direction: 'in', name: 'user', parts: ['user'] }
-// "out.tool.result" -> { direction: 'out', name: 'tool.result', parts: ['tool', 'result'] }
-export function parseEndpoint(endpoint: string): ParsedEndpoint {
-  const parts = endpoint.split('.');
-  const direction = parts[0] as EndpointDirection;
-  const name = parts.slice(1).join('.');
-  return {
-    direction,
-    name,
-    parts,
-  };
+// 格式: "<nodeId>.in:<name>" 或 "in:<name>" 或 "in:<name>.<subname>" (层级)
+// 示例: "in:user" -> { nodeId: undefined, direction: 'in', name: 'user', parts: ['user'] }
+// 示例: "Agent.out:llm" -> { nodeId: 'Agent', direction: 'out', name: 'llm', parts: ['llm'] }
+// 示例: "Agent.out:tool.result" -> { nodeId: 'Agent', direction: 'out', name: 'tool.result', parts: ['tool', 'result'] }
+export function parseEndpoint(endpoint: string): ParsedEndpoint & { nodeId?: string } {
+  const match = endpoint.match(/^(.+?)\.(in|out):(.+)$/);
+  if (match) {
+    const name = match[3];
+    return {
+      nodeId: match[1],
+      direction: match[2] as EndpointDirection,
+      name,
+      parts: name.split('.'),
+    };
+  }
+  
+  const simpleMatch = endpoint.match(/^(in|out):(.+)$/);
+  if (simpleMatch) {
+    const name = simpleMatch[2];
+    return {
+      direction: simpleMatch[1] as EndpointDirection,
+      name,
+      parts: name.split('.'),
+    };
+  }
+  
+  throw new Error(`Invalid endpoint format: ${endpoint}`);
 }
 
-// 格式化端点为字符串
+// 格式化端点为字符串（无 nodeId）
 export function formatEndpoint(direction: EndpointDirection, name: string): string {
-  return `${direction}.${name}`;
+  return `${direction}:${name}`;
+}
+
+// 格式化完整端点字符串（带 nodeId）
+export function formatFullEndpoint(nodeId: string, direction: EndpointDirection, name: string): string {
+  return `${nodeId}.${direction}:${name}`;
 }
 
 // 类型化消息

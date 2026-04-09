@@ -29,7 +29,6 @@ export {
 export {
   Router,
   ConditionalRouter,
-  RouteMatch,
   ConditionFn,
 } from './router.js';
 

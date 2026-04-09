@@ -144,7 +144,7 @@ class DefaultGraph implements Graph {
     for (const node of inputNodes) {
       await this.dependencies.router.send({
         targetNodeId: node.id,
-        targetEndpoint: 'in',
+        targetEndpoint: 'in:input',  // 格式: <nodeId>.in:<name>
         payload: input
       });
     }

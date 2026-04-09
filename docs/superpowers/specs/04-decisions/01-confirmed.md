@@ -186,15 +186,16 @@ interface Node<In extends Endpoints, Out extends Endpoints> {
 
 **示例**:
 ```typescript
-// 节点端点定义
+// 节点端点定义（端点名称中的点号用于层级分隔）
 interface LLMAgentEndpoints {
   in: {
-    user: Slot<UserMessage>;      // in.user
-    tool: Slot<ToolResult>;       // in.tool
+    user: Slot<UserMessage>;      // in:user
+    tool: Slot<ToolResult>;       // in:tool
+    toolResult: Slot<ToolResult>; // in:toolResult（层级端点）
   };
   out: {
-    llm: Slot<LLMRequest>;        // out.llm
-    error: Slot<ErrorMessage>;    // out.error
+    llm: Slot<LLMRequest>;        // out:llm
+    error: Slot<ErrorMessage>;    // out:error
   };
 }
 ```
@@ -217,15 +218,15 @@ interface LLMAgentEndpoints {
 
 **示例**:
 ```typescript
-// 显式连接
+// 显式连接 (source, target) 格式: <nodeId>.in:<name> 或 <nodeId>.out:<name>
 graph.connect('Agent.out:llm', 'LLM.in:request');
 graph.connect('Agent.out:error', 'ErrorHandler.in:error');
 
-// 广播
+// 广播 (target 为 '*')
 graph.broadcast('Events.out:update', '*');
 
 // 多目标
-graph.connect('Agent.out:result', ['Parser.in:json', 'Validator.in:data']);
+graph.connectMultiple('Agent.out:result', ['Parser.in:json', 'Validator.in:data']);
 ```
 
 ---
@@ -273,29 +274,25 @@ graph.connect('Agent.out:result', ['Parser.in:json', 'Validator.in:data']);
 **示例**:
 ```typescript
 // 泛型约束 - 编译时类型安全
-interface Node<In extends Endpoints, Out extends Endpoints> {
-  handle(endpoint: keyof In, msg: In[keyof In]): Promise<Partial<Out>>;
+interface Node<In extends InEndpoints, Out extends OutEndpoints> {
+  handle(endpoint: keyof In, msg: Message<In[keyof In]['payloadType']>): Promise<Message[]>;
 }
 
-// 运行时校验 - Schema 定义
-const UserMessageSchema = {
-  type: 'object',
-  properties: {
-    content: { type: 'string' },
-    role: { type: 'enum', values: ['user', 'assistant'] }
-  },
-  required: ['content', 'role']
-};
-
-// 节点实现
-class LLMAgent implements Node<
+// 节点实现 - 类型安全的 handle 签名
+class LLMAgent implements NodeInterface<
   { user: Slot<UserMessage>; tool: Slot<ToolResult> },
   { llm: Slot<LLMRequest>; error: Slot<ErrorMessage> }
 > {
   async handle(endpoint, msg) {
-    // 运行时校验
-    validateSchema(msg, UserMessageSchema);
-    // 处理逻辑...
+    // endpoint 的类型是 'user' | 'tool'
+    // msg 的类型是 UserMessage | ToolResult
+    // 编译时确保类型安全
+    switch (endpoint) {
+      case 'user':
+        return this.processUser(msg as UserMessage);
+      case 'tool':
+        return this.processTool(msg as ToolResult);
+    }
   }
 }
 ```

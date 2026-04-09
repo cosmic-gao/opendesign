@@ -192,15 +192,13 @@ const graph = new GraphDefinition({
   edges: [
     {
       id: 'e1',
-      source: { nodeId: 'user', endpoint: 'out' },
-      target: { nodeId: 'llm', endpoint: 'in:user' },
-      type: 'data'
+      source: 'user.out:user',
+      target: 'llm.in:user'
     },
     {
       id: 'e2',
-      source: { nodeId: 'llm', endpoint: 'out:tool' },
-      target: { nodeId: 'tool', endpoint: 'in' },
-      type: 'data'
+      source: 'llm.out:tool',
+      target: 'tool.in:request'
     }
   ]
 });
@@ -236,4 +234,3 @@ const codeGraph = new Subgraph({
 
 - [Node 节点](./01-node.md)
 - [Endpoint 端点设计](./02-endpoint.md)
-- [Edge 边](#) - 边的连接方式待确认

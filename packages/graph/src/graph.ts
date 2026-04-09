@@ -112,50 +112,48 @@ export class Graph<In extends InEndpoints = InEndpoints, Out extends OutEndpoint
   }
 
   // 发送消息（内部使用）
+  // targetEndpoint 格式: "NodeId.in:name" 或 "NodeId.out:name"
   private sendTo(targetEndpoint: string, msg: Message): void {
-    // 解析目标端点
-    const [targetNodeId, targetDirection, targetName] = this.parseEndpointPath(targetEndpoint);
-    
-    if (!targetNodeId || !targetDirection || !targetName) {
+    const parsed = this.parseEndpointPath(targetEndpoint);
+    if (!parsed.nodeId || !parsed.direction || !parsed.name) {
       console.warn(`Invalid target endpoint: ${targetEndpoint}`);
       return;
     }
 
+    const { nodeId: targetNodeId, direction: targetDirection, name: targetName } = parsed;
     const targetNode = this.nodes.get(targetNodeId);
     if (!targetNode) {
       console.warn(`Target node not found: ${targetNodeId}`);
       return;
     }
 
-    // 更新消息端点为目标端点
+    const targetEndpointName = `${targetDirection}:${targetName}`;
     const targetMsg = createMessage({
       ...msg,
-      endpoint: `${targetDirection}.${targetName}`,
+      endpoint: targetEndpointName,
     });
 
-    // 调用节点处理
-    targetNode.handle(`${targetDirection}.${targetName}` as any, targetMsg).catch(err => {
+    targetNode.handle(targetEndpointName as any, targetMsg).catch(err => {
       console.error(`Error handling message at ${targetNodeId}:`, err);
       targetNode.handleError?.(err);
     });
   }
 
   // 解析端点路径
-  // "NodeA.out:llm" -> ["NodeA", "out", "llm"]
-  private parseEndpointPath(endpoint: string): [string?, string?, string?] {
-    // 格式: "NodeID.direction.name" 或 "NodeID.out:llm"
+  // "NodeA.out:llm" -> { nodeId: "NodeA", direction: "out", name: "llm" }
+  // "in:llm" -> { nodeId: undefined, direction: "in", name: "llm" }
+  private parseEndpointPath(endpoint: string): { nodeId?: string; direction?: string; name?: string } {
     const match = endpoint.match(/^(.+?)\.(in|out):(.+)$/);
     if (match) {
-      return [match[1], match[2], match[3]];
+      return { nodeId: match[1], direction: match[2], name: match[3] };
     }
     
-    // 简单格式: "in.name" 或 "out.name" (当前节点)
     const simpleMatch = endpoint.match(/^(in|out):(.+)$/);
     if (simpleMatch) {
-      return [undefined, simpleMatch[1], simpleMatch[2]];
+      return { direction: simpleMatch[1], name: simpleMatch[2] };
     }
     
-    return [undefined, undefined, undefined];
+    return {};
   }
 
   // 从节点发送消息
@@ -166,28 +164,29 @@ export class Graph<In extends InEndpoints = InEndpoints, Out extends OutEndpoint
       return;
     }
 
-    // 构建源端点字符串
-    const sourceEndpoint = msg.endpoint;
-
-    // 路由消息
     let edges = this.router.route(msg, sourceNodeId);
 
-    // 如果启用条件路由，执行条件检查
     if (this.conditionalRouter) {
       edges = edges.filter(e => this.conditionalRouter!.evaluateConditions(e.id, msg));
     }
 
-    // 发送消息到所有匹配的边
     for (const edge of edges) {
       if (edge.target === '*') {
-        // 广播模式 - 发送到所有输入端点
-        for (const targetNode of this.nodes.values()) {
-          if (targetNode.id !== sourceNodeId) {
-            this.sendTo(`${targetNode.id}.in:${sourceEndpoint.split('.')[1]}`, msg);
-          }
-        }
+        this.broadcastToAll(sourceNodeId, msg, edge);
       } else {
         this.sendTo(edge.target, msg);
+      }
+    }
+  }
+
+  // 广播消息到所有其他节点
+  private broadcastToAll(sourceNodeId: string, msg: Message, edge: Edge): void {
+    const parsed = this.parseEndpointPath(edge.source);
+    const endpointName = parsed.name;
+    
+    for (const targetNode of this.nodes.values()) {
+      if (targetNode.id !== sourceNodeId) {
+        this.sendTo(`${targetNode.id}.in:${endpointName}`, msg);
       }
     }
   }

@@ -482,4 +482,4 @@ AI Agent 工作流示例:
 ## 9. 相关文档
 
 - [核心概念索引](../README.md#第三部分核心概念)
-- [待确认决策](../04-decisions/00-pending.md)
+- [已确认决策](../04-decisions/01-confirmed.md)
