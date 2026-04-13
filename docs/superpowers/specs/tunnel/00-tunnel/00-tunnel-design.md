@@ -1,4 +1,4 @@
-# Router - 跨框架路由适配器
+# Tunnel - 跨框架路由适配器
 
 基于 Proxy/Wrapper 模式，支持运行时热更新与卸载。
 
@@ -6,18 +6,19 @@
 
 - **代理模式**：首次注册时向框架注册 Proxy Handler，之后热更新只改内存 Map
 - **跨框架安全**：不依赖框架的 `unregister`，通过 `notFound` 处理已卸载路由
-- **热更新**：重复注册同一路由只更新内存 Handler，O(1) 复杂度
-- **确定性 ID**：stable-hash + base64url
+- **极速热更新**：重复注册同一路由只更新内存 Handler，时间复杂度 O(1)
+- **高性能路由匹配**：使用 `[Method]:[Path]` 组合字符串作为 Key，100% 防碰撞且极致提升 Map 寻址速度
+- **异常隔离安全**：Proxy 代理层提供强大的异常捕获，避免未捕获的错误导致进程崩溃
+- **优雅穿透 (Fallthrough)**：在找不到路由时，允许控制权穿透到框架底层的全局 `notFound` 中间件
 
 ## 目录结构
 
 ```
-packages/router/
+packages/tunnel/
 ├── index.ts      # 统一导出
 ├── types.ts     # 核心类型
 ├── Route.ts     # 路由注册器
 ├── Registry.ts  # 路由注册表
-├── hash.ts      # stable-hash 封装
 └── design.md    # 本文档
 ```
 
@@ -26,7 +27,7 @@ packages/router/
 ```typescript
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
 
-export type Handler<Ctx = any, Res = any> = (ctx: Ctx) => Res | Promise<Res>;
+export type Handler<Ctx = any, Res = any> = (ctx: Ctx, next?: Function) => Res | Promise<Res>;
 
 export interface Descriptor<Ctx = any, Res = any> {
   readonly method: HttpMethod;
@@ -39,8 +40,8 @@ export type Id = string & { readonly __brand: unique symbol };
 export interface Adapter<APP = any, Ctx = any, Res = any> {
   readonly name: string;
   readonly methods: HttpMethod[];
-  register(app: APP, route: Descriptor<Ctx, Res>): void;
-  notFound(ctx: Ctx): Res;
+  register(app: APP, route: Descriptor<Ctx, Res>, proxyHandler: Handler<Ctx, Res>): void;
+  notFound(ctx: Ctx, next?: Function): Res | void;
 }
 ```
 
@@ -54,14 +55,14 @@ export interface Adapter<APP = any, Ctx = any, Res = any> {
 │  Route                              │
 │  ┌───────────────────────────────┐  │
 │  │  Registry (Map)               │  │
-│  │  "abc123" → handler          │  │
+│  │  "GET:/api/hello" → handler   │  │
 │  └───────────────────────────────┘  │
 │                 ▲                   │
 │                 │                   │
 │  ┌─────────────┴───────────────┐   │
 │  │  Proxy Handler              │   │
 │  │  → registry.get(key)        │   │
-│  │  → current(ctx)             │   │
+│  │  → catch Error → next(err)  │   │
 │  └─────────────────────────────┘   │
 └─────────────────────────────────────┘
                     │
@@ -73,13 +74,13 @@ export interface Adapter<APP = any, Ctx = any, Res = any> {
 
 热更新 "GET /api/hello" (新 handler)
 ┌─────────────────────────────────────┐
-│  Registry.update("abc123", newH)    │
+│  Registry.update("GET:/api/hello", newH)
 │  (只改内存 Map，不碰框架)           │
 └─────────────────────────────────────┘
 
 卸载 "GET /api/hello"
 ┌─────────────────────────────────────┐
-│  Registry.remove("abc123")          │
+│  Registry.remove("GET:/api/hello")  │
 │  Proxy 命中时调用 adapter.notFound() │
 └─────────────────────────────────────┘
 ```
@@ -92,50 +93,60 @@ export interface Adapter<APP = any, Ctx = any, Res = any> {
 
 ### 卸载流程
 
-1. 用户调用 `unregister(key)`
+1. 用户调用 `unregister("GET:/api/hello")`
 2. 从 `Registry` 中删除该 Handler
-3. 后续请求到达时，Proxy 调用 `adapter.notFound(ctx)`
+3. 后续请求到达时，Proxy 查找不到对应的 Handler，此时调用 `adapter.notFound(ctx, next)` 将控制流还给底层框架。
+
+## 性能与健壮性保障设计
+
+1. **组合字符串作为 Key**：取代复杂的 Hash 计算。使用 `GET:/api/hello` 直接作为 `Map` 的 key，不仅消除了 Hash 的 CPU 开销以及 Hash 碰撞风险，还充分利用了 V8 对字符串 Map 键的深度优化，同时在调试时可读性极高。
+2. **轻量的 Proxy Handler**：Proxy 内部设计成一层“透传”逻辑，只有在处理异常和找不到路由时才执行特殊操作。通过直接 `return handler(ctx)`，消除多余的 `async/await` 包装。
+3. **健壮的错误捕获隔离**：真实 Handler 中的错误（包括同步和异步的异常）由 Proxy 全面捕获，并通过 `next(err)` 或框架专用的错误机制进行安全传递，防止 Node.js 进程奔溃。
+4. **僵尸路由优雅穿透**：当卸载了某个路由时，代理并不强制返回 `404 Not Found`，而是通过调用 `next()` (如果有) 将请求穿透给底层框架本身的 404 处理链路，遵循框架的原生行为，保持对用户配置链路的尊重。
 
 ## 使用示例
 
 ```typescript
-import { Route, hash } from "./index";
+import { Route } from "./index";
 import type { Adapter } from "./index";
 
-// 实现适配器
+// 构造路由键名
+const createKey = (method: string, path: string) => `${method.toUpperCase()}:${path}`;
+
+// 实现适配器 (以 Express 为例)
 const expressAdapter: Adapter = {
   name: "express",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   
-  register(app, route) {
+  // 必须挂载代理函数，而不是直接挂载真实的 handler
+  register(app, route, proxyHandler) {
     const method = route.method.toLowerCase();
-    app[method](route.path, route.handler);
+    app[method](route.path, proxyHandler);
   },
   
-  notFound(ctx) {
-    ctx.status(404).json({ error: "Not Found" });
+  // 路由被卸载（找不到时），优雅地交给下方的 Express 错误/404 中间件
+  notFound(ctx, next) {
+    if (next) {
+      next();
+    } else {
+      ctx.res.status(404).json({ error: "Not Found" });
+    }
   },
 };
 
 // 创建路由实例
 const router = new Route(expressApp, expressAdapter);
 
-// 单个注册
-router.register("GET", "/api/hello", (ctx) => ({
-  message: "Hello World!",
-}));
-
-// 批量注册
-router.register({
-  "GET /api/user/:id": (ctx) => ({ id: ctx.params.id }),
-  "POST /api/user": (ctx) => ({ success: true }),
+// 注册单个路由
+router.register("GET", "/api/hello", async (req, res, next) => {
+  res.json({ message: "Hello World!" });
 });
 
-// 查看路由 ID
+// 查看所有已注册路由
 console.log(router.keys());
 
 // 卸载
-router.unregister(hash("GET", "/api/hello"));
+router.unregister(createKey("GET", "/api/hello"));
 ```
 
 ## API
@@ -156,5 +167,5 @@ router.unregister(hash("GET", "/api/hello"));
 |------|------|
 | `name` | 适配器名称 |
 | `methods` | 支持的 HTTP 方法 |
-| `register(app, route)` | 注册路由到底层框架 |
-| `notFound(ctx)` | 处理已卸载路由的请求 |
+| `register(app, route, proxy)` | 注册 Proxy 到底层框架 |
+| `notFound(ctx, next?)` | 处理已卸载路由的请求并穿透 |

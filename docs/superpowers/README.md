@@ -26,7 +26,7 @@
 
 | 模块 | 说明 |
 |------|------|
-| [@opentunnel](specs/tunnel/00-tunnel/) | 通用路由参数解析器 |
+| [@opentunnel](specs/tunnel/) | 跨框架服务端路由适配器，支持运行时极速热更新与动态卸载 |
 
 ---
 

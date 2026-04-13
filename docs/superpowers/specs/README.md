@@ -1,7 +1,7 @@
 # 架构设计文档
 
-**版本**: v3.0
-**日期**: 2026-04-12
+**版本**: v4.0
+**日期**: 2026-04-14
 **状态**: 进行中
 
 ---
@@ -20,6 +20,13 @@
 | [Graph 场景扩展](graph/05-scenarios/) | 代码关系图、逻辑编排图、AI工作流图 | [README](graph/05-scenarios/README.md) |
 | [Graph 容错恢复](graph/06-fault-tolerance/) | Checkpoint机制、故障检测与恢复 | [README](graph/06-fault-tolerance/README.md) |
 | [Graph 实施计划](graph/07-impl-plan/) | Phase 1-4 路线图 | [README](graph/07-impl-plan/README.md) |
+
+### Tunnel 跨框架路由适配器
+
+| 分类 | 内容 | 索引 |
+|------|------|------|
+| [Tunnel 设计方案](tunnel/00-tunnel/00-tunnel-design.md) | 跨框架 Proxy/Wrapper 路由机制、极速热更新与动态卸载、性能健壮性设计 | [README](tunnel/README.md) |
+
 ---
 
 ## 已确认设计决策
@@ -64,6 +71,7 @@
 
 | 日期 | 版本 | 更新内容 |
 |------|------|---------|
+| 2026-04-14 | v4.0 | 重新设计 @opentunnel 方案：采用 Proxy/Wrapper 跨框架路由代理方案，支持 O(1) 极速热更新与动态卸载 |
 | 2026-04-13 | v3.1 | 重新设计 @opentunnel 方案 (v0.2.0)：声明式平铺路由、自动序列化、零中间件 |
 | 2026-04-12 | v3.0 | 重组文档结构，按功能分类（graph + tunnel） |
 | 2026-04-12 | v2.0 | 重组文档结构，按功能分类，添加 @opentunnel 模块 |
