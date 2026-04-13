@@ -20,13 +20,6 @@
 | [Graph 场景扩展](graph/05-scenarios/) | 代码关系图、逻辑编排图、AI工作流图 | [README](graph/05-scenarios/README.md) |
 | [Graph 容错恢复](graph/06-fault-tolerance/) | Checkpoint机制、故障检测与恢复 | [README](graph/06-fault-tolerance/README.md) |
 | [Graph 实施计划](graph/07-impl-plan/) | Phase 1-4 路线图 | [README](graph/07-impl-plan/README.md) |
-
-### Tunnel 路由解析器
-
-| 分类 | 内容 | 索引 |
-|------|------|------|
-| [@opentunnel](tunnel/00-tunnel/) | 通用路由参数解析器 | [README](tunnel/00-tunnel/README.md) |
-
 ---
 
 ## 已确认设计决策
@@ -71,6 +64,7 @@
 
 | 日期 | 版本 | 更新内容 |
 |------|------|---------|
+| 2026-04-13 | v3.1 | 重新设计 @opentunnel 方案 (v0.2.0)：声明式平铺路由、自动序列化、零中间件 |
 | 2026-04-12 | v3.0 | 重组文档结构，按功能分类（graph + tunnel） |
 | 2026-04-12 | v2.0 | 重组文档结构，按功能分类，添加 @opentunnel 模块 |
 | 2026-04-08 | v1.1 | 确认决策 1-4，移除监控部署文档，添加分类索引 |

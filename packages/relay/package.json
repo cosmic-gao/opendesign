@@ -1,5 +1,5 @@
 {
-  "name": "@opendesign/tunnel",
+  "name": "@opendesign/relay",
   "version": "0.0.1",
   "private": true,
   "type": "module",
