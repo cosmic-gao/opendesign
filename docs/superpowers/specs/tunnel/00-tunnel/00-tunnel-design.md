@@ -20,19 +20,18 @@
 
 ```text
 packages/tunnel/
-├── src/
-│   ├── index.ts        # 统一导出
-│   ├── utils.ts        # 内部工具 (FNV-1a Hash算法, RouteKey)
-│   ├── types.ts        # 核心泛型与 Context/Handler 接口
-│   ├── response.ts     # 复杂响应体 (Response, redirect)
-│   ├── socklet.ts      # WebSocket 定义 (Socklet, SockletUpgrade, upgrade)
-│   ├── adapter.ts      # 适配器标准契约
-│   └── tunnel.ts       # 核心调度引擎
+├── index.ts        # 统一导出
+├── utils.ts        # 内部工具 (FNV-1a Hash算法, RouteKey)
+├── types.ts        # 核心泛型与 Context/Handler 接口
+├── response.ts     # 复杂响应体 (Response, redirect)
+├── socklet.ts      # WebSocket 定义 (Socklet, SockletUpgrade, upgrade)
+├── adapter.ts      # 适配器标准契约
+├── tunnel.ts       # 核心调度引擎
 ├── package.json
 └── tsconfig.json
 ```
 
-### 2. 核心算法与工具 (`src/utils.ts`)
+### 2. 核心算法与工具 (`utils.ts`)
 
 为了压榨 V8 引擎对 `Map` 的寻址性能，将路由字符串（如 `"GET /api/users"`）转换为 32 位整型（Small Integer）。
 
@@ -56,7 +55,7 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | 
 export type RouteKey = `${HttpMethod} ${string}`;
 ```
 
-### 3. 统一门面与处理器签名 (`src/types.ts`)
+### 3. 统一门面与处理器签名 (`types.ts`)
 
 设计精细的上下文接口，明确区分 `pathname` 和 `path`，并彻底消灭 `any`。
 
@@ -96,11 +95,11 @@ export type Handler<R> = (ctx: Context<R>) =>
     | Promise<unknown>;
 ```
 
-### 4. 复杂协议实体 (`src/response.ts` & `src/socklet.ts`)
+### 4. 复杂协议实体 (`response.ts` & `socklet.ts`)
 
 为业务层提供纯粹的协议载体工厂函数。
 
-**`src/response.ts`**:
+**`response.ts`**:
 ```typescript
 /** 
  * 标准 HTTP 响应体，用于承载特殊状态码或 Header
@@ -118,7 +117,7 @@ export const redirect = (url: string, status: number = 302): Response => {
 };
 ```
 
-**`src/socklet.ts`**:
+**`socklet.ts`**:
 ```typescript
 /**
  * Socklet WebSocket 生命周期
@@ -140,7 +139,7 @@ export class SockletUpgrade<W> {
 export const upgrade = <W>(socklet: Socklet<W>) => new SockletUpgrade<W>(socklet);
 ```
 
-### 5. 适配器标准契约 (`src/adapter.ts`)
+### 5. 适配器标准契约 (`adapter.ts`)
 
 定义 Tunnel 与具体 Web 框架交互的规范。
 
@@ -173,7 +172,7 @@ export interface Adapter<App, R> {
 }
 ```
 
-### 6. 核心调度引擎 (`src/tunnel.ts`)
+### 6. 核心调度引擎 (`tunnel.ts`)
 
 极简的引擎实现，专注于注册表的维护和享元代理的生成。
 
@@ -269,28 +268,28 @@ export class Tunnel<App, R> {
 1. **工程初始化**：
    - 配置 `packages/tunnel/package.json`，声明 `main`, `types`, `exports` 字段。
    - 配置 `tsconfig.json`，确保 `"strict": true`, `"noImplicitAny": true`, `"exactOptionalPropertyTypes": true`，为零 `any` 打下基础。
-2. **算法与工具集 (`src/utils.ts`)**：
+2. **算法与工具集 (`utils.ts`)**：
    - 实现 FNV-1a Hash 函数 `hash(str: string): number`。
    - 定义基础类型：`HttpMethod` 和 `RouteKey`（模板字面量）。
-3. **核心领域模型 (`src/types.ts`, `src/response.ts`, `src/socklet.ts`)**：
+3. **核心领域模型 (`types.ts`, `response.ts`, `socklet.ts`)**：
    - 定义严格泛型约束的 `Context<R>` 和 `Handler<R>`。
    - 实现 `Response` 类及 `redirect` 工厂。
    - 定义 `Socklet<W>` 接口、`SockletUpgrade<W>` 类及 `upgrade` 工厂。
-4. **适配器契约 (`src/adapter.ts`)**：
+4. **适配器契约 (`adapter.ts`)**：
    - 定义 `Adapter<App, R>` 接口，包含 `register` 和 `transform`。
 
-**产出物**：`src` 目录下的基础类型和领域实体，编译无报错。
+**产出物**：基础类型和领域实体，编译无报错。
 
 ### Phase 2: 核心引擎实现 (Core Engine)
 **目标**：完成 Tunnel 核心调度器，实现高内聚的路由注册、哈希代理分发和热更新机制。
 
 **详细任务**：
-1. **引擎编码 (`src/tunnel.ts`)**：
+1. **引擎编码 (`tunnel.ts`)**：
    - 实现 `Tunnel<App, R>` 核心类。
    - 实现 `register`：集成 Hash 算法、`linked` 状态判断、Map 内存替换以及 `adapter.register` 的触发逻辑。
    - 实现 `proxy`：闭包生成器，处理路由查找、未命中抛错逻辑，以及调用 `adapter.transform` 生成 `Context`。
    - 实现 `parse` 和 `unregister` 逻辑。
-2. **统一导出 (`src/index.ts`)**：
+2. **统一导出 (`index.ts`)**：
    - 暴露 `Tunnel`, `Context`, `Handler`, `Adapter` 等核心 API。
    - 暴露 `Response`, `redirect`, `upgrade` 等工具函数。
 
@@ -302,7 +301,7 @@ export class Tunnel<App, R> {
 *注：适配器实现可以选择作为单独的包 `@opendesign/tunnel-express`，或者在项目中以 `any` 或外部项目类型规避强依赖。*
 
 **详细任务**：
-1. **Express Adapter (`src/adapters/express.ts`)**：
+1. **Express Adapter (`adapters/express.ts`)**：
    - **`transform`**: 解析 Express `req` 对象，生成符合 `Context<R>` 规范的结构，区分 `req.route.path` (pathname) 和 `req.path` (path)。
    - **`register`**: 
      - 包装 Express 的 `app[method](path, cb)`。
@@ -312,7 +311,7 @@ export class Tunnel<App, R> {
        - 识别 `SockletUpgrade`：结合 `express-ws` 提取 socket 实例并绑定生命周期。
        - 默认处理：调用 `res.json()` 或 `res.send()`。
      - 错误处理：`catch` 异常并调用 `next(err)`。
-2. **Fastify Adapter (`src/adapters/fastify.ts`)** (规划中)：
+2. **Fastify Adapter (`adapters/fastify.ts`)** (规划中)：
    - 实现类似的智能响应推导，结合 Fastify 的 `reply.send()` 和 `fastify-websocket` 插件。
 
 **产出物**：至少一个生产可用的 Express 适配器实现。
