@@ -1,7 +1,7 @@
 # Tunnel 跨框架路由中间件 - 架构设计与实施方案
 
-**版本**: v1.8 (Final)
-**状态**: 设计已冻结，准备实施
+**版本**: v2.0
+**状态**: 已实施（代码与文档同步）
 
 ## 一、 核心价值与架构定位
 
@@ -20,15 +20,20 @@
 
 ```text
 packages/tunnel/
-├── index.ts        # 统一导出
-├── utils.ts        # 内部工具 (FNV-1a Hash算法, Endpoint)
-├── types.ts        # 核心泛型与 Context/Handler 接口
-├── response.ts     # 复杂响应体 (Response, redirect)
-├── socklet.ts      # WebSocket 定义 (Socklet, SockletUpgrade, upgrade)
-├── adapter.ts      # 适配器标准契约
-├── tunnel.ts       # 核心调度引擎
+├── index.ts        # 统一导出 (export *)
+├── utils.ts       # FNV-1a Hash 算法, Method, Endpoint 类型
+├── types.ts       # 核心泛型与 Context/Handler 接口, SockletUpgrade
+├── response.ts    # Response 类, redirect 工厂
+├── adapter.ts     # 适配器标准契约
+├── tunnel.ts      # 核心调度引擎
+├── adapters/
+│   └── express.ts # Express 适配器
+├── tests/
+│   ├── tunnel.test.ts
+│   └── hash.test.ts
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+└── vitest.config.ts
 ```
 
 ### 2. 核心算法与工具 (`utils.ts`)
@@ -36,23 +41,37 @@ packages/tunnel/
 为了压榨 V8 引擎对 `Map` 的寻址性能，将路由字符串（如 `"GET /api/users"`）转换为 32 位整型（Small Integer）。
 
 ```typescript
-/** 
- * 高性能 FNV-1a 32-bit 哈希算法 
- * 纯位运算，无加密开销，适合短字符串哈希
- */
-export function hash(str: string): number {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < str.length; i++) {
-        h ^= str.charCodeAt(i);
-        h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
-    }
-    return h;
-}
-
-export type Method = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" | "WS";
+export type Method =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'TRACE'
+  | 'CONNECT';
 
 /** 模板字面量约束，提供 IDE 的严格格式提示 */
 export type Endpoint = `${Method} ${string}`;
+
+const FNV_PRIME = 0x01000193;
+const FNV_OFFSET_BASIS = 0x811c9dc5;
+
+/**
+ * 高性能 FNV-1a 32-bit 哈希算法
+ * 纯位运算，无加密开销，适合短字符串哈希
+ */
+export function hash(endpoint: Endpoint | string): number {
+  let hash = FNV_OFFSET_BASIS;
+
+  for (let i = 0; i < endpoint.length; i++) {
+    hash ^= endpoint.charCodeAt(i);
+    hash = Math.imul(hash, FNV_PRIME);
+  }
+
+  return hash >>> 0;
+}
 ```
 
 ### 3. 统一门面与处理器签名 (`types.ts`)
@@ -60,10 +79,6 @@ export type Endpoint = `${Method} ${string}`;
 设计精细的上下文接口，明确区分 `pathname` 和 `path`，并彻底消灭 `any`。通过 `Awaitable` 和 `Reply` 泛型，实现端到端的完美类型推推断。
 
 ```typescript
-import type { Response } from './response';
-import type { SockletUpgrade } from './socklet';
-import type { Method } from './utils';
-
 /** 通用工具类型：表示值可能是同步的，也可能是异步的 Promise */
 export type Awaitable<T> = T | Promise<T>;
 
@@ -71,30 +86,26 @@ export type Awaitable<T> = T | Promise<T>;
  * 统一上下文门面
  * @template R 底层框架的原始 Request/Context 实例类型 (逃生舱)
  */
-export interface Context<R> {
-    readonly method: Method;
-    readonly pathname: string;  // 注册路由时的原始路径定义，如: /api/users/:id
-    readonly path: string;      // 客户端请求的真实路径，如: /api/users/123
-    readonly query: Record<string, string | string[] | undefined>;
-    readonly params: Record<string, string | undefined>;
-    readonly headers: Record<string, string | string[] | undefined>;
-    
-    // 安全限制：body 为 unknown，强制业务侧在使用时显式断言 (e.g., ctx.body as MyDto)
-    readonly body: unknown;     
-    
-    // 逃生舱：框架原生的实例
-    readonly raw: R;            
+export interface Context<R = unknown> {
+  readonly method: Method;
+  readonly pathname: string;                                        // 注册路由时的原始路径定义，如: /api/users/:id
+  readonly path: string;                                            // 客户端请求的真实路径，如: /api/users/123
+  readonly query: Record<string, string | string[] | undefined>;   // 查询参数
+  readonly params: Record<string, string | undefined>;              // 路径参数
+  readonly headers: Record<string, string | string[] | undefined>; // 请求头
+  readonly body: unknown;                                          // 请求体（需业务侧断言类型）
+  readonly raw: R;                                                 // 逃生舱：框架原生的实例
 }
 
 /**
  * 业务处理函数的有效返回值结构
  * @template T 业务真实的返回数据泛型
  */
-export type Reply<T> = 
-    | T                               // 1. 业务数据泛型 T (如 { id: number }) -> JSON/Text (默认)
-    | Response                        // 2. 自定义 Status/Headers -> HTTP 响应
-    | AsyncIterable<T>                // 3. 异步迭代器 -> Server-Sent Events (SSE) 流
-    | SockletUpgrade<unknown>;        // 4. WebSocket 升级信号 -> WS 全双工通信
+export type Reply<T = unknown> =
+  | T                    // 1. 业务数据泛型 T (如 { id: number }) -> JSON/Text (默认)
+  | Response             // 2. 自定义 Status/Headers -> HTTP 响应
+  | AsyncIterable<T>     // 3. 异步迭代器 -> Server-Sent Events (SSE) 流
+  | SockletUpgrade;      // 4. WebSocket 升级信号 -> WS 全双工通信
 
 /**
  * 统一路由处理器签名
@@ -102,51 +113,59 @@ export type Reply<T> =
  * @template R 底层原生请求上下文泛型
  * @template T 业务处理返回结果泛型 (默认 unknown)
  */
-export type Handler<R, T = unknown> = (ctx: Context<R>) => Awaitable<Reply<T>>;
+export type Handler<R = unknown, T = unknown> = (ctx: Context<R>) => Awaitable<Reply<T>>;
+
+/** WebSocket 升级信号标识 */
+export class SockletUpgrade {
+  constructor(public readonly socklet: Socklet) {}
+}
+
+/** WebSocket 生命周期接口 */
+export interface Socklet {
+  onopen?: (ws: Socket) => void;
+  onmessage?: (data: unknown, ws: Socket) => void;
+  onclose?: (code: number, reason: string, ws: Socket) => void;
+  onerror?: (error: Error, ws: Socket) => void;
+}
+
+export interface Socket {
+  send(data: unknown): void;
+  close(): void;
+}
 ```
 
-### 4. 复杂协议实体 (`response.ts` & `socklet.ts`)
+### 4. 复杂协议实体 (`response.ts`)
 
 为业务层提供纯粹的协议载体工厂函数。
 
-**`response.ts`**:
 ```typescript
-/** 
- * 标准 HTTP 响应体，用于承载特殊状态码或 Header
- */
+export type ResponseInit = {
+  status?: number;
+  statusText?: string;
+  headers?: Record<string, string | string[]>;
+};
+
 export class Response {
-    constructor(
-        public body: unknown,
-        public init?: { status?: number; headers?: Record<string, string> }
-    ) {}
+  readonly status: number;
+  readonly statusText: string;
+  readonly headers: Record<string, string | string[]>;
+  readonly body: unknown;
+
+  constructor(body: unknown, init: ResponseInit = {}) {
+    this.status = init.status ?? 200;
+    this.statusText = init.statusText ?? defaultStatusText(this.status);
+    this.headers = { ...init.headers };
+    this.body = body;
+  }
 }
 
 /** 辅助工厂：标准重定向 */
-export const redirect = (url: string, status: number = 302): Response => {
-    return new Response(null, { status, headers: { Location: url } });
-};
-```
-
-**`socklet.ts`**:
-```typescript
-/**
- * Socklet WebSocket 生命周期
- * @template W 底层真实的 WebSocket 实例泛型，保证不丢失原生的高级能力
- */
-export interface Socklet<W> {
-    onopen?: (event: Event, ws: W) => void;
-    onmessage?: (event: MessageEvent, ws: W) => void;
-    onclose?: (event: CloseEvent, ws: W) => void;
-    onerror?: (event: ErrorEvent, ws: W) => void;
+export function redirect(location: string, status = 302): Response {
+  return new Response(null, {
+    status,
+    headers: { Location: location },
+  });
 }
-
-/** WebSocket 升级信号标识 */
-export class SockletUpgrade<W> {
-    constructor(public socklet: Socklet<W>) {}
-}
-
-/** 辅助工厂：触发 WebSocket 升级 */
-export const upgrade = <W>(socklet: Socklet<W>) => new SockletUpgrade<W>(socklet);
 ```
 
 ### 5. 适配器标准契约 (`adapter.ts`)
@@ -162,23 +181,23 @@ import type { Context } from './types';
  * @template R   底层框架请求上下文 (如 express req)
  */
 export interface Adapter<App, R> {
-    readonly name: string;
+  readonly name: string;
 
-    /**
-     * 向底层框架注册代理函数
-     * @param proxy Tunnel 生成的代理分发器，Adapter 需负责解析其返回值并智能响应客户端
-     */
-    register(
-        app: App, 
-        method: Method, 
-        pathname: string, 
-        proxy: (raw: R) => Promise<unknown>
-    ): void;
+  /**
+   * 向底层框架注册代理函数
+   * @param proxy Tunnel 生成的代理分发器，Adapter 需负责解析其返回值并智能响应客户端
+   */
+  register(
+    app: App,
+    method: Method,
+    pathname: string,
+    proxy: (raw: R) => Promise<unknown>
+  ): void;
 
-    /**
-     * 将宿主框架的原生上下文转换为 Tunnel 的标准 Context
-     */
-    transform(raw: R, pathname: string): Context<R>;
+  /**
+   * 将宿主框架的原生上下文转换为 Tunnel 的标准 Context
+   */
+  transform(raw: R, pathname: string, method: Method): Context<R>;
 }
 ```
 
@@ -192,154 +211,117 @@ import type { Handler } from './types';
 import type { Adapter } from './adapter';
 
 export class Tunnel<App, R> {
-    // 采用 O(1) 性能最优的 32位整型 HashMap
-    private registry: Map<number, Handler<R, any>> = new Map();
+  // 采用 O(1) 性能最优的 32位整型 HashMap
+  private registry = new Map<number, Handler<R>>();
 
-    constructor(
-        private app: App,
-        private adapter: Adapter<App, R>
-    ) {}
+  constructor(
+    private app: App,
+    private adapter: Adapter<App, R>
+  ) {}
 
-    /**
-     * 批量注册/热更新路由
-     * @template R 泛型字典，自动推断每个路由的返回类型 T
-     */
-    public register<R extends Record<Endpoint | string, Handler<R, any>>>(routes: R): void {
-        for (const [key, handler] of Object.entries(routes)) {
-            const routeId = hash(key);
-            
-            // 语义化：是否已链接到底层框架路由树
-            const linked = this.registry.has(routeId);
-            
-            // O(1) 内存更新，热替换业务处理函数
-            this.registry.set(routeId, handler as Handler<R, any>);
+  /**
+   * 批量注册/热更新路由
+   * @template Routes 泛型字典，自动推断每个路由的返回类型 T
+   */
+  register<const Routes extends Record<string, Handler<R>>>(routes: Routes): void {
+    for (const [key, handler] of Object.entries(routes)) {
+      const [method, pathname] = this.parse(key);
+      const endpoint = `${method} ${pathname}` as Endpoint;
+      const routeId = hash(endpoint);
 
-            // 首次注册，向底层框架注入闭包代理桩 (Proxy Stub)
-            if (!linked) {
-                const [method, pathname] = this.parse(key);
-                this.adapter.register(
-                    this.app, 
-                    method, 
-                    pathname, 
-                    this.proxy(routeId, pathname)
-                );
-            }
-        }
+      const isLinked = this.registry.has(routeId);
+
+      // O(1) 内存更新，热替换业务处理函数
+      this.registry.set(routeId, handler);
+
+      // 首次注册，向底层框架注入闭包代理桩
+      if (!isLinked) {
+        this.adapter.register(
+          this.app,
+          method,
+          pathname,
+          this.proxy(routeId, method, pathname) // method 和 pathname 通过闭包捕获
+        );
+      }
     }
+  }
 
-    /**
-     * 动态卸载路由
-     */
-    public unregister(key: string) {
-        this.registry.delete(hash(key));
-    }
+  /**
+   * 动态卸载路由
+   */
+  unregister(key: string): void {
+    const [method, pathname] = this.parse(key);
+    const endpoint = `${method} ${pathname}` as Endpoint;
+    const routeId = hash(endpoint);
+    this.registry.delete(routeId);
+  }
 
-    /**
-     * 享元模式：生成闭包代理分发器
-     */
-    private proxy(routeId: number, pathname: string) {
-        return async (raw: R): Promise<unknown> => {
-            const handler = this.registry.get(routeId);
-            
-            // 路由未命中（被动态卸载）：直接抛错，由底层框架的错误中间件兜底处理
-            if (!handler) {
-                throw new Error(`[Tunnel] Route Hash Not Found: ${routeId}`);
-            }
+  // 享元模式：通过闭包捕获 method 和 pathname，避免运行时二次 Map 寻址
+  private proxy(routeId: number, method: Method, pathname: string) {
+    return async (raw: R): Promise<unknown> => {
+      const handler = this.registry.get(routeId);
 
-            const ctx = this.adapter.transform(raw, pathname);
-            return await handler(ctx);
-        };
-    }
+      // 路由未命中（被动态卸载）：直接抛错，由底层框架的错误中间件兜底处理
+      if (!handler) {
+        throw new Error(`[Tunnel] Route Not Found: ${routeId}`);
+      }
 
-    /**
-     * 解析路由键 "GET /api/:id" -> ["GET", "/api/:id"]
-     */
-    private parse(key: string): [Method, string] {
-        const idx = key.indexOf(' ');
-        if (idx === -1) throw new Error(`[Tunnel] Invalid Endpoint: "${key}"`);
-        
-        const method = key.slice(0, idx).toUpperCase() as Method;
-        const pathname = key.slice(idx + 1);
-        
-        return [method, pathname];
-    }
+      const ctx = this.adapter.transform(raw, pathname, method);
+      return await handler(ctx);
+    };
+  }
+
+  /**
+   * 解析路由键 "GET /api/:id" -> ["GET", "/api/:id"]
+   */
+  private parse(key: string): [Method, string] {
+    const idx = key.indexOf(' ');
+    if (idx === -1) throw new Error(`[Tunnel] Invalid Endpoint: "${key}"`);
+
+    const method = key.slice(0, idx).toUpperCase() as Method;
+    const pathname = key.slice(idx + 1);
+
+    return [method, pathname];
+  }
 }
 ```
 
 ---
 
-## 三、 详细实施计划方案 (Implementation Plan)
+## 三、 实施状态
 
-本项目将采用增量交付策略，分为四个阶段（Phases）进行实施。
+### ✅ Phase 1: 基础设施构建 (Foundation)
+- [x] 工程初始化 (`package.json`, `tsconfig.json`)
+- [x] FNV-1a Hash 算法 (`hash`)
+- [x] 核心类型定义 (`Method`, `Endpoint`, `Context`, `Handler`, `Reply`, `Awaitable`)
+- [x] 响应实体 (`Response`, `redirect`)
+- [x] Socklet 生命周期 (`SockletUpgrade`, `Socklet`, `Socket`)
+- [x] 适配器契约 (`Adapter`)
 
-### Phase 1: 基础设施构建 (Foundation)
-**目标**：搭建工程骨架，实现核心类型与算法，确保整个体系的类型安全性。
+### ✅ Phase 2: 核心引擎实现 (Core Engine)
+- [x] `Tunnel` 核心类
+- [x] O(1) 内存注册表 + 热更新
+- [x] 闭包捕获优化（移除冗余 `handlers` Map）
+- [x] 统一导出 (`export *`)
 
-**详细任务**：
-1. **工程初始化**：
-   - 配置 `packages/tunnel/package.json`，声明 `main`, `types`, `exports` 字段。
-   - 配置 `tsconfig.json`，确保 `"strict": true`, `"noImplicitAny": true`, `"exactOptionalPropertyTypes": true`，为零 `any` 打下基础。
-2. **算法与工具集 (`utils.ts`)**：
-   - 实现 FNV-1a Hash 函数 `hash(str: string): number`。
-   - 定义基础类型：`Method` 和 `Endpoint`（模板字面量）。
-3. **核心领域模型 (`types.ts`, `response.ts`, `socklet.ts`)**：
-   - 定义严格泛型约束的 `Context<R>` 和 `Handler<R, T>`。
-   - 实现 `Response` 类及 `redirect` 工厂。
-   - 定义 `Socklet<W>` 接口、`SockletUpgrade<W>` 类及 `upgrade` 工厂。
-4. **适配器契约 (`adapter.ts`)**：
-   - 定义 `Adapter<App, R>` 接口，包含 `register` 和 `transform`。
+### ✅ Phase 3: 官方框架适配器 (Adapters)
+- [x] Express Adapter (`adapters/express.ts`)
+  - [x] 零开销 `transform`
+  - [x] 智能响应推导（JSON / SSE / Response）
+  - [x] 错误处理 (`next(err)`)
 
-**产出物**：基础类型和领域实体，编译无报错。
+### ✅ Phase 4: 测试与文档
+- [x] 单元测试 (12 tests, 100% passing)
+- [x] Hash 算法稳定性测试
+- [x] README 文档
 
-### Phase 2: 核心引擎实现 (Core Engine)
-**目标**：完成 Tunnel 核心调度器，实现高内聚的路由注册、哈希代理分发和热更新机制。
+---
 
-**详细任务**：
-1. **引擎编码 (`tunnel.ts`)**：
-   - 实现 `Tunnel<App, R>` 核心类，使用 `<R>` 实现泛型推断。
-   - 实现 `register`：集成 Hash 算法、`linked` 状态判断、Map 内存替换以及 `adapter.register` 的触发逻辑。
-   - 实现 `proxy`：闭包生成器，处理路由查找、未命中抛错逻辑，以及调用 `adapter.transform` 生成 `Context`。
-   - 实现 `parse` 和 `unregister` 逻辑。
-2. **统一导出 (`index.ts`)**：
-   - 暴露 `Tunnel`, `Context`, `Handler`, `Adapter` 等核心 API。
-   - 暴露 `Response`, `redirect`, `upgrade` 等工具函数。
+## 四、 性能设计
 
-**产出物**：完整的无框架依赖的核心引擎包，发布就绪的源码。
-
-### Phase 3: 官方框架适配器生态 (Adapters Implementation)
-**目标**：验证架构设计的灵活性，为常见框架提供开箱即用的支持。
-
-*注：适配器实现可以选择作为单独的包 `@opendesign/tunnel-express`，或者在项目中以 `any` 或外部项目类型规避强依赖。*
-
-**详细任务**：
-1. **Express Adapter (`adapters/express.ts`)**：
-   - **`transform`**: 解析 Express `req` 对象，生成符合 `Context<R>` 规范的结构，区分 `req.route.path` (pathname) 和 `req.path` (path)。
-   - **`register`**: 
-     - 包装 Express 的 `app[method](path, cb)`。
-     - **智能响应推导**：解析代理返回值。
-       - 识别 `Response` 实例：调用 `res.status()`, `res.set()`, `res.send()`。
-       - 识别 `AsyncIterable`：设置 headers (`text/event-stream`)，遍历 yield 并调用 `res.write()`。
-       - 识别 `SockletUpgrade`：结合 `express-ws` 提取 socket 实例并绑定生命周期。
-       - 默认处理：调用 `res.json()` 或 `res.send()`。
-     - 错误处理：`catch` 异常并调用 `next(err)`。
-2. **Fastify Adapter (`adapters/fastify.ts`)** (规划中)：
-   - 实现类似的智能响应推导，结合 Fastify 的 `reply.send()` 和 `fastify-websocket` 插件。
-
-**产出物**：至少一个生产可用的 Express 适配器实现。
-
-### Phase 4: 测试、文档与集成验证 (Testing & Docs)
-**目标**：确保核心逻辑稳健，输出最佳实践文档。
-
-**详细任务**：
-1. **单元测试**：
-   - Mock Adapter：验证 Tunnel 在多次 `register` 时的热更新行为（是否只注册了一次，闭包是否正确执行最新逻辑）。
-   - 验证 Hash 算法在长短路由下的稳定性。
-   - 验证路由卸载（unregister）后是否正确抛出未命中 Error。
-2. **使用文档 (`README.md`)**：
-   - 撰写快速入门指南。
-   - 详细讲解“面向返回值编程”的最佳实践。
-   - 提供 JSON, SSE, WebSocket 的代码示例。
-3. **集成验证**：
-   - 在真实 Express 应用中集成 Tunnel，验证冷启动、HMR 热替换的无缝体验。
-
-**产出物**：高覆盖率的测试用例、完善的 README 和可运行的 Demo 项目。
+| 优化点 | 实现方式 | 收益 |
+|--------|---------|------|
+| O(1) 路由查找 | FNV-1a 32-bit SMI Hash | V8 Map 极致寻址性能 |
+| 热更新零拷贝 | 直接替换 Map 中的 Handler 引用 | 无锁无 GC 压力 |
+| Transform 零分配 | 类型断言透传，避免对象拷贝 | 高并发下无 GC 抖动 |
+| 闭包捕获元数据 | method/pathname 闭包绑定 | 运行时仅一次 Map 寻址 |

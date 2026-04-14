@@ -151,11 +151,12 @@ tunnel.unregister(key);   // 卸载路由
 | 属性 | 类型 | 说明 |
 |-----|------|------|
 | `method` | `Method` | HTTP 方法 |
-| `pathname` | `Endpoint` | 注册时的原始路径 |
+| `pathname` | `string` | 注册时的原始路径 |
 | `path` | `string` | 实际请求路径 |
-| `params` | `Record<string, string>` | 路径参数 |
-| `query` | `URLSearchParams` | 查询参数 |
-| `headers` | `Headers` | 请求头 |
+| `params` | `Record<string, string \| undefined>` | 路径参数 |
+| `query` | `Record<string, string \| string[] \| undefined>` | 查询参数 |
+| `headers` | `Record<string, string \| string[] \| undefined>` | 请求头 |
+| `body` | `unknown` | 请求体（需业务侧断言） |
 | `raw` | `R` | 框架原生 Request |
 
 ### Adapter
@@ -164,7 +165,7 @@ tunnel.unregister(key);   // 卸载路由
 interface Adapter<App, R> {
   readonly name: string;
   register(app: App, method: Method, pathname: string, proxy: (raw: R) => Promise<unknown>): void;
-  transform(raw: R, endpoint: Endpoint, method: Method): Context<R>;
+  transform(raw: R, pathname: string, method: Method): Context<R>;
 }
 ```
 
