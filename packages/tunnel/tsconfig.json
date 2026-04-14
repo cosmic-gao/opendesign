@@ -4,7 +4,9 @@
     "@opendesign/tsconfig/lib",
     "@opendesign/tsconfig/esm"
   ],
-  "include": [
-    "index.ts"
-  ]
+  "compilerOptions": {
+    "lib": ["ES2022"]
+  },
+  "include": ["*.ts", "adapters/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

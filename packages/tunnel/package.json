@@ -3,5 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "index.ts"
+  "main": "index.ts",
+  "devDependencies": {
+    "@opendesign/tsconfig": "workspace:*",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.4.0"
+  }
 }
