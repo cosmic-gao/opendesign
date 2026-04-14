@@ -1,6 +1,6 @@
 # Tunnel 跨框架路由中间件 - 架构设计与实施方案
 
-**版本**: v1.6 (Final)
+**版本**: v1.8 (Final)
 **状态**: 设计已冻结，准备实施
 
 ## 一、 核心价值与架构定位
@@ -9,7 +9,7 @@
 
 1. **零代价热更新 (HMR)**：通过内存哈希表（SMI Key）和代理闭包（Proxy），实现 O(1) 复杂度的路由热替换，无须触碰底层框架复杂的路由树。
 2. **面向返回值编程 (Return-Oriented)**：业务侧摒弃传统的 `req/res` 交互模式，仅通过 `return` 不同类型的数据结构，由 Tunnel 自动推导并完成 JSON、SSE 流或 WebSocket 的协议响应。
-3. **绝对类型安全 (Strict Types)**：全源码零 `any`，全面使用 `unknown` 强制业务层做类型断言，利用泛型 `R` 保留对底层框架上下文的安全逃生舱。
+3. **绝对类型安全 (Strict Types)**：全源码零 `any`，引入 `Awaitable` 和泛型自动推断，全面使用 `unknown` 强制业务层做类型断言，利用泛型 `R` 保留对底层框架上下文的安全逃生舱。
 4. **高度解耦 (Stateless)**：核心包零外部依赖，适配器（Adapter）被设计为无状态纯函数。
 
 ---
@@ -21,7 +21,7 @@
 ```text
 packages/tunnel/
 ├── index.ts        # 统一导出
-├── utils.ts        # 内部工具 (FNV-1a Hash算法, RouteKey)
+├── utils.ts        # 内部工具 (FNV-1a Hash算法, Endpoint)
 ├── types.ts        # 核心泛型与 Context/Handler 接口
 ├── response.ts     # 复杂响应体 (Response, redirect)
 ├── socklet.ts      # WebSocket 定义 (Socklet, SockletUpgrade, upgrade)
@@ -49,27 +49,30 @@ export function hash(str: string): number {
     return h;
 }
 
-export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" | "WS";
+export type Method = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" | "WS";
 
 /** 模板字面量约束，提供 IDE 的严格格式提示 */
-export type RouteKey = `${HttpMethod} ${string}`;
+export type Endpoint = `${Method} ${string}`;
 ```
 
 ### 3. 统一门面与处理器签名 (`types.ts`)
 
-设计精细的上下文接口，明确区分 `pathname` 和 `path`，并彻底消灭 `any`。
+设计精细的上下文接口，明确区分 `pathname` 和 `path`，并彻底消灭 `any`。通过 `Awaitable` 和 `Reply` 泛型，实现端到端的完美类型推推断。
 
 ```typescript
 import type { Response } from './response';
 import type { SockletUpgrade } from './socklet';
-import type { HttpMethod } from './utils';
+import type { Method } from './utils';
+
+/** 通用工具类型：表示值可能是同步的，也可能是异步的 Promise */
+export type Awaitable<T> = T | Promise<T>;
 
 /**
  * 统一上下文门面
  * @template R 底层框架的原始 Request/Context 实例类型 (逃生舱)
  */
 export interface Context<R> {
-    readonly method: HttpMethod;
+    readonly method: Method;
     readonly pathname: string;  // 注册路由时的原始路径定义，如: /api/users/:id
     readonly path: string;      // 客户端请求的真实路径，如: /api/users/123
     readonly query: Record<string, string | string[] | undefined>;
@@ -84,15 +87,22 @@ export interface Context<R> {
 }
 
 /**
+ * 业务处理函数的有效返回值结构
+ * @template T 业务真实的返回数据泛型
+ */
+export type Reply<T> = 
+    | T                               // 1. 业务数据泛型 T (如 { id: number }) -> JSON/Text (默认)
+    | Response                        // 2. 自定义 Status/Headers -> HTTP 响应
+    | AsyncIterable<T>                // 3. 异步迭代器 -> Server-Sent Events (SSE) 流
+    | SockletUpgrade<unknown>;        // 4. WebSocket 升级信号 -> WS 全双工通信
+
+/**
  * 统一路由处理器签名
  * 核心规约：业务侧通过 return 不同的类型，驱动 Adapter 执行不同的协议响应
+ * @template R 底层原生请求上下文泛型
+ * @template T 业务处理返回结果泛型 (默认 unknown)
  */
-export type Handler<R> = (ctx: Context<R>) => 
-    | unknown                       // 1. 普通对象/字符串 -> JSON/Text (默认)
-    | Response                      // 2. 自定义 Status/Headers -> HTTP 响应
-    | AsyncIterable<unknown>        // 3. 异步迭代器 -> Server-Sent Events (SSE) 流
-    | SockletUpgrade<unknown>       // 4. WebSocket 升级信号 -> WS 全双工通信
-    | Promise<unknown>;
+export type Handler<R, T = unknown> = (ctx: Context<R>) => Awaitable<Reply<T>>;
 ```
 
 ### 4. 复杂协议实体 (`response.ts` & `socklet.ts`)
@@ -144,7 +154,7 @@ export const upgrade = <W>(socklet: Socklet<W>) => new SockletUpgrade<W>(socklet
 定义 Tunnel 与具体 Web 框架交互的规范。
 
 ```typescript
-import type { HttpMethod } from './utils';
+import type { Method } from './utils';
 import type { Context } from './types';
 
 /**
@@ -160,7 +170,7 @@ export interface Adapter<App, R> {
      */
     register(
         app: App, 
-        method: HttpMethod, 
+        method: Method, 
         pathname: string, 
         proxy: (raw: R) => Promise<unknown>
     ): void;
@@ -174,16 +184,16 @@ export interface Adapter<App, R> {
 
 ### 6. 核心调度引擎 (`tunnel.ts`)
 
-极简的引擎实现，专注于注册表的维护和享元代理的生成。
+极简的引擎实现，专注于注册表的维护和享元代理的生成。支持泛型字典推断，完美适配现代 RPC 需求。
 
 ```typescript
-import { hash, type HttpMethod, type RouteKey } from './utils';
+import { hash, type Method, type Endpoint } from './utils';
 import type { Handler } from './types';
 import type { Adapter } from './adapter';
 
 export class Tunnel<App, R> {
     // 采用 O(1) 性能最优的 32位整型 HashMap
-    private registry: Map<number, Handler<R>> = new Map();
+    private registry: Map<number, Handler<R, any>> = new Map();
 
     constructor(
         private app: App,
@@ -192,8 +202,9 @@ export class Tunnel<App, R> {
 
     /**
      * 批量注册/热更新路由
+     * @template R 泛型字典，自动推断每个路由的返回类型 T
      */
-    public register(routes: Record<RouteKey | string, Handler<R>>) {
+    public register<R extends Record<Endpoint | string, Handler<R, any>>>(routes: R): void {
         for (const [key, handler] of Object.entries(routes)) {
             const routeId = hash(key);
             
@@ -201,7 +212,7 @@ export class Tunnel<App, R> {
             const linked = this.registry.has(routeId);
             
             // O(1) 内存更新，热替换业务处理函数
-            this.registry.set(routeId, handler);
+            this.registry.set(routeId, handler as Handler<R, any>);
 
             // 首次注册，向底层框架注入闭包代理桩 (Proxy Stub)
             if (!linked) {
@@ -243,11 +254,11 @@ export class Tunnel<App, R> {
     /**
      * 解析路由键 "GET /api/:id" -> ["GET", "/api/:id"]
      */
-    private parse(key: string): [HttpMethod, string] {
+    private parse(key: string): [Method, string] {
         const idx = key.indexOf(' ');
-        if (idx === -1) throw new Error(`[Tunnel] Invalid Route Key: "${key}"`);
+        if (idx === -1) throw new Error(`[Tunnel] Invalid Endpoint: "${key}"`);
         
-        const method = key.slice(0, idx).toUpperCase() as HttpMethod;
+        const method = key.slice(0, idx).toUpperCase() as Method;
         const pathname = key.slice(idx + 1);
         
         return [method, pathname];
@@ -270,9 +281,9 @@ export class Tunnel<App, R> {
    - 配置 `tsconfig.json`，确保 `"strict": true`, `"noImplicitAny": true`, `"exactOptionalPropertyTypes": true`，为零 `any` 打下基础。
 2. **算法与工具集 (`utils.ts`)**：
    - 实现 FNV-1a Hash 函数 `hash(str: string): number`。
-   - 定义基础类型：`HttpMethod` 和 `RouteKey`（模板字面量）。
+   - 定义基础类型：`Method` 和 `Endpoint`（模板字面量）。
 3. **核心领域模型 (`types.ts`, `response.ts`, `socklet.ts`)**：
-   - 定义严格泛型约束的 `Context<R>` 和 `Handler<R>`。
+   - 定义严格泛型约束的 `Context<R>` 和 `Handler<R, T>`。
    - 实现 `Response` 类及 `redirect` 工厂。
    - 定义 `Socklet<W>` 接口、`SockletUpgrade<W>` 类及 `upgrade` 工厂。
 4. **适配器契约 (`adapter.ts`)**：
@@ -285,7 +296,7 @@ export class Tunnel<App, R> {
 
 **详细任务**：
 1. **引擎编码 (`tunnel.ts`)**：
-   - 实现 `Tunnel<App, R>` 核心类。
+   - 实现 `Tunnel<App, R>` 核心类，使用 `<R>` 实现泛型推断。
    - 实现 `register`：集成 Hash 算法、`linked` 状态判断、Map 内存替换以及 `adapter.register` 的触发逻辑。
    - 实现 `proxy`：闭包生成器，处理路由查找、未命中抛错逻辑，以及调用 `adapter.transform` 生成 `Context`。
    - 实现 `parse` 和 `unregister` 逻辑。
