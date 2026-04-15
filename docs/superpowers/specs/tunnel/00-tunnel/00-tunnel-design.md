@@ -305,10 +305,10 @@ export class Tunnel<App, R> {
 - [x] 统一导出 (`export *`)
 
 ### ✅ Phase 3: 官方框架适配器 (Adapters)
-- [x] Express Adapter (`adapters/express.ts`)
+- [x] Hono Adapter (`adapters/hono.ts`)
   - [x] 零开销 `transform`
   - [x] 智能响应推导（JSON / SSE / Response）
-  - [x] 错误处理 (`next(err)`)
+  - [x] 错误处理
 
 ### ✅ Phase 4: 测试与文档
 - [x] 单元测试 (12 tests, 100% passing)

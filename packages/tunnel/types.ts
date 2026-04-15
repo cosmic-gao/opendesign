@@ -31,7 +31,7 @@ export interface TunnelHandler<R = unknown, T = unknown> {
 }
 
 export class SockletUpgrade {
-  constructor(public readonly socklet: Socklet) {}
+  public constructor(public readonly socklet: Socklet) {}
 }
 
 export interface Socket {

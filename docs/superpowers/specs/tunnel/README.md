@@ -87,5 +87,5 @@ export interface Adapter<App, R> {
 |-------|------|------|
 | 1 | 基础设施（类型、工具、实体） | ✅ 完成 |
 | 2 | 核心引擎（Tunnel + O(1) HMR） | ✅ 完成 |
-| 3 | Express Adapter | ✅ 完成 |
+| 3 | Hono Adapter | ✅ 完成 |
 | 4 | 测试与文档 | ✅ 完成 |

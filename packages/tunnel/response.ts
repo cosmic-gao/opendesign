@@ -5,12 +5,12 @@ export type ResponseInit = {
 };
 
 export class Response {
-  readonly status: number;
-  readonly statusText: string;
-  readonly headers: Record<string, string | string[]>;
-  readonly body: unknown;
+  public readonly status: number;
+  public readonly statusText: string;
+  public readonly headers: Record<string, string | string[]>;
+  public readonly body: unknown;
 
-  constructor(body: unknown, init: ResponseInit = {}) {
+  public constructor(body: unknown, init: ResponseInit = {}) {
     this.status = init.status ?? 200;
     this.statusText = init.statusText ?? defaultStatusText(this.status);
     this.headers = { ...init.headers };

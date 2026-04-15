@@ -20,12 +20,12 @@ npm install @opendesign/tunnel
 ### 基础用法
 
 ```typescript
-import express from 'express';
+import { Hono } from 'hono';
 import { Tunnel, redirect, Response } from '@opendesign/tunnel';
-import { createExpressAdapter } from '@opendesign/tunnel/adapters/express';
+import { createHonoAdapter } from '@opendesign/tunnel/adapters/hono';
 
-const app = express();
-const tunnel = new Tunnel(app, createExpressAdapter());
+const app = new Hono();
+const tunnel = new Tunnel(app, createHonoAdapter());
 
 // 注册路由 - 只需 return 数据
 tunnel.register({
@@ -40,12 +40,13 @@ tunnel.register({
   }),
 
   'POST /api/users': async (ctx) => {
+    // 假设在 Hono 中已经通过其他方式解析了 body
     const body = ctx.body as { name: string };
     return { id: 3, name: body.name };
   },
 });
 
-app.listen(3000);
+export default app;
 ```
 
 ### 返回值类型推导
@@ -131,7 +132,7 @@ tunnel.unregister('GET /api/users');
               ┌─────────────┼─────────────┐
               ▼             ▼             ▼
          ┌────────┐   ┌─────────┐   ┌────────┐
-         │ Express│   │ Fastify │   │  Koa   │
+         │  Hono  │   │ Fastify │   │  Koa   │
          └────────┘   └─────────┘   └────────┘
 ```
 

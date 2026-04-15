@@ -8,14 +8,14 @@ export interface Tunnel<App, R> {
 }
 
 export class Tunnel<App, R> {
-  private registry = new Map<number, Handler<R>>();
+  private readonly registry = new Map<number, Handler<R>>();
 
-  constructor(
-    private app: App,
-    private adapter: Adapter<App, R>
+  public constructor(
+    private readonly app: App,
+    private readonly adapter: Adapter<App, R>
   ) {}
 
-  register<const Routes extends Record<string, Handler<R>>>(routes: Routes): void {
+  public register<const Routes extends Record<string, Handler<R>>>(routes: Routes): void {
     for (const [key, handler] of Object.entries(routes)) {
       const [method, pathname] = this.parse(key);
       const endpoint = `${method} ${pathname}` as Endpoint;
@@ -36,7 +36,7 @@ export class Tunnel<App, R> {
     }
   }
 
-  unregister(key: string): void {
+  public unregister(key: string): void {
     const [method, pathname] = this.parse(key);
     const endpoint = `${method} ${pathname}` as Endpoint;
     const routeId = hash(endpoint);
