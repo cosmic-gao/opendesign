@@ -193,3 +193,12 @@ function reply<R>(result: Reply<R>, c: Raw): Response {
   }
   return c.json(result);
 }
+
+/**
+ * 快捷创建 Hono 适配器实例
+ * @param app - Hono 应用实例
+ * @returns Hono 适配器实例
+ */
+export function createHonoAdapter(app: App): Hono {
+  return new Hono(app);
+}

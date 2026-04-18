@@ -52,7 +52,7 @@ export type Handler<P = unknown, R = unknown, L = unknown> = (ctx: Context<P, L>
  * 路由表类型，是路由键到处理器的映射
  * @template P - Platform 类型
  */
-export type Routes<P = unknown> = Record<string, Handler<P, any, any>>;
+export type Routes<P = unknown> = Record<string, Handler<P>>;
 
 /**
  * 响应头初始化类型，支持三种格式：

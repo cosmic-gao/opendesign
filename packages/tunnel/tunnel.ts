@@ -1,5 +1,5 @@
 import { hash, type Method, type Endpoint } from './utils';
-import type { Handler } from './types';
+import type { Handler, Routes } from './types';
 import type { Adapter } from './adapter';
 
 /** 合法的 HTTP 方法集合 */
@@ -14,7 +14,7 @@ interface Route<P> {
   /** 路由路径 */
   pathname: string;
   /** 处理器函数 */
-  handler: Handler<P, unknown, never>;
+  handler: Handler<P>;
 }
 
 /**
@@ -27,7 +27,7 @@ export interface Tunnel<T, P> {
    * 批量注册路由
    * @param routes - 路由表对象，键为 "METHOD /path" 格式，值为处理器函数
    */
-  register<const Routes extends Record<string, Handler<P, any, any>>>(routes: Routes): void;
+  register<const R extends Routes<P>>(routes: R): void;
   /**
    * 卸载路由
    * @param key - 路由键，格式为 "METHOD /path"，支持 ** 通配符批量卸载
@@ -65,7 +65,7 @@ export class Tunnel<T, P> {
    * 相同 key 的路由会被覆盖
    * @param routes - 路由表
    */
-  public register<const Routes extends Record<string, Handler<P, unknown, never>>>(routes: Routes): void {
+  public register<const R extends Routes<P>>(routes: R): void {
     for (const [key, handler] of Object.entries(routes)) {
       const [method, pathname] = this.parse(key);
       const endpoint = `${method} ${pathname}` as Endpoint;
@@ -138,7 +138,7 @@ export class Tunnel<T, P> {
         throw new Error(`[Tunnel] Route Not Found: ${routeId}`);
       }
       const ctx = await this.adapter.transform(raw, route.pathname, route.method);
-      return await route.handler(ctx as any);
+      return await route.handler(ctx);
     };
   }
 
