@@ -1,5 +1,5 @@
 import { hash, type Method, type Endpoint } from './utils';
-import type { Handler, Context } from './types';
+import type { Handler } from './types';
 import type { Adapter } from './adapter';
 
 /** 合法的 HTTP 方法集合 */

@@ -40,12 +40,13 @@ export type Reply<R = unknown> = R | Response;
 
 /**
  * 路由处理器函数
- * - 接收基于底层请求 `P` 和预期 body `L` 的上下文对象
  * @template P - Platform 类型
  * @template R - Response 类型
- * @template L - Body/Load 类型
+ * @template L - Load/Body 类型
+ * @param ctx - 请求上下文对象
+ * @returns 可以是同步数据或 Promise，最终返回 Reply<R>
  */
-export type Handler<P = unknown, R = unknown, L = any> = (ctx: Context<P, L>) => Awaitable<Reply<R>>;
+export type Handler<P = unknown, R = unknown, L = unknown> = (ctx: Context<P, L>) => Awaitable<Reply<R>>;
 
 /**
  * 路由表类型，是路由键到处理器的映射

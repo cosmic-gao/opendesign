@@ -95,6 +95,6 @@ describe('Hono Adapter', () => {
     // Headers parsing in Hono Request objects via Web Standards (Fetch API) 
     // comma separates multiple values for identical header names (e.g. "Value1, Value2").
     // Fetch API Headers object merges them. But let's check how hono/adapter handles it.
-    expect(headersRecord['x-custom']).toBeDefined();
+    expect(headersRecord?.['x-custom']).toBeDefined();
   });
 });
