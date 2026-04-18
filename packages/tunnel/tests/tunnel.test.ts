@@ -22,7 +22,7 @@ function createMockAdapter() {
       }
       return false;
     },
-    transform<L = unknown>(raw: { id: string }, pathname: string, method: Method): Context<{ id: string }, L> {
+    async transform<L = unknown>(raw: { id: string }, pathname: string, method: Method): Promise<Context<{ id: string }, L>> {
       return {
         method,
         pathname,

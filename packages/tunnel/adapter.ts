@@ -40,5 +40,5 @@ export interface Adapter<T, P> {
    * @param method - HTTP 方法
    * @returns 统一的上下文对象
    */
-  transform<L = unknown>(raw: P, pathname: string, method: Method): Context<P, L>;
+  transform<L = unknown>(raw: P, pathname: string, method: Method): Promise<Context<P, L>>;
 }

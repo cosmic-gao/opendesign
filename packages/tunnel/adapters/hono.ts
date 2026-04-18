@@ -3,9 +3,6 @@ import type { Method } from '../utils';
 import type { Context, Reply } from '../types';
 import type { Adapter } from '../adapter';
 
-/** Hono 请求上下文扩展类型，包含已解析的请求体 */
-export type RawWithParsedBody = Raw & { parsedBody: unknown };
-
 /** Hono 标准 HTTP 方法（类型系统已知） */
 type HonoStandardMethod = 'get' | 'post' | 'put' | 'delete' | 'patch';
 
@@ -45,10 +42,7 @@ export class Hono implements Adapter<App, Raw> {
 
     const handler: (c: Raw) => Promise<Response> = async (c: Raw): Promise<Response> => {
       try {
-        const parsedBody = await this.body(c);
-        const enhancedRaw = c as RawWithParsedBody;
-        enhancedRaw.parsedBody = parsedBody;
-        const result = await proxy(enhancedRaw);
+        const result = await proxy(c);
         return reply(result, c);
       } catch (error) {
         if (error instanceof Error) {
@@ -136,7 +130,7 @@ export class Hono implements Adapter<App, Raw> {
    * @param method - HTTP 方法
    * @returns 统一的上下文对象
    */
-  transform<L = unknown>(raw: RawWithParsedBody, pathname: string, method: Method): Context<Raw, L> {
+  async transform<L = unknown>(raw: Raw, pathname: string, method: Method): Promise<Context<Raw, L>> {
     const url = new URL(raw.req.url);
 
     const query: Record<string, string | string[] | undefined> = {};
@@ -169,6 +163,8 @@ export class Hono implements Adapter<App, Raw> {
       }
     });
 
+    const body = await this.body(raw);
+
     return Object.freeze({
       method,
       pathname,
@@ -176,7 +172,7 @@ export class Hono implements Adapter<App, Raw> {
       params,
       query,
       headers,
-      body: raw.parsedBody as L,
+      body: body as L,
       raw,
     });
   }

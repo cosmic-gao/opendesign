@@ -137,7 +137,7 @@ export class Tunnel<T, P> {
       if (!route) {
         throw new Error(`[Tunnel] Route Not Found: ${routeId}`);
       }
-      const ctx = this.adapter.transform(raw, route.pathname, route.method);
+      const ctx = await this.adapter.transform(raw, route.pathname, route.method);
       return await route.handler(ctx as any);
     };
   }
