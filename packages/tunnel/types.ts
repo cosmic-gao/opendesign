@@ -1,5 +1,4 @@
-import type { Method, Endpoint } from './utils';
-import type { Response } from './response';
+import type { Method } from './utils';
 
 export type Awaitable<T> = T | Promise<T>;
 
@@ -14,34 +13,21 @@ export interface Context<R = unknown> {
   readonly raw: R;
 }
 
-export type Reply<T = unknown> =
-  | T
-  | Response
-  | AsyncIterable<T>
-  | SockletUpgrade;
+export type Reply<T = unknown> = T | Response;
 
-export type Handler<R = unknown, T = unknown> = (
-  ctx: Context<R>
-) => Awaitable<Reply<T>>;
+export type Handler<R = unknown, T = unknown> = (ctx: Context<R>) => Awaitable<Reply<T>>;
 
-export interface TunnelHandler<R = unknown, T = unknown> {
-  readonly method: Method;
-  readonly endpoint: Endpoint;
-  readonly handler: Handler<R, T>;
-}
+export type Routes<R = unknown> = Record<string, Handler<R>>;
 
-export class SockletUpgrade {
-  public constructor(public readonly socklet: Socklet) {}
-}
+export type ResponseHeadersInit =
+  | Record<string, string | string[]>
+  | [string, string][]
+  | Headers;
 
-export interface Socket {
-  send(data: unknown): void;
-  close(): void;
-}
-
-export interface Socklet {
-  onopen?: (ws: Socket) => void;
-  onmessage?: (data: unknown, ws: Socket) => void;
-  onclose?: (code: number, reason: string, ws: Socket) => void;
-  onerror?: (error: Error, ws: Socket) => void;
-}
+export type StatusCode =
+  | 100 | 101 | 102 | 103
+  | 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 226
+  | 300 | 301 | 302 | 303 | 304 | 305 | 307 | 308
+  | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407 | 408 | 409 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 418 | 421 | 422 | 423 | 424 | 425 | 426 | 428 | 429 | 431 | 451
+  | 500 | 501 | 502 | 503 | 504 | 505 | 506 | 507 | 508 | 510 | 511 | 599
+  | number;

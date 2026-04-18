@@ -1,11 +1,10 @@
 import type { Method } from './utils';
 import type { Context } from './types';
 
-export interface Adapter<App, R> {
+export interface Adapter<R> {
   readonly name: string;
 
   register(
-    app: App,
     method: Method,
     pathname: string,
     proxy: (raw: R) => Promise<unknown>

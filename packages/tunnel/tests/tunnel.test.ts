@@ -6,9 +6,9 @@ import type { Method } from '../utils';
 function createMockAdapter() {
   const registeredRoutes: { method: Method; pathname: string; proxy: (raw: unknown) => Promise<unknown> }[] = [];
 
-  const adapter: Adapter<{}, { id: string }> = {
+  const adapter: Adapter<{ id: string }> = {
     name: 'mock',
-    register(_app: {}, method: Method, pathname: string, proxy: (raw: { id: string }) => Promise<unknown>) {
+    register(method: Method, pathname: string, proxy: (raw: { id: string }) => Promise<unknown>) {
       registeredRoutes.push({ method, pathname, proxy: proxy as (raw: unknown) => Promise<unknown> });
     },
     transform(raw: { id: string }, pathname: string, method: Method): Context<{ id: string }> {
@@ -127,4 +127,3 @@ describe('Tunnel', () => {
     });
   });
 });
-

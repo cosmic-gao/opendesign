@@ -5,146 +5,89 @@
 ## 核心特性
 
 - **零代价热更新 (O(1) HMR)**：基于 FNV-1a 哈希算法的内存路由表，热替换无性能损耗
-- **面向返回值编程**：业务代码仅 `return` 数据，Adapter 自动处理序列化与协议响应
-- **绝对类型安全**：全链路零 `any`，泛型自动推断
-- **框架无关**：同一套核心，适配 Express/Fastify/Koa/Hono
+- **13 个响应函数**：统一 Hono 风格签名 `(data, status?, headers?)`
+- **Reply<T> = T | Response**：普通对象兜底 JSON / Response 直接透传
+- **前缀 `**` 通配符**：批量卸载路由
+- **框架无关**：同一套核心，适配 Hono/Fastify/Koa
 
-## 快速开始
-
-### 安装
+## 安装
 
 ```bash
 npm install @opendesign/tunnel
 ```
 
-### 基础用法
+## 快速开始
 
 ```typescript
-import { Hono } from 'hono';
-import { Tunnel, redirect, Response } from '@opendesign/tunnel';
-import { createHonoAdapter } from '@opendesign/tunnel/adapters/hono';
+import { Hono as App } from 'hono';
+import { Tunnel, json, html, text, notFound, redirect, Hono } from '@opendesign/tunnel';
 
-const app = new Hono();
-const tunnel = new Tunnel(app, createHonoAdapter());
+const app = new App();
+const tunnel = new Tunnel(app, new Hono(app));
 
-// 注册路由 - 只需 return 数据
+// 注册路由
 tunnel.register({
-  'GET /api/users': async () => [
-    { id: 1, name: 'Alice' },
-    { id: 2, name: 'Bob' },
-  ],
-
-  'GET /api/users/:id': async (ctx) => ({
-    id: ctx.params.id,
-    name: 'Alice',
-  }),
-
-  'POST /api/users': async (ctx) => {
-    // 假设在 Hono 中已经通过其他方式解析了 body
-    const body = ctx.body as { name: string };
-    return { id: 3, name: body.name };
-  },
+  'GET /api/hello': () => ({ message: 'Hello' }),
+  'GET /api/html': () => html('<h1>Hello</h1>'),
+  'GET /api/json': () => json({ a: 1 }, 201, { 'X-Custom': 'header' }),
+  'GET /api/redirect': () => redirect('/new-location', 301),
+  'GET /api/not-found': () => notFound('Resource not found'),
 });
-
-export default app;
 ```
 
-### 返回值类型推导
+## 响应函数
 
-| 返回值类型 | 响应方式 |
-|-----------|---------|
-| `T` (普通对象) | JSON 响应 |
-| `Response` | 自定义状态码/Headers |
-| `AsyncIterable<T>` | Server-Sent Events (SSE) |
-| `SockletUpgrade` | WebSocket 升级 |
+| 函数 | content-type | 说明 |
+|-----|-------------|------|
+| `json(data, status?, headers?)` | application/json | JSON 响应 |
+| `html(html, status?, headers?)` | text/html | HTML 响应 |
+| `text(text, status?, headers?)` | text/plain | 文本响应 |
+| `xml(xml, status?, headers?)` | application/xml | XML 响应 |
+| `body(data, status?, headers?)` | - | 原始 body 响应 |
+| `notFound(message?)` | - | 404 响应 |
+| `redirect(location, status?)` | - | 重定向响应 |
+| `blob(data, contentType?, status?, headers?)` | 自定义 | Blob 响应 |
+| `arrayBuffer(data, contentType?, status?, headers?)` | 自定义 | ArrayBuffer 响应 |
+| `stream(readable, contentType?, status?, headers?)` | 自定义 | 流式响应 |
+| `streamText(text, contentType?, status?, headers?)` | text/plain | 文本流响应 |
+| `streamSSE(source, status?, headers?)` | text/event-stream | SSE 响应 |
+| `upgradeWebSocket(status?, headers?)` | - | WebSocket 升级 |
 
-### 自定义响应
+### Reply<T> 类型
 
 ```typescript
-import { redirect, Response } from '@opendesign/tunnel';
-
-// 重定向
-'GET /old-url': () => redirect('/new-url', 301),
-
-// 自定义状态码和 Headers
-'GET /api/private': () => new Response({ error: 'Unauthorized' }, {
-  status: 401,
-  headers: { 'WWW-Authenticate': 'Bearer' },
-}),
+type Reply<T> = T | Response;
 ```
 
-### SSE 流式响应
+- **普通对象 (T)**：由 Adapter 兜底序列化为 JSON
+- **Response**：直接透传，支持自定义状态码/Headers
 
-```typescript
-'GET /api/events': () => {
-  return (async function* () {
-    for (let i = 0; i < 5; i++) {
-      yield { time: Date.now() };
-      await new Promise(r => setTimeout(r, 1000));
-    }
-  })();
-},
-```
+### 路由冲突说明
 
-### 热更新
-
-```typescript
-// 更新处理器，无需重启
-tunnel.register({
-  'GET /api/users': () => [{ id: 1, name: 'Updated' }],
-});
-
-// 卸载路由
-tunnel.unregister('GET /api/users');
-```
-
-## 架构设计
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Tunnel                                │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  Registry (Map<routeId, Handler>) - O(1) 寻址     │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                            │                                │
-│              ┌─────────────┴─────────────┐                  │
-│              ▼                           ▼                  │
-│     ┌──────────────┐            ┌──────────────┐          │
-│     │   register   │            │   unregister │          │
-│     └──────────────┘            └──────────────┘          │
-│                            │                                │
-│                            ▼                                │
-│     ┌──────────────────────────────────────────────┐        │
-│     │              Proxy (Flyweight)                │        │
-│     │   生成闭包代理，统一分发到 Adapter            │        │
-│     └──────────────────────────────────────────────┘        │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-              ┌─────────────────────────┐
-              │       Adapter           │
-              │  ┌─────────────────┐   │
-              │  │ transform()     │   │ ← 框架 req → 标准 Context
-              │  │ register()      │   │ ← 注册路由 + 智能响应推导
-              │  └─────────────────┘   │
-              └─────────────────────────┘
-                            │
-              ┌─────────────┼─────────────┐
-              ▼             ▼             ▼
-         ┌────────┐   ┌─────────┐   ┌────────┐
-         │  Hono  │   │ Fastify │   │  Koa   │
-         └────────┘   └─────────┘   └────────┘
-```
+`/api/*` 和 `/api/hello` **不会冲突**：
+- 精确路由 `/api/hello` 优先匹配
+- 模糊路由 `/api/*` 作为 fallback
 
 ## API 参考
 
 ### Tunnel
 
 ```typescript
-const tunnel = new Tunnel<App, R>(app, adapter);
+const tunnel = new Tunnel(app, new Hono(app));
 
-tunnel.register(routes);  // 批量注册路由
-tunnel.unregister(key);   // 卸载路由
+// 注册路由（热更新：相同 key 直接替换旧 handler）
+tunnel.register({
+  'GET /api/users': () => [{ id: 1 }],
+});
+
+// 检查路由是否存在
+tunnel.has('GET /api/users'); // boolean
+
+// 卸载路由（返回 boolean 表示是否成功）
+tunnel.unregister('GET /api/users'); // boolean
+
+// 前缀批量卸载（** 通配符）
+tunnel.unregister('GET /api/**'); // boolean
 ```
 
 ### Context<R>
@@ -157,23 +100,87 @@ tunnel.unregister(key);   // 卸载路由
 | `params` | `Record<string, string \| undefined>` | 路径参数 |
 | `query` | `Record<string, string \| string[] \| undefined>` | 查询参数 |
 | `headers` | `Record<string, string \| string[] \| undefined>` | 请求头 |
-| `body` | `unknown` | 请求体（需业务侧断言） |
+| `body` | `unknown` | 请求体 |
 | `raw` | `R` | 框架原生 Request |
 
 ### Adapter
 
 ```typescript
-interface Adapter<App, R> {
+interface Adapter<R> {
   readonly name: string;
-  register(app: App, method: Method, pathname: string, proxy: (raw: R) => Promise<unknown>): void;
+  register(method: Method, pathname: string, proxy: (raw: R) => Promise<unknown>): void;
   transform(raw: R, pathname: string, method: Method): Context<R>;
 }
+```
+
+### Hono 适配器
+
+```typescript
+import { Hono as App } from 'hono';
+import { Hono } from '@opendesign/tunnel';
+
+const adapter = new Hono(new App());  // 适配器内部持有 Hono app 实例
+```
+
+### MIME_TYPES
+
+```typescript
+import { MIME_TYPES, type ContentType } from '@opendesign/tunnel';
+
+MIME_TYPES.json;  // 'application/json'
+MIME_TYPES.html;  // 'text/html'
+```
+
+## 内存泄漏警告
+
+> **重要**：底层框架（如 Hono 的 RegExpRouter）一旦注册路由，就会将其编译进路由树。Tunnel 的 `unregister` 只是删除了内存 Map 中的引用，底层路由树中的闭包节点依然存在。
+
+- 适用于固定路径的 HMR 热更新或低频的动态路由增删
+- **不要**频繁注册/卸载带有动态参数的新路径（如 `/api/temp-1`, `/api/temp-2`），这会导致底层路由树无限膨胀
+
+## 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Tunnel                                │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  Registry (Map<routeId, Route>) - O(1) 寻址      │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                            │                                │
+│              ┌─────────────┴─────────────┐                  │
+│              ▼                           ▼                  │
+│     ┌──────────────┐            ┌──────────────┐          │
+│     │   register   │            │   unregister │          │
+│     └──────────────┘            └──────────────┘          │
+│                            │                                │
+│                            ▼                                │
+│     ┌──────────────────────────────────────────────┐        │
+│     │              Proxy (Flyweight)                │        │
+│     │   生成闭包代理，统一分发到 Adapter              │        │
+│     └──────────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+               ┌─────────────────────────┐
+               │       Adapter           │
+               │  ┌─────────────────┐   │
+               │  │ transform()     │   │ ← 框架 req → 标准 Context
+               │  │ register()      │   │ ← 注册路由 + 智能响应
+               │  │ reply<T>()     │   │ ← T 兜底 json / Response 透传
+               │  └─────────────────┘   │
+               └─────────────────────────┘
+                             │
+               ┌─────────────┼─────────────┐
+               ▼             ▼             ▼
+          ┌────────┐   ┌─────────┐   ┌────────┐
+          │  Hono  │   │ Fastify │   │  Koa   │
+          └────────┘   └─────────┘   └────────┘
 ```
 
 ## 性能
 
 - **O(1) 路由查找**：FNV-1a 32-bit 哈希算法，将路由字符串转为 SMI Key
-- **零拷贝热更新**：直接替换 Map 中的 Handler 引用，无锁无GC压力
+- **零拷贝热更新**：直接替换 Map 中的 Handler 引用，无锁无 GC 压力
 - **极小体积**：核心包 < 5KB，无外部依赖
 
 ## 许可证
