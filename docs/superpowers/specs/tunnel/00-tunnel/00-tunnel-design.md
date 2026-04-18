@@ -156,26 +156,26 @@ export type Awaitable<T> = T | Promise<T>;
 ### 5.2 Context
 
 ```typescript
-export interface Context<R = unknown> {
+export interface Context<P = unknown, L = unknown> {
   readonly method: Method;
   readonly pathname: string;
   readonly path: string;
   readonly query: Record<string, string | string[] | undefined>;
   readonly params: Record<string, string | undefined>;
   readonly headers: Record<string, string | string[] | undefined>;
-  readonly body: unknown;
-  readonly raw: R;
+  readonly body: L;
+  readonly raw: P;
 }
 ```
 
 ### 5.3 Reply 与 Handler
 
 ```typescript
-export type Reply<T = unknown> = T | Response;
+export type Reply<R = unknown> = R | Response;
 
-export type Handler<R = unknown, T = unknown> = (ctx: Context<R>) => Awaitable<Reply<T>>;
+export type Handler<P = unknown, R = unknown, L = unknown> = (ctx: Context<P, L>) => Awaitable<Reply<R>>;
 
-export type Routes<R = unknown> = Record<string, Handler<R>>;
+export type Routes<P = unknown> = Record<string, Handler<P>>;
 ```
 
 ### 5.4 Headers 与 StatusCode
@@ -347,17 +347,19 @@ export function upgradeWebSocket(
 ## 六、适配器接口 (`adapter.ts`)
 
 ```typescript
-export interface Adapter<App, R> {
+export interface Adapter<T, P> {
+  readonly app: T;
   readonly name: string;
 
   register(
-    app: App,
     method: Method,
     pathname: string,
-    proxy: (raw: R) => Promise<unknown>
+    proxy: (raw: P) => Promise<unknown>
   ): void;
 
-  transform(raw: R, pathname: string, method: Method): Context<R>;
+  unregister(method: Method, pathname: string): boolean;
+
+  transform<L = unknown>(raw: P, pathname: string, method: Method): Context<P, L>;
 }
 ```
 
@@ -380,22 +382,34 @@ export interface Adapter<App, R> {
 2. 路径长度升序（短的在前）
 3. 注册顺序决定相同优先级的顺序
 
-### 7.2 核心实现
+### 7.2 HTTP Method 校验
+
+使用 `VALID_METHODS` Set 校验所有 HTTP 方法，拒绝非法方法：
 
 ```typescript
-interface Route<R> {
+const VALID_METHODS = new Set<Method>([
+  'GET', 'POST', 'PUT', 'DELETE', 'PATCH',
+  'HEAD', 'OPTIONS', 'TRACE', 'CONNECT'
+]);
+```
+
+非法 method 会抛出 `[Tunnel] Invalid HTTP Method: "${method}"` 错误。
+
+### 7.3 核心实现
+
+```typescript
+interface Route<P> {
   key: string;
   method: Method;
   pathname: string;
-  handler: Handler<R>;
+  handler: Handler<P>;
 }
 
-export class Tunnel<App, R> {
-  private registry = new Map<number, Route<R>>();
+export class Tunnel<T, P> {
+  private registry = new Map<number, Route<P>>();
 
   constructor(
-    private app: App,
-    private adapter: Adapter<App, R>
+    private adapter: Adapter<T, P>
   ) {}
 
   register<const Routes extends Routes<R>>(routes: Routes): void {
@@ -411,10 +425,9 @@ export class Tunnel<App, R> {
 
       if (!isLinked) {
         this.adapter.register(
-          this.app,
           method,
           pathname,
-          this.proxy(routeId, method, pathname)
+          this.proxy(routeId)
         );
       }
     }
@@ -437,6 +450,7 @@ export class Tunnel<App, R> {
       for (const [id, route] of this.registry) {
         if (route.key.startsWith(prefix)) {
           this.registry.delete(id);
+          this.adapter.unregister(route.method, route.pathname);
           deleted = true;
         }
       }
@@ -447,16 +461,17 @@ export class Tunnel<App, R> {
     const routeId = hash(`${method} ${pathname}`);
     const existed = this.registry.has(routeId);
     this.registry.delete(routeId);
+    this.adapter.unregister(method, pathname);
     return existed;
   }
 
-  private proxy(routeId: number, method: Method, pathname: string) {
+  private proxy(routeId: number) {
     return async (raw: R): Promise<unknown> => {
       const route = this.registry.get(routeId);
       if (!route) {
         throw new Error(`[Tunnel] Route Not Found: ${routeId}`);
       }
-      const ctx = this.adapter.transform(raw, pathname, method);
+      const ctx = this.adapter.transform(raw, route.pathname, route.method);
       return await route.handler(ctx);
     };
   }
@@ -465,6 +480,9 @@ export class Tunnel<App, R> {
     const idx = key.indexOf(' ');
     if (idx === -1) throw new Error(`[Tunnel] Invalid Endpoint: "${key}"`);
     const method = key.slice(0, idx).toUpperCase() as Method;
+    if (!VALID_METHODS.has(method)) {
+      throw new Error(`[Tunnel] Invalid HTTP Method: "${method}"`);
+    }
     const pathname = key.slice(idx + 1);
     return [method, pathname];
   }
@@ -475,16 +493,77 @@ export class Tunnel<App, R> {
 
 ## 八、Hono 适配器 (`adapters/hono.ts`)
 
+### 8.1 核心功能
+
 ```typescript
-async function reply<T>(c: HonoContext, result: Reply<T>): Promise<Response> {
+export class Hono implements Adapter<HonoApp, HonoContext> {
+  private readonly routeMap = new Map<string, (raw: HonoContext) => void>();
+
+  register(method: Method, pathname: string, proxy: (raw: HonoContext) => Promise<unknown>): void {
+    const handler = async (c: HonoContext) => {
+      try {
+        const body = await this.body(c);
+        const enhancedRaw = c as HonoContext & { body: unknown };
+        enhancedRaw.body = body;
+        const result = await proxy(enhancedRaw);
+        return await reply(result, c);
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error(String(error));
+      }
+    };
+    // ... route registration
+  }
+
+  unregister(method: Method, pathname: string): boolean {
+    const routeKey = `${method} ${pathname}`;
+    return this.routeMap.delete(routeKey);
+  }
+
+  async body(raw: HonoContext): Promise<unknown> {
+    // 自动解析 JSON/formData/text 请求体
+  }
+
+  transform<L = unknown>(raw: HonoContext & { body?: unknown }, pathname: string, method: Method): Context<HonoContext, L> {
+    // headers 多值支持
+    // query 参数多值支持
+    // body 从 body 获取
+  }
+}
+```
+
+### 8.2 Body 解析
+
+自动根据 `Content-Type` 解析请求体（Hono 适配器使用 `c.req` 封装方法）：
+
+| Content-Type | Hono 适配器解析方式 |
+|--------------|---------|
+| `application/json` | `c.req.json()` |
+| `application/x-www-form-urlencoded` | `c.req.text()` |
+| `multipart/form-data` | `c.req.formData()` |
+| 其他 | `c.req.text()` |
+
+### 8.3 Headers 多值支持
+
+```typescript
+const headers: Record<string, string | string[]> = {};
+raw.req.raw.headers.forEach((value, key) => {
+  // 多值 header 自动收集为数组
+});
+```
+
+### 8.4 reply<T> 类型安全保证
+
+```typescript
+async function reply<T>(result: Reply<T>, c: HonoContext): Promise<Response> {
   if (result instanceof Response) {
     return result;         // 分支1: Response 直接透传
   }
   return c.json(result);  // 分支2: T 兜底 json
 }
 ```
-
-### reply<T> 类型安全保证
 
 | 场景 | 输入类型 | 分支 |
 |---|---|---|
@@ -501,8 +580,8 @@ async function reply<T>(c: HonoContext, result: Reply<T>): Promise<Response> {
 import { Tunnel, createHonoAdapter, json, html, notFound, redirect, stream } from '@opendesign/tunnel'
 
 const app = new Hono()
-const adapter = createHonoAdapter(app)
-const tunnel = new Tunnel(app, adapter)
+const adapter = new HonoAdapter(app) // 或者使用 createHonoAdapter
+const tunnel = new Tunnel(adapter)
 
 // 注册路由（/api/* 和 /api/hello 不冲突）
 tunnel.register({
@@ -540,19 +619,26 @@ const exists = tunnel.has("GET /api/json")
 | --------------------------- | ------------------ |
 | `unregister('*')`           | 返回 `false`，拒绝执行    |
 | `unregister('**')`          | 返回 `false`，拒绝执行    |
-| `unregister('GET /api/**')` | 前缀卸载所有匹配路由         |
+| `unregister('GET /api/**')` | 前缀卸载所有匹配路由，同时调用 `adapter.unregister()` |
 | `register` 相同 key           | 直接替换旧 handler（热更新） |
+| 非法 HTTP method             | 抛出 `[Tunnel] Invalid HTTP Method` |
 
 ***
 
-## 十二、内存泄漏警告
+## 十二、内存泄漏防护
 
-> **重要**：底层框架（如 Hono 的 RegExpRouter 或 Fastify 的 Radix Tree）一旦注册路由，就会将其编译进路由树。Tunnel 的 `unregister` 只是删除了内存 Map 中的引用，底层路由树中的闭包节点依然存在。
+> **重要**：Tunnel 的 `unregister` 现在会调用 `adapter.unregister()` 通知底层框架移除路由。
 
-**限制**：
+**适配器实现要求**：
 
-- 适用于固定路径的 HMR 热更新或低频的动态路由增删。
-- **不要**频繁注册/卸载带有动态参数的新路径（如 `/api/temp-1`, `/api/temp-2`），这会导致底层路由树无限膨胀，最终导致内存泄漏。
+- 适配器需要维护 `routeMap` 记录已注册的路由
+- `unregister` 方法需要能够从底层框架中移除路由句柄
+- 如果底层框架不支持路由卸载，`unregister` 应返回 `false`
+
+**建议**：
+
+- 适用于固定路径的 HMR 热更新或低频的动态路由增删
+- **不要**频繁注册/卸载带有动态参数的新路径（如 `/api/temp-1`, `/api/temp-2`），这可能导致底层路由树膨胀
 
 ***
 
@@ -563,8 +649,11 @@ const exists = tunnel.has("GET /api/json")
 | **新增** | `src/mime.ts`          |
 | **修改** | `src/types.ts`         |
 | **修改** | `src/tunnel.ts`        |
+| **修改** | `src/adapter.ts`       |
 | **修改** | `src/adapters/hono.ts` |
+| **修改** | `src/response.ts`     |
 | **修改** | `src/index.ts`         |
+| **新增** | `tests/` 适配器测试      |
 
 ***
 
@@ -573,11 +662,38 @@ const exists = tunnel.has("GET /api/json")
 | 项目         | 决策                                     |
 | ---------- | -------------------------------------- |
 | MIME 类型    | 运行时对象 + `as const` + 类型推导              |
-| Reply<T>   | `T \| Response`，简化为 2 种                |
-| reply()    | 2 分支：Response 透传 / T 兜底 json           |
-| unregister | 返回 `boolean`                           |
+| Reply<R>   | `R \| Response`，简化为 2 种                |
+| reply()    | 2 分支：Response 透传 / R 兜底 json           |
+| unregister | 返回 `boolean`，同时调用 `adapter.unregister()` |
 | 前缀通配符      | `**`，拒绝单独 `*`/`**`                     |
 | 响应函数签名     | 统一 Hono 风格 `(data, status?, headers?)` |
 | **update** | **废除**，register 注册时直接替换旧 handler       |
 | 路由冲突       | `/api/*` 和 `/api/hello` 不冲突，精确优先       |
+| HTTP method 校验 | 使用 `VALID_METHODS` Set，拒绝非法 method |
+| Body 解析    | Hono 适配器自动解析 JSON/formData/text       |
+| Headers 多值   | `forEach` 遍历收集多值 header 为数组            |
+| streamSSE 错误处理 | 忽略错误，优雅关闭 (`controller.close()`)   |
+| Adapter 接口  | `Adapter<T, P>` 泛型，`T`=app类型，`P`=platform类型 |
+| 泛型命名 | 使用 `T、P、R、L` 单字母命名 |
+
+***
+
+## 十五、缺失的特性和局限性说明
+
+在当前 v3.0 版本设计中，针对框架泛用性和轻量级的目标，部分功能被**刻意省略或存在局限性**。在选择本库或编写适配器时需要注意：
+
+### 15.1 中间件与插件机制
+- **现状**：`@opendesign/tunnel` 核心引擎不支持路由级或全局级别的中间件数组（如 `(ctx, next) => void` 机制）。
+- **绕过方案**：
+  1. 在底层框架级别应用中间件（如 `app.use('*', authMiddleware)`）。
+  2. 在注册的 `handler` 内部进行函数式的高阶包装。
+
+### 15.2 跨框架类型提取
+- **现状**：不同的底层框架对于 Path Parameters (如 `/user/:id` 与 `/user/{id}`) 的定义语法不同，且提取到的 params 结构可能并不一致。
+- **局限**：目前的 `Context<P, L>` 泛型未对 `params` 提供类型推导机制。虽然实际取值有效，但 IDE 中 `ctx.params` 被推导为 `Record<string, string | undefined>`。
+
+### 15.3 Response 响应体状态同步
+- **现状**：虽然统一使用 `reply` 包装器转换为了标准 Web `Response` 对象，但适配器实现并没有将最终状态码或自定义头部同步写回到底层框架的 Response API 中。
+- **局限**：若底层框架的中间件依赖读取该响应的状态（例如 Express/Fastify 的 logger 中间件），因为适配器跳过了底层 `res.send()`，可能会记录为不正确的状态（比如始终显示 200 或未完成）。
+- **要求**：在非 Web 标准请求模型的框架（如 Express/Fastify）中编写 Adapter 时，需要显式地从 Web Response 解包数据并调用如 `res.status().set().send()` 的方法。
 

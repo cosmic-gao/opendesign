@@ -6,12 +6,23 @@ import type { Method } from '../utils';
 function createMockAdapter() {
   const registeredRoutes: { method: Method; pathname: string; proxy: (raw: unknown) => Promise<unknown> }[] = [];
 
-  const adapter: Adapter<{ id: string }> = {
+  const mockApp = { mock: true };
+
+  const adapter: Adapter<typeof mockApp, { id: string }> = {
+    app: mockApp,
     name: 'mock',
     register(method: Method, pathname: string, proxy: (raw: { id: string }) => Promise<unknown>) {
       registeredRoutes.push({ method, pathname, proxy: proxy as (raw: unknown) => Promise<unknown> });
     },
-    transform(raw: { id: string }, pathname: string, method: Method): Context<{ id: string }> {
+    unregister(method: Method, pathname: string): boolean {
+      const idx = registeredRoutes.findIndex(r => r.method === method && r.pathname === pathname);
+      if (idx !== -1) {
+        registeredRoutes.splice(idx, 1);
+        return true;
+      }
+      return false;
+    },
+    transform<L = unknown>(raw: { id: string }, pathname: string, method: Method): Context<{ id: string }, L> {
       return {
         method,
         pathname,
@@ -19,7 +30,7 @@ function createMockAdapter() {
         params: { id: raw.id },
         query: {},
         headers: {},
-        body: undefined,
+        body: undefined as L,
         raw,
       };
     },
@@ -32,7 +43,7 @@ describe('Tunnel', () => {
   describe('register', () => {
     it('should register a single route', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
-      const tunnel = new Tunnel({}, adapter);
+      const tunnel = new Tunnel(adapter);
 
       tunnel.register({
         ['GET /api/test' as string]: async () => ({ hello: 'world' }),
@@ -45,7 +56,7 @@ describe('Tunnel', () => {
 
     it('should register multiple routes', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
-      const tunnel = new Tunnel({}, adapter);
+      const tunnel = new Tunnel(adapter);
 
       tunnel.register({
         ['GET /api/users' as string]: async () => [],
@@ -58,7 +69,7 @@ describe('Tunnel', () => {
 
     it('should not re-register existing route on hot update', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
-      const tunnel = new Tunnel({}, adapter);
+      const tunnel = new Tunnel(adapter);
 
       tunnel.register({
         ['GET /api/test' as string]: async () => ({ v: 1 }),
@@ -75,7 +86,7 @@ describe('Tunnel', () => {
 
     it('should call correct handler after hot update', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
-      const tunnel = new Tunnel({}, adapter);
+      const tunnel = new Tunnel(adapter);
 
       tunnel.register({
         ['GET /api/test' as string]: async () => ({ version: 1 }),
@@ -96,7 +107,7 @@ describe('Tunnel', () => {
   describe('unregister', () => {
     it('should remove route from registry', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
-      const tunnel = new Tunnel({}, adapter);
+      const tunnel = new Tunnel(adapter);
 
       tunnel.register({
         ['GET /api/test' as string]: async () => ({ hello: 'world' }),
@@ -104,18 +115,32 @@ describe('Tunnel', () => {
 
       expect(registeredRoutes).toHaveLength(1);
 
-      tunnel.unregister('GET /api/test');
-
       const proxy = registeredRoutes[0]?.proxy;
       expect(proxy).toBeDefined();
+
+      tunnel.unregister('GET /api/test');
+
       await expect(proxy!({ id: '123' })).rejects.toThrow('[Tunnel] Route Not Found');
+    });
+
+    it('should call adapter.unregister', async () => {
+      const { adapter } = createMockAdapter();
+      const tunnel = new Tunnel(adapter);
+
+      tunnel.register({
+        ['GET /api/test' as string]: async () => ({ hello: 'world' }),
+      });
+
+      tunnel.unregister('GET /api/test');
+
+      expect(tunnel.has('GET /api/test')).toBe(false);
     });
   });
 
   describe('proxy', () => {
     it('should throw error for unregistered route', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
-      const tunnel = new Tunnel({}, adapter);
+      const tunnel = new Tunnel(adapter);
 
       tunnel.register({
         ['GET /api/other' as string]: async () => ({ hello: 'world' }),

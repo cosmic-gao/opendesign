@@ -1,32 +1,71 @@
 import { hash, type Method, type Endpoint } from './utils';
-import type { Handler } from './types';
+import type { Handler, Context } from './types';
 import type { Adapter } from './adapter';
 
-interface Route<R> {
+/** 合法的 HTTP 方法集合 */
+const VALID_METHODS = new Set<Method>(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE', 'CONNECT']);
+
+/** 内部路由记录结构 */
+interface Route<P> {
+  /** 路由键，格式为 "METHOD /path" */
   key: string;
+  /** HTTP 方法 */
   method: Method;
+  /** 路由路径 */
   pathname: string;
-  handler: Handler<R>;
+  /** 处理器函数 */
+  handler: Handler<P, unknown, never>;
 }
 
-export interface Tunnel<App, R> {
-  register<const Routes extends Record<string, Handler<R>>>(routes: Routes): void;
+/**
+ * Tunnel 路由管理器接口
+ * @template T - App 类型，底层框架应用实例
+ * @template P - Platform 类型，底层框架请求上下文
+ */
+export interface Tunnel<T, P> {
+  /**
+   * 批量注册路由
+   * @param routes - 路由表对象，键为 "METHOD /path" 格式，值为处理器函数
+   */
+  register<const Routes extends Record<string, Handler<P, any, any>>>(routes: Routes): void;
+  /**
+   * 卸载路由
+   * @param key - 路由键，格式为 "METHOD /path"，支持 ** 通配符批量卸载
+   * @returns 是否成功卸载
+   */
   unregister(key: string): boolean;
+  /**
+   * 检查路由是否已注册
+   * @param key - 路由键
+   * @returns 是否存在
+   */
   has(key: string): boolean;
 }
 
-export class Tunnel<App, R> {
-  private readonly registry = new Map<number, Route<R>>();
+/**
+ * 跨框架路由适配器核心引擎
+ * 通过 FNV-1a 哈希实现 O(1) 路由查找和热更新
+ * @template T - App 类型，底层框架应用实例
+ * @template P - Platform 类型，底层框架请求上下文
+ */
+export class Tunnel<T, P> {
+  /** 路由注册表，使用哈希作为键 */
+  private readonly registry = new Map<number, Route<P>>();
 
+  /**
+   * 创建 Tunnel 实例
+   * @param adapter - 适配器实例，负责与底层框架交互
+   */
   public constructor(
-    app: App,
-    private readonly adapter: Adapter<R>
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    void app;
-  }
+    private readonly adapter: Adapter<T, P>
+  ) {}
 
-  public register<const Routes extends Record<string, Handler<R>>>(routes: Routes): void {
+  /**
+   * 批量注册路由，支持热更新
+   * 相同 key 的路由会被覆盖
+   * @param routes - 路由表
+   */
+  public register<const Routes extends Record<string, Handler<P, unknown, never>>>(routes: Routes): void {
     for (const [key, handler] of Object.entries(routes)) {
       const [method, pathname] = this.parse(key);
       const endpoint = `${method} ${pathname}` as Endpoint;
@@ -34,7 +73,7 @@ export class Tunnel<App, R> {
 
       const isLinked = this.registry.has(routeId);
 
-      const route: Route<R> = { key, method, pathname, handler };
+      const route: Route<P> = { key, method, pathname, handler };
       this.registry.set(routeId, route);
 
       if (!isLinked) {
@@ -47,12 +86,24 @@ export class Tunnel<App, R> {
     }
   }
 
+  /**
+   * 检查路由是否已注册
+   * @param key - 路由键，格式为 "METHOD /path"
+   * @returns 是否存在
+   */
   public has(key: string): boolean {
     const [method, pathname] = this.parse(key);
     const routeId = hash(`${method} ${pathname}`);
     return this.registry.has(routeId);
   }
 
+  /**
+   * 卸载路由
+   * - 使用 ** 后缀可以批量卸载匹配前缀的路由
+   * - 单独的 * 或 ** 被拒绝
+   * @param key - 路由键
+   * @returns 是否成功卸载
+   */
   public unregister(key: string): boolean {
     if (key === '*' || key === '**') {
       return false;
@@ -64,6 +115,7 @@ export class Tunnel<App, R> {
       for (const [id, route] of this.registry) {
         if (route.key.startsWith(prefix)) {
           this.registry.delete(id);
+          this.adapter.unregister(route.method, route.pathname);
           deleted = true;
         }
       }
@@ -74,25 +126,36 @@ export class Tunnel<App, R> {
     const routeId = hash(`${method} ${pathname}`);
     const existed = this.registry.has(routeId);
     this.registry.delete(routeId);
+    this.adapter.unregister(method, pathname);
     return existed;
   }
 
+  /** 创建路由代理函数 */
   private proxy(routeId: number) {
-    return async (raw: R): Promise<unknown> => {
+    return async (raw: P): Promise<unknown> => {
       const route = this.registry.get(routeId);
       if (!route) {
         throw new Error(`[Tunnel] Route Not Found: ${routeId}`);
       }
       const ctx = this.adapter.transform(raw, route.pathname, route.method);
-      return await route.handler(ctx);
+      return await route.handler(ctx as any);
     };
   }
 
+  /**
+   * 解析路由键
+   * @param key - 路由键，格式为 "METHOD /path"
+   * @returns [method, pathname] 元组
+   * @throws 如果格式无效或 HTTP 方法不合法
+   */
   private parse(key: string): [Method, string] {
     const idx = key.indexOf(' ');
     if (idx === -1) throw new Error(`[Tunnel] Invalid Endpoint: "${key}"`);
 
     const method = key.slice(0, idx).toUpperCase() as Method;
+    if (!VALID_METHODS.has(method)) {
+      throw new Error(`[Tunnel] Invalid HTTP Method: "${method}"`);
+    }
     const pathname = key.slice(idx + 1);
 
     return [method, pathname];
