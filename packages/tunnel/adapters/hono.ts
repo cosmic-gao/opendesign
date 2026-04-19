@@ -1,13 +1,7 @@
 import type { Hono as App, Context as Raw } from 'hono';
-import type { Method } from '../utils';
+import { type Method, HTTP_METHODS } from '../utils';
 import type { Context, Reply } from '../types';
 import type { Adapter } from '../adapter';
-
-/** Hono 标准 HTTP 方法（类型系统已知） */
-type HonoStandardMethod = 'get' | 'post' | 'put' | 'delete' | 'patch';
-
-/** Hono HTTP 方法（包括非标准方法） */
-type HonoMethod = HonoStandardMethod | 'head' | 'options';
 
 /**
  * Hono 框架适配器
@@ -38,7 +32,7 @@ export class Hono implements Adapter<App, Raw> {
     proxy: (raw: Raw) => Promise<unknown>
   ): void {
     const key = `${method} ${pathname}`;
-    const action = method.toLowerCase() as HonoMethod;
+    const action = method.toLowerCase() as Lowercase<typeof HTTP_METHODS[number]>;
 
     const handler: (c: Raw) => Promise<Response> = async (c: Raw): Promise<Response> => {
       try {
@@ -55,7 +49,7 @@ export class Hono implements Adapter<App, Raw> {
       }
     };
 
-    const app = this.app as unknown as Record<HonoMethod, (path: string, handler: (c: Raw) => Promise<Response>) => void>;
+    const app = this.app as unknown as Record<typeof HTTP_METHODS[number], (path: string, handler: (c: Raw) => Promise<Response>) => void>;
     const methodHandler = app[action];
 
     if (typeof methodHandler === 'function') {

@@ -1,23 +1,25 @@
 /**
- * HTTP 请求方法类型
- * 包含所有标准 HTTP 方法
+ * HTTP 方法常量
+ * 与 hono/router 的 METHODS 保持一致
  */
-export type Method =
-  | 'GET'
-  | 'POST'
-  | 'PUT'
-  | 'DELETE'
-  | 'PATCH'
-  | 'HEAD'
-  | 'OPTIONS'
-  | 'TRACE'
-  | 'CONNECT';
+const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'options', 'patch'] as const;
+
+/**
+ * HTTP 请求方法类型
+ * 同时支持大小写，与 Hono 框架的 METHODS 类型保持一致
+ */
+export type Method = typeof HTTP_METHODS[number] | Uppercase<typeof HTTP_METHODS[number]>;
 
 /**
  * 路由端点类型
  * 格式为 "METHOD /path"，用于提供 IDE 的严格格式提示
  */
 export type Endpoint = `${Method} ${string}`;
+
+/**
+ * HTTP 方法常量，供其他模块使用
+ */
+export { HTTP_METHODS };
 
 /** FNV-1a 哈希算法的质数常量 */
 const FNV_PRIME = 0x01000193;

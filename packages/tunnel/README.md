@@ -19,11 +19,12 @@ npm install @opendesign/tunnel
 ## 快速开始
 
 ```typescript
-import { Hono as App } from 'hono';
-import { Tunnel, json, html, text, notFound, redirect, Hono } from '@opendesign/tunnel';
+import { Hono } from 'hono';
+import { Tunnel, json, html, text, notFound, redirect, Hono, createHonoAdapter } from '@opendesign/tunnel';
 
-const app = new App();
-const tunnel = new Tunnel(app, new Hono(app));
+const app = new Hono();
+const adapter = createHonoAdapter(app);
+const tunnel = new Tunnel(adapter);
 
 // 注册路由
 tunnel.register({
@@ -36,6 +37,10 @@ tunnel.register({
 ```
 
 ## 响应函数
+
+### Method 类型
+
+支持的 HTTP 方法（与 Hono 框架一致）：`GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`, `PATCH`（同时支持大小写）
 
 | 函数 | content-type | 说明 |
 |-----|-------------|------|
@@ -73,7 +78,10 @@ type Reply<T> = T | Response;
 ### Tunnel
 
 ```typescript
-const tunnel = new Tunnel(app, new Hono(app));
+import { createHonoAdapter } from '@opendesign/tunnel';
+
+const adapter = createHonoAdapter(app);
+const tunnel = new Tunnel(adapter);
 
 // 注册路由（热更新：相同 key 直接替换旧 handler）
 tunnel.register({
@@ -90,7 +98,7 @@ tunnel.unregister('GET /api/users'); // boolean
 tunnel.unregister('GET /api/**'); // boolean
 ```
 
-### Context<R>
+### Context<P, L>
 
 | 属性 | 类型 | 说明 |
 |-----|------|------|
@@ -100,26 +108,32 @@ tunnel.unregister('GET /api/**'); // boolean
 | `params` | `Record<string, string \| undefined>` | 路径参数 |
 | `query` | `Record<string, string \| string[] \| undefined>` | 查询参数 |
 | `headers` | `Record<string, string \| string[] \| undefined>` | 请求头 |
-| `body` | `unknown` | 请求体 |
-| `raw` | `R` | 框架原生 Request |
+| `body` | `L` | 请求体（由 transform 解析） |
+| `raw` | `P` | 框架原生 Request |
 
-### Adapter
+### Adapter<T, P>
 
 ```typescript
-interface Adapter<R> {
+interface Adapter<T, P> {
+  readonly app: T;
   readonly name: string;
-  register(method: Method, pathname: string, proxy: (raw: R) => Promise<unknown>): void;
-  transform(raw: R, pathname: string, method: Method): Context<R>;
+  register(method: Method, pathname: string, proxy: (raw: P) => Promise<unknown>): void;
+  unregister(method: Method, pathname: string): boolean;
+  transform<L = unknown>(raw: P, pathname: string, method: Method): Promise<Context<P, L>>;
 }
 ```
 
 ### Hono 适配器
 
 ```typescript
-import { Hono as App } from 'hono';
-import { Hono } from '@opendesign/tunnel';
+import { createHonoAdapter } from '@opendesign/tunnel';
 
-const adapter = new Hono(new App());  // 适配器内部持有 Hono app 实例
+// 方式1：使用工厂函数（推荐）
+const adapter = createHonoAdapter(app);
+
+// 方式2：直接实例化
+import { Hono } from '@opendesign/tunnel';
+const adapter = new Hono(app);
 ```
 
 ### MIME_TYPES

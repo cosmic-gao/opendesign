@@ -1,9 +1,14 @@
-import { hash, type Method, type Endpoint } from './utils';
+import { hash, HTTP_METHODS, type Method, type Endpoint } from './utils';
 import type { Handler, Routes } from './types';
 import type { Adapter } from './adapter';
 
-/** 合法的 HTTP 方法集合 */
-const VALID_METHODS = new Set<Method>(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE', 'CONNECT']);
+/** 
+ * 运行时合法的 HTTP 方法集合
+ * 动态基于 utils 中的 HTTP_METHODS 构建，用于 parse() 时进行运行时的严格安全校验
+ */
+const VALID_METHODS = new Set<Method>(
+  HTTP_METHODS.map((m) => m.toUpperCase() as Method)
+);
 
 /** 内部路由记录结构 */
 interface Route<P> {

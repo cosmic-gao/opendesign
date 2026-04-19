@@ -46,8 +46,8 @@ packages/tunnel/
 
 ```typescript
 export type Method =
-  | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
-  | 'HEAD' | 'OPTIONS' | 'TRACE' | 'CONNECT';
+  | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS' | 'PATCH'
+  | 'get' | 'post' | 'put' | 'delete' | 'options' | 'patch';
 
 export type Endpoint = `${Method} ${string}`;
 
@@ -387,10 +387,11 @@ export interface Adapter<T, P> {
 使用 `VALID_METHODS` Set 校验所有 HTTP 方法，拒绝非法方法：
 
 ```typescript
-const VALID_METHODS = new Set<Method>([
-  'GET', 'POST', 'PUT', 'DELETE', 'PATCH',
-  'HEAD', 'OPTIONS', 'TRACE', 'CONNECT'
-]);
+import { HTTP_METHODS, type Method } from './utils';
+
+const VALID_METHODS = new Set<Method>(
+  HTTP_METHODS.map((m) => m.toUpperCase() as Method)
+);
 ```
 
 非法 method 会抛出 `[Tunnel] Invalid HTTP Method: "${method}"` 错误。
