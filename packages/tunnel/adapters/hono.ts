@@ -1,4 +1,4 @@
-import type { Hono as App, Context as Raw } from 'hono';
+import { Hono as App, type Context as Raw } from 'hono';
 import { type Method, HTTP_METHODS } from '../utils';
 import type { Context, Reply } from '../types';
 import type { Adapter } from '../adapter';
@@ -15,7 +15,7 @@ export class Hono implements Adapter<App, Raw> {
    * 创建 Hono 适配器实例
    * @param app - Hono 应用实例
    */
-  public constructor(public readonly app: App) { }
+  public constructor(public readonly app: App = new App()) { }
 
   /** 适配器名称 */
   readonly name = 'hono';
@@ -167,7 +167,7 @@ export class Hono implements Adapter<App, Raw> {
       query,
       headers,
       body: body as L,
-      raw,
+      raw
     });
   }
 }

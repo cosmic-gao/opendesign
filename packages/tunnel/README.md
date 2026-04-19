@@ -126,14 +126,20 @@ interface Adapter<T, P> {
 ### Hono 适配器
 
 ```typescript
-import { createHonoAdapter } from '@opendesign/tunnel';
+import { Tunnel, Hono, createHonoAdapter } from '@opendesign/tunnel';
 
 // 方式1：使用工厂函数（推荐）
-const adapter = createHonoAdapter(app);
+const adapter = createHonoAdapter();
 
-// 方式2：直接实例化
-import { Hono } from '@opendesign/tunnel';
+// 方式2：直接实例化，Hono 实例可选
+const adapter = new Hono();
+
+// 方式3：传入自己的 Hono 实例
+const app = new Hono();
 const adapter = new Hono(app);
+
+// 创建 Tunnel
+const tunnel = new Tunnel(adapter);
 ```
 
 ### MIME_TYPES

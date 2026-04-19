@@ -578,10 +578,18 @@ async function reply<T>(result: Reply<T>, c: HonoContext): Promise<Response> {
 ## 九、使用示例
 
 ```typescript
-import { Tunnel, createHonoAdapter, json, html, notFound, redirect, stream } from '@opendesign/tunnel'
+import { Tunnel, Hono, createHonoAdapter, json, html, notFound, redirect, stream } from '@opendesign/tunnel'
 
+// 方式1：createHonoAdapter 自动创建 Hono 实例
+const adapter = createHonoAdapter()
+
+// 方式2：直接实例化，Hono 可选
+const adapter = new Hono()
+
+// 方式3：传入自己的 Hono 实例
 const app = new Hono()
-const adapter = new HonoAdapter(app) // 或者使用 createHonoAdapter
+const adapter = new Hono(app)
+
 const tunnel = new Tunnel(adapter)
 
 // 注册路由（/api/* 和 /api/hello 不冲突）
