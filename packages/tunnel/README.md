@@ -20,10 +20,10 @@ npm install @opendesign/tunnel
 
 ```typescript
 import { Hono } from 'hono';
-import { Tunnel, json, html, text, notFound, redirect, Hono, createHonoAdapter } from '@opendesign/tunnel';
+import { Tunnel, json, html, text, notFound, redirect, Hono } from '@opendesign/tunnel';
 
 const app = new Hono();
-const adapter = createHonoAdapter(app);
+const adapter = new Hono(app);
 const tunnel = new Tunnel(adapter);
 
 // 注册路由
@@ -78,9 +78,7 @@ type Reply<T> = T | Response;
 ### Tunnel
 
 ```typescript
-import { createHonoAdapter } from '@opendesign/tunnel';
-
-const adapter = createHonoAdapter(app);
+const adapter = new Hono();
 const tunnel = new Tunnel(adapter);
 
 // 注册路由（热更新：相同 key 直接替换旧 handler）
@@ -126,19 +124,15 @@ interface Adapter<T, P> {
 ### Hono 适配器
 
 ```typescript
-import { Tunnel, Hono, createHonoAdapter } from '@opendesign/tunnel';
+import { Tunnel, Hono } from '@opendesign/tunnel';
 
-// 方式1：使用工厂函数（推荐）
-const adapter = createHonoAdapter();
-
-// 方式2：直接实例化，Hono 实例可选
-const adapter = new Hono();
-
-// 方式3：传入自己的 Hono 实例
+// 方式1：传入自己的 Hono 实例
 const app = new Hono();
 const adapter = new Hono(app);
 
-// 创建 Tunnel
+// 方式2：不传，自动创建 Hono 实例
+const adapter = new Hono();
+
 const tunnel = new Tunnel(adapter);
 ```
 
