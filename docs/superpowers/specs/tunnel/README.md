@@ -18,7 +18,7 @@
 | **前缀 `**` 通配符** | 批量卸载路由 |
 | **操作结果明确** | `register`/`unregister`/`has` 返回语义清晰 |
 | **reply 二分支** | Response 透传 / T 兜底 json |
-| **无 update** | register 注册时直接替换旧 handler |
+| **Adapter 弱绑定** | `register` 和 `unregister` 现为可选方法，支持完全黑盒运行 |
 
 ## 文档
 

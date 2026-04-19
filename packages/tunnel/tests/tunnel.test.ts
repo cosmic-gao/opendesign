@@ -39,9 +39,9 @@ function createMockAdapter() {
   return { adapter, registeredRoutes };
 }
 
-describe('Tunnel', () => {
+describe('Tunnel 核心', () => {
   describe('register', () => {
-    it('should register a single route', async () => {
+    it('应能注册单个路由', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -54,7 +54,7 @@ describe('Tunnel', () => {
       expect(registeredRoutes[0]?.pathname).toBe('/api/test');
     });
 
-    it('should register multiple routes', async () => {
+    it('应能批量注册多个路由', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -67,7 +67,7 @@ describe('Tunnel', () => {
       expect(registeredRoutes).toHaveLength(3);
     });
 
-    it('should not re-register existing route on hot update', async () => {
+    it('热更新时不应重复注册已有路由', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -84,7 +84,7 @@ describe('Tunnel', () => {
       expect(registeredRoutes).toHaveLength(initialCount);
     });
 
-    it('should call correct handler after hot update', async () => {
+    it('热更新后应调用新的处理器', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -105,7 +105,7 @@ describe('Tunnel', () => {
   });
 
   describe('unregister', () => {
-    it('should remove route from registry', async () => {
+    it('应能从注册表中移除路由', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -123,7 +123,7 @@ describe('Tunnel', () => {
       await expect(proxy!({ id: '123' })).rejects.toThrow('[Tunnel] Route Not Found');
     });
 
-    it('should call adapter.unregister', async () => {
+    it('应调用适配器的卸载方法', async () => {
       const { adapter } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -135,10 +135,40 @@ describe('Tunnel', () => {
 
       expect(tunnel.has('GET /api/test')).toBe(false);
     });
+
+    it('使用 * 或 ** 作为键名时应拒绝卸载', () => {
+      const { adapter } = createMockAdapter();
+      const tunnel = new Tunnel(adapter);
+
+      expect(tunnel.unregister('*')).toBe(false);
+      expect(tunnel.unregister('**')).toBe(false);
+    });
+
+    it('使用 ** 后缀时应按前缀批量卸载匹配路由', () => {
+      const { adapter } = createMockAdapter();
+      const tunnel = new Tunnel(adapter);
+
+      tunnel.register({
+        'GET /api/hello': async () => ({}),
+        'GET /api/world': async () => ({}),
+        'POST /api/hello': async () => ({}),
+      });
+
+      expect(tunnel.has('GET /api/hello')).toBe(true);
+      expect(tunnel.has('GET /api/world')).toBe(true);
+      expect(tunnel.has('POST /api/hello')).toBe(true);
+
+      const deleted = tunnel.unregister('GET /api/**');
+
+      expect(deleted).toBe(true);
+      expect(tunnel.has('GET /api/hello')).toBe(false);
+      expect(tunnel.has('GET /api/world')).toBe(false);
+      expect(tunnel.has('POST /api/hello')).toBe(true);
+    });
   });
 
   describe('proxy', () => {
-    it('should throw error for unregistered route', async () => {
+    it('未注册路由应抛出错误', async () => {
       const { adapter, registeredRoutes } = createMockAdapter();
       const tunnel = new Tunnel(adapter);
 
@@ -149,6 +179,44 @@ describe('Tunnel', () => {
       const proxy = registeredRoutes[0]?.proxy;
       expect(proxy).toBeDefined();
       await expect(proxy!({ id: '123' })).resolves.toEqual({ hello: 'world' });
+    });
+  });
+
+  describe('可选适配器方法', () => {
+    it('适配器没有 register 或 unregister 时应正常工作', () => {
+      const mockApp = { mock: true };
+      const adapter: Adapter<typeof mockApp, any> = {
+        app: mockApp,
+        name: 'minimal-adapter',
+        async transform(raw: any, pathname: string, method: Method): Promise<Context<any, any>> {
+          return {} as any;
+        }
+      };
+
+      const tunnel = new Tunnel(adapter);
+
+      expect(() => {
+        tunnel.register({
+          'GET /test': () => ({ ok: true })
+        });
+      }).not.toThrow();
+
+      expect(tunnel.has('GET /test')).toBe(true);
+
+      expect(() => {
+        const deleted = tunnel.unregister('GET /test');
+        expect(deleted).toBe(true);
+      }).not.toThrow();
+
+      expect(tunnel.has('GET /test')).toBe(false);
+
+      tunnel.register({
+        'GET /api/test': () => ({ ok: true })
+      });
+      expect(() => {
+        const deleted = tunnel.unregister('GET /api/**');
+        expect(deleted).toBe(true);
+      }).not.toThrow();
     });
   });
 });

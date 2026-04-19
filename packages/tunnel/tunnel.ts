@@ -63,7 +63,7 @@ export class Tunnel<T, P> {
    */
   public constructor(
     private readonly adapter: Adapter<T, P>
-  ) {}
+  ) { }
 
   /**
    * 批量注册路由，支持热更新
@@ -82,7 +82,7 @@ export class Tunnel<T, P> {
       this.registry.set(routeId, route);
 
       if (!isLinked) {
-        this.adapter.register(
+        this.adapter.register?.(
           method,
           pathname,
           this.proxy(routeId)
@@ -120,7 +120,7 @@ export class Tunnel<T, P> {
       for (const [id, route] of this.registry) {
         if (route.key.startsWith(prefix)) {
           this.registry.delete(id);
-          this.adapter.unregister(route.method, route.pathname);
+          this.adapter.unregister?.(route.method, route.pathname);
           deleted = true;
         }
       }
@@ -131,7 +131,7 @@ export class Tunnel<T, P> {
     const routeId = hash(`${method} ${pathname}`);
     const existed = this.registry.has(routeId);
     this.registry.delete(routeId);
-    this.adapter.unregister(method, pathname);
+    this.adapter.unregister?.(method, pathname);
     return existed;
   }
 

@@ -34,6 +34,10 @@ export class Hono implements Adapter<App, Raw> {
     const key = `${method} ${pathname}`;
     const action = method.toLowerCase() as Lowercase<typeof HTTP_METHODS[number]>;
 
+    if (this.routes.has(key)) {
+      return;
+    }
+
     const handler: (c: Raw) => Promise<Response> = async (c: Raw): Promise<Response> => {
       try {
         const result = await proxy(c);
@@ -60,18 +64,6 @@ export class Hono implements Adapter<App, Raw> {
     }
   }
 
-  /**
-   * 从 Hono 应用卸载路由
-   * @param method - HTTP 方法
-   * @param pathname - 路由路径
-   * @returns 是否成功卸载
-   */
-  unregister(method: Method, pathname: string): boolean {
-    const key = `${method} ${pathname}`;
-    const existed = this.routes.has(key);
-    this.routes.delete(key);
-    return existed;
-  }
 
   /**
    * 解析请求体

@@ -4,9 +4,14 @@
   "private": true,
   "type": "module",
   "main": "index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "devDependencies": {
     "@opendesign/tsconfig": "workspace:*",
-    "@types/node": "^25.4.0"
+    "@types/node": "^25.4.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "hono": "^4.12.12"

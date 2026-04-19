@@ -18,7 +18,7 @@ export interface Adapter<T, P> {
    * @param pathname - 路由路径
    * @param proxy - 代理函数，接收原始请求并返回处理结果
    */
-  register(
+  register?(
     method: Method,
     pathname: string,
     proxy: (raw: P) => Promise<unknown>
@@ -30,7 +30,7 @@ export interface Adapter<T, P> {
    * @param pathname - 路由路径
    * @returns 是否成功卸载
    */
-  unregister(method: Method, pathname: string): boolean;
+  unregister?(method: Method, pathname: string): boolean;
 
   /**
    * 转换底层框架的原始请求为统一 Context 对象

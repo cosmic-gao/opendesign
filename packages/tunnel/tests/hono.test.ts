@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 import { Hono as HonoAdapter } from '../adapters/hono';
 import { Tunnel } from '../tunnel';
 
-describe('Hono Adapter', () => {
-  it('should register and execute a route', async () => {
+describe('Hono 适配器', () => {
+  it('应能注册并执行路由', async () => {
     const app = new Hono();
     const adapter = new HonoAdapter(app);
     const tunnel = new Tunnel(adapter);
@@ -15,13 +15,13 @@ describe('Hono Adapter', () => {
 
     const req = new Request('http://localhost/test');
     const res = await app.request(req);
-    
+
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ success: true });
   });
 
-  it('should parse JSON body', async () => {
+  it('应能解析 JSON 请求体', async () => {
     const app = new Hono();
     const adapter = new HonoAdapter(app);
     const tunnel = new Tunnel(adapter);
@@ -42,14 +42,14 @@ describe('Hono Adapter', () => {
       },
       body: JSON.stringify({ message: 'hello' })
     });
-    
+
     const res = await app.request(req);
-    
+
     expect(res.status).toBe(200);
     expect(parsedBody).toEqual({ message: 'hello' });
   });
 
-  it('should handle unregister and return 404', async () => {
+  it('卸载路由后应返回404', async () => {
     const app = new Hono();
     const adapter = new HonoAdapter(app);
     const tunnel = new Tunnel(adapter);
@@ -62,17 +62,15 @@ describe('Hono Adapter', () => {
     const res1 = await app.request(req1);
     expect(res1.status).toBe(200);
 
-    // Unregister
     tunnel.unregister('GET /removable');
 
     const req2 = new Request('http://localhost/removable');
     const res2 = await app.request(req2);
-    
-    // Hono adapter should catch the "Route Not Found" error and return 404
+
     expect(res2.status).toBe(404);
   });
 
-  it('should collect multiple headers into an array', async () => {
+  it('应能将多个同名请求头收集为数组', async () => {
     const app = new Hono();
     const adapter = new HonoAdapter(app);
     const tunnel = new Tunnel(adapter);
@@ -89,12 +87,43 @@ describe('Hono Adapter', () => {
     const req = new Request('http://localhost/headers');
     req.headers.append('X-Custom', 'Value1');
     req.headers.append('X-Custom', 'Value2');
-    
+
     await app.request(req);
-    
-    // Headers parsing in Hono Request objects via Web Standards (Fetch API) 
-    // comma separates multiple values for identical header names (e.g. "Value1, Value2").
-    // Fetch API Headers object merges them. But let's check how hono/adapter handles it.
+
     expect(headersRecord?.['x-custom']).toBeDefined();
+  });
+
+  it('应支持卸载后重新注册实现热更新', async () => {
+    const app = new Hono();
+    const adapter = new HonoAdapter(app);
+    const tunnel = new Tunnel(adapter);
+
+    let counter = 0;
+    tunnel.register({
+      'GET /reload': () => ({ version: ++counter })
+    });
+
+    let res = await app.request(new Request('http://localhost/reload'));
+    expect(await res.json()).toEqual({ version: 1 });
+
+    tunnel.unregister('GET /reload');
+
+    tunnel.register({
+      'GET /reload': () => ({ version: ++counter })
+    });
+
+    res = await app.request(new Request('http://localhost/reload'));
+    expect(await res.json()).toEqual({ version: 2 });
+  });
+
+  it('Hono 在接收请求后不允许添加新路由', async () => {
+    const app = new Hono();
+    app.get('/1', (c) => c.text('1'));
+
+    await app.request('http://localhost/1');
+
+    expect(() => {
+      app.get('/2', (c) => c.text('2'));
+    }).toThrow('Can not add a route since the matcher is already built.');
   });
 });

@@ -351,15 +351,15 @@ export interface Adapter<T, P> {
   readonly app: T;
   readonly name: string;
 
-  register(
+  register?(
     method: Method,
     pathname: string,
     proxy: (raw: P) => Promise<unknown>
   ): void;
 
-  unregister(method: Method, pathname: string): boolean;
+  unregister?(method: Method, pathname: string): boolean;
 
-  transform<L = unknown>(raw: P, pathname: string, method: Method): Context<P, L>;
+  transform<L = unknown>(raw: P, pathname: string, method: Method): Promise<Context<P, L>>;
 }
 ```
 
@@ -425,11 +425,13 @@ export class Tunnel<T, P> {
       this.registry.set(routeId, route);
 
       if (!isLinked) {
-        this.adapter.register(
-          method,
-          pathname,
-          this.proxy(routeId)
-        );
+        if (this.adapter.register) {
+          this.adapter.register(
+            method,
+            pathname,
+            this.proxy(routeId)
+          );
+        }
       }
     }
   }
@@ -451,7 +453,9 @@ export class Tunnel<T, P> {
       for (const [id, route] of this.registry) {
         if (route.key.startsWith(prefix)) {
           this.registry.delete(id);
-          this.adapter.unregister(route.method, route.pathname);
+          if (this.adapter.unregister) {
+            this.adapter.unregister(route.method, route.pathname);
+          }
           deleted = true;
         }
       }
@@ -462,7 +466,9 @@ export class Tunnel<T, P> {
     const routeId = hash(`${method} ${pathname}`);
     const existed = this.registry.has(routeId);
     this.registry.delete(routeId);
-    this.adapter.unregister(method, pathname);
+    if (this.adapter.unregister) {
+      this.adapter.unregister(method, pathname);
+    }
     return existed;
   }
 
@@ -472,7 +478,7 @@ export class Tunnel<T, P> {
       if (!route) {
         throw new Error(`[Tunnel] Route Not Found: ${routeId}`);
       }
-      const ctx = this.adapter.transform(raw, route.pathname, route.method);
+      const ctx = await this.adapter.transform(raw, route.pathname, route.method);
       return await route.handler(ctx);
     };
   }
@@ -501,6 +507,13 @@ export class Hono implements Adapter<HonoApp, HonoContext> {
   private readonly routeMap = new Map<string, (raw: HonoContext) => void>();
 
   register(method: Method, pathname: string, proxy: (raw: HonoContext) => Promise<unknown>): void {
+    const key = `${method} ${pathname}`;
+    const action = method.toLowerCase() as Lowercase<typeof HTTP_METHODS[number]>;
+
+    if (this.routes.has(key)) {
+      return;
+    }
+
     const handler = async (c: HonoContext) => {
       try {
         const body = await this.body(c);
@@ -519,8 +532,7 @@ export class Hono implements Adapter<HonoApp, HonoContext> {
   }
 
   unregister(method: Method, pathname: string): boolean {
-    const routeKey = `${method} ${pathname}`;
-    return this.routeMap.delete(routeKey);
+    return false;
   }
 
   async body(raw: HonoContext): Promise<unknown> {
