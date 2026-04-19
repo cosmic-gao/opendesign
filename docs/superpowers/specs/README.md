@@ -27,6 +27,12 @@
 |------|------|------|
 | [Tunnel 设计方案](tunnel/00-tunnel/00-tunnel-design.md) | 跨框架 Proxy/Wrapper 路由机制、极速热更新与动态卸载、性能健壮性设计 | [README](tunnel/README.md) |
 
+### NPM Registry Client
+
+| 分类 | 内容 | 索引 |
+|------|------|------|
+| [NPM Registry Client 设计方案](npm/00-npm-registry-client/00-npm-registry-client-design.md) | 跨运行时 NPM Registry 客户端、链式 API、多 Registry 支持 | [README](npm/README.md) |
+
 ---
 
 ## 已确认设计决策
@@ -71,6 +77,7 @@
 
 | 日期 | 版本 | 更新内容 |
 |------|------|---------|
+| 2026-04-19 | v5.0 | 新增 @opendesign/npm 模块：跨运行时 NPM Registry 客户端库，支持 Node.js/Bun/Deno/Browser |
 | 2026-04-14 | v4.0 | 重新设计 @opentunnel 方案：采用 Proxy/Wrapper 跨框架路由代理方案，支持 O(1) 极速热更新与动态卸载 |
 | 2026-04-13 | v3.1 | 重新设计 @opentunnel 方案 (v0.2.0)：声明式平铺路由、自动序列化、零中间件 |
 | 2026-04-12 | v3.0 | 重组文档结构，按功能分类（graph + tunnel） |
