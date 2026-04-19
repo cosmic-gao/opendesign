@@ -4,4 +4,4 @@ export * from './response';
 export * from './mime';
 export * from './adapter';
 export * from './tunnel';
-export { Hono, Hono as HonoAdapter } from './adapters/hono';
+export * from './adapters/hono';
