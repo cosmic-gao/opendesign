@@ -7,7 +7,7 @@ import type { Adapter } from '../adapter';
  * Hono 框架适配器
  * 将 Tunnel 路由系统桥接到 Hono 框架
  */
-export class Hono implements Adapter<App, Raw> {
+export class Hono implements Adapter<InstanceType<typeof App>, Raw> {
   /** 路由映射表，用于追踪已注册的路由 */
   private readonly routes = new Map<string, string>();
 
@@ -15,7 +15,7 @@ export class Hono implements Adapter<App, Raw> {
    * 创建 Hono 适配器实例
    * @param app - Hono 应用实例
    */
-  public constructor(public readonly app: App = new App()) { }
+  public constructor(public readonly app: InstanceType<typeof App> = new App()) { }
 
   /** 适配器名称 */
   readonly name = 'hono';

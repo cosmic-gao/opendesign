@@ -188,7 +188,7 @@ describe('Tunnel 核心', () => {
       const adapter: Adapter<typeof mockApp, any> = {
         app: mockApp,
         name: 'minimal-adapter',
-        async transform(raw: any, pathname: string, method: Method): Promise<Context<any, any>> {
+        async transform(_raw: any, _pathname: string, _method: Method): Promise<Context<any, any>> {
           return {} as any;
         }
       };

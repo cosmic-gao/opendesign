@@ -19,11 +19,9 @@ npm install @opendesign/tunnel
 ## 快速开始
 
 ```typescript
-import { Hono } from 'hono';
 import { Tunnel, json, html, text, notFound, redirect, Hono } from '@opendesign/tunnel';
 
-const app = new Hono();
-const adapter = new Hono(app);
+const adapter = new Hono();
 const tunnel = new Tunnel(adapter);
 
 // 注册路由
