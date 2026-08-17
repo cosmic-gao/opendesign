@@ -196,7 +196,10 @@ describe("最短跳数", () => {
     const graph = scaleFree(seed, 200, 4);
     const snapshot = Snapshot.of(graph, { undirected: true });
     const starts = [nodeId("n0"), nodeId("n199")];
-    const depth = levels(snapshot, starts.map((s) => snapshot.indexOf(s)));
+    const depth = levels(
+      snapshot,
+      starts.map((s) => snapshot.indexOf(s)),
+    );
     alike(snapshot, depth, naive.hops(graph, starts, true));
   });
 });

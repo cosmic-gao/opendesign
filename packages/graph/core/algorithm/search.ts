@@ -1,23 +1,7 @@
-import { inboundOf, outDegree, type Structure } from "../snapshot";
+import { inboundOf, outDegree, type Structure } from "../structure";
 
 /** 访问者的返回值：继续、剪掉该子树、整体中止。 */
 export type Control = "continue" | "prune" | "break";
-
-/**
- * 从 `from` 起找第一个仍是 `blank` 的槽位，用于逐个分量地铺开搜索；全部访问过则返回
- * `marks.length`。
- *
- * @remarks 游标只增不减，因此逐分量重启的整趟扫描摊销 O(V)——每轮从 0 重找就是 O(V²)。
- */
-export function nextRoot(
-  marks: Int32Array | Uint8Array,
-  from: number,
-  blank: number,
-): number {
-  let u = from;
-  while (u < marks.length && marks[u] !== blank) u++;
-  return u;
-}
 
 const WHITE = 0;
 const GRAY = 1;

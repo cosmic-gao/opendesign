@@ -1,14 +1,8 @@
 import { LazyQueue } from "@openconsole/queue";
 
-import {
-  costs,
-  crossing,
-  type Adjacency,
-  type Reals,
-  type Structure,
-} from "../snapshot";
+import { nextRoot, type Reals } from "../array";
+import { costs, crossing, type Adjacency, type Structure } from "../structure";
 import { Stepwise, type Task } from "../task";
-import { nextRoot } from "./search";
 
 const NONE = -1;
 

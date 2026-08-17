@@ -1,35 +1,8 @@
-import {
-  crossing,
-  type Adjacency,
-  type Ints,
-  type Structure,
-} from "../snapshot";
+import { bucket, nextRoot, type Ints } from "../array";
+import { crossing, type Adjacency, type Structure } from "../structure";
 import { chain, Stepwise, transform, type Task } from "../task";
-import { nextRoot } from "./search";
 
 const NONE = -1;
-
-/**
- * 按标签把索引分桶：`label[u]` 是索引 `u` 的桶号，取值 `0 .. count-1`。
- *
- * @remarks 计数排序，O(V + count)，一次分配到位。分量、拓扑分层都是同一个形状——
- *   标签数组加桶数，因此共用这一个实现。
- */
-export function bucket(label: Ints, count: number): Int32Array[] {
-  const width = new Int32Array(count);
-  for (let u = 0; u < label.length; u++) {
-    const c = label[u]!;
-    width[c] = width[c]! + 1;
-  }
-  const grouped: Int32Array[] = new Array(count);
-  for (let c = 0; c < count; c++) grouped[c] = new Int32Array(width[c]!);
-  const cursor = new Int32Array(count);
-  for (let u = 0; u < label.length; u++) {
-    const c = label[u]!;
-    grouped[c]![cursor[c]!++] = u;
-  }
-  return grouped;
-}
 
 /** 分量划分：`component[u]` 是节点索引 `u` 所属分量的编号。 */
 export class Partition {

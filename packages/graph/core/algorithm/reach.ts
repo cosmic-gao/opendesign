@@ -1,11 +1,11 @@
+import type { Ints } from "../array";
 import {
   afford,
   CEILING,
   reversed,
   type DenseOptions,
-  type Ints,
   type Structure,
-} from "../snapshot";
+} from "../structure";
 import { chain, Stepwise, type Task } from "../task";
 import { scc, type Partition } from "./component";
 import { dfs } from "./search";

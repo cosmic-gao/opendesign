@@ -1,6 +1,5 @@
 export * from "./component";
 export * from "./cut";
-export * from "./incremental";
 export * from "./order";
 export * from "./path";
 export * from "./query";

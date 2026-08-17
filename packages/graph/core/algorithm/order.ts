@@ -1,8 +1,7 @@
+import { backtrack, bucket } from "../array";
 import { Cycle } from "../error";
-import { costs, type Structure } from "../snapshot";
+import { costs, type Structure } from "../structure";
 import { Stepwise, transform, type Task } from "../task";
-import { bucket } from "./component";
-import { backtrack } from "./path";
 
 export interface Topology {
   /** 拓扑序的节点索引，不含环上节点。 */

@@ -1,11 +1,11 @@
+import { nextRoot } from "../array";
 import {
   crossing,
   inboundOf,
   type Adjacency,
   type Structure,
-} from "../snapshot";
+} from "../structure";
 import { Stepwise, type Task } from "../task";
-import { nextRoot } from "./search";
 
 const NONE = -1;
 

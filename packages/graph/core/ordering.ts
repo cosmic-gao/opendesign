@@ -1,9 +1,9 @@
-import type { Graph } from "../graph";
-import type { NodeId } from "../ident";
-import { Snapshot } from "../snapshot";
-import { settle } from "../task";
-import { scc } from "./component";
-import { topology } from "./order";
+import { scc } from "./algorithm/component";
+import { topology } from "./algorithm/order";
+import type { Graph } from "./graph";
+import type { NodeId } from "./ident";
+import { Snapshot } from "./snapshot";
+import { settle } from "./task";
 
 const NONE = -1;
 

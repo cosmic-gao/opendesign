@@ -111,7 +111,8 @@ describe("Structure 是算法的唯一契约", () => {
 
     for (let u = 0; u < snapshot.order; u++) {
       expect(bySteep[u]).toBe(byCost[u]! * 100);
-      if (byCost[u] !== Infinity) expect(byHops[u]).toBeLessThanOrEqual(byCost[u]!);
+      if (byCost[u] !== Infinity)
+        expect(byHops[u]).toBeLessThanOrEqual(byCost[u]!);
     }
     expect([...settle(shortestPaths(snapshot, 0)).distance]).toEqual([
       ...byCost,

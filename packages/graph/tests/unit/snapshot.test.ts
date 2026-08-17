@@ -503,9 +503,9 @@ describe("搬运数据的形状校验", () => {
     const graph = randomGraph(93, { order: 10, density: 2 });
     const data = weighted(graph).data;
 
-    expect(() =>
-      Snapshot.from({ ...data, order: data.order + 1 }),
-    ).toThrow(Schema);
+    expect(() => Snapshot.from({ ...data, order: data.order + 1 })).toThrow(
+      Schema,
+    );
     expect(() =>
       Snapshot.from({ ...data, weight: new Float64Array(1) }),
     ).toThrow(Schema);

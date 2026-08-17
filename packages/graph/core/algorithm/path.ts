@@ -1,5 +1,6 @@
 import { BucketQueue, LazyQueue, type IndexQueue } from "@openconsole/queue";
 
+import { backtrack, type Reals } from "../array";
 import { Cycle, Invalid, Negative } from "../error";
 import {
   afford,
@@ -8,10 +9,8 @@ import {
   profileOf,
   reversed,
   type DenseOptions,
-  type Ints,
-  type Reals,
   type Structure,
-} from "../snapshot";
+} from "../structure";
 import { Stepwise, transform, type Task } from "../task";
 
 /**
@@ -60,21 +59,6 @@ function verified(weight: Reals | undefined, e: number): number {
   if (Number.isNaN(cost)) throw new Invalid(e);
   if (cost < 0) throw new Negative(cost, e);
   return cost;
-}
-
-/**
- * 沿前驱链回溯出完整路径，末端落在 `from`；`parent` 里 -1 表示链头。
- *
- * @remarks 先数长度再倒着填，一次分配到位——链长事先未知，边走边 `push` 要付数组扩容。
- */
-export function backtrack(parent: Ints, from: number): Int32Array {
-  let depth = 0;
-  for (let cursor = from; cursor !== -1; cursor = parent[cursor]!) depth++;
-  const path = new Int32Array(depth);
-  for (let cursor = from; cursor !== -1; cursor = parent[cursor]!) {
-    path[--depth] = cursor;
-  }
-  return path;
 }
 
 /**
