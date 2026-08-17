@@ -74,12 +74,15 @@ export function inboundOf(structure: Structure, caller: string): Adjacency {
 }
 
 /**
- * 无向视角下需要额外扫的反向邻接；无向编译时两侧同源，返回 `undefined` 表示"不必再扫一遍"。
+ * 无向视角下需要额外扫的那一侧邻接。
  *
- * @throws {@link Oneway} 结构只编了出向——生成树、弱连通、割点都是无向概念，
- *   缺入向不会报错而是静默漏掉整个分支
+ * @remarks 与 {@link inboundOf} 的区别在于**无向编译时返回 `undefined`**：那种结构里
+ *   两个方向是同一个对象，再扫一遍等于把每条边数两次。生成树、弱连通、割点都用它。
+ *
+ * @throws {@link Oneway} 结构只编了出向——这三者都是无向概念，缺入向不会报错，
+ *   而是静默漏掉整个分支
  */
-export const crossing = (
+export const mirror = (
   structure: Structure,
   caller: string,
 ): Adjacency | undefined =>
@@ -109,6 +112,27 @@ export const inDegree = (structure: Structure, u: number): number => {
   const inbound = structure.inbound;
   return inbound ? inbound.offset[u + 1]! - inbound.offset[u]! : 0;
 };
+
+/**
+ * `u` 的后继，直接切 CSR 返回底层数组的**视图**。
+ *
+ * @remarks 不复制、不为每个节点分配数组——物化全图就是 V 个对象加 2V 个数组，而绝大多数
+ *   调用只会看其中几个节点。视图在类型上只读（{@link Ints}），改不动底下的快照。
+ */
+export function successors(structure: Structure, u: number): Ints {
+  const { offset, other } = structure.outbound;
+  return other.subarray(offset[u]!, offset[u + 1]!);
+}
+
+/**
+ * `u` 的前驱，语义同 {@link successors}。
+ *
+ * @throws {@link Oneway} 结构只编了出向——给空数组就等于谎报"没有前驱"
+ */
+export function predecessors(structure: Structure, u: number): Ints {
+  const back = inboundOf(structure, "predecessors");
+  return back.other.subarray(back.offset[u]!, back.offset[u + 1]!);
+}
 
 /** 稠密结构的默认内存上限：512MB。 */
 export const CEILING = 512 * 1024 * 1024;

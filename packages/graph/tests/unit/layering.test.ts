@@ -35,16 +35,19 @@ describe("模块分层", () => {
     expect(files.length).toBeGreaterThan(15);
   });
 
-  it.each(["../graph", "../snapshot", "../ordering", "../hierarchy"])(
-    "算法层不依赖 %s",
-    (forbidden) => {
-      const offenders = files
-        .filter((file) => relative(file).startsWith("algorithm/"))
-        .filter((file) => importsOf(file).includes(forbidden))
-        .map(relative);
-      expect(offenders).toEqual([]);
-    },
-  );
+  it.each([
+    "../graph",
+    "../snapshot",
+    "../ordering",
+    "../hierarchy",
+    "../journal",
+  ])("算法层不依赖 %s", (forbidden) => {
+    const offenders = files
+      .filter((file) => relative(file).startsWith("algorithm/"))
+      .filter((file) => importsOf(file).includes(forbidden))
+      .map(relative);
+    expect(offenders).toEqual([]);
+  });
 
   it("契约层不依赖编译器与编辑层", () => {
     expect(importsOf(join(CORE, "structure.ts")).sort()).toEqual([

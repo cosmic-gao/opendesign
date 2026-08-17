@@ -1,12 +1,22 @@
-import { Signal } from "@openconsole/signal";
+import type { Signal } from "@openconsole/signal";
 
 import { Capacity, Duplicate, Mismatch, Missing, Nested } from "./error";
 import type { Events } from "./event";
 import { edgeId, type EdgeId, type GraphId, type NodeId } from "./ident";
+import { Journal } from "./journal";
 import { gather, Slots } from "./slots";
 import type { Ports } from "./vertex";
 
 const NONE = -1;
+
+/**
+ * 私有查询的方向参数。
+ *
+ * @remarks 具名常量而不是裸 `true` / `false`——`this._walk(node, OUT, visit)` 的调用点
+ *   看不出那个布尔是什么意思，而这一族查询有十来处调用。
+ */
+const OUT = true;
+const IN = false;
 
 /** 加入图所需的节点描述。{@link Vertex} 与 {@link NodeRecord} 都满足它，故可直接互相搬运。 */
 export interface NodeSpec<W = unknown> {
@@ -56,19 +66,8 @@ export interface ConnectOptions<E> {
  *   收集出来再动手，事件订阅者不受此限（事件在变更完成后的事务边界派发）。
  */
 export class Graph<N = unknown, E = unknown> {
-  /**
-   * 变更事件总线。
-   *
-   * @remarks 装了 `rescue`：某个 handler 抛错时**其余 handler 与其余事件照常派发**，
-   *   错误收集起来、本轮派发完再上抛（多个错误聚合为 `AggregateError`）。少了这层隔离，
-   *   一个坏订阅者会连带掐掉同一事务里其他订阅者的事件——那些事件已从队列里摘走，
-   *   补不回来，按索引维护增量状态的订阅者（{@link Ordering}、布局缓存）从此静默错位。
-   */
-  public readonly signal = new Signal<Events<N, E>>({
-    rescue: (error) => {
-      this._failures.push(error);
-    },
-  });
+  /** 版本计数、事件缓冲与事务边界，全在这里；见 {@link Journal}。 */
+  private readonly _journal = new Journal<Events<N, E>>();
 
   private readonly _nodes = new Slots<NodeId>();
   private readonly _weight: Array<N | undefined> = [];
@@ -91,22 +90,18 @@ export class Graph<N = unknown, E = unknown> {
   /** 节点在父节点子表里的下标，语义同 {@link Graph._outAt}。 */
   private readonly _childAt: number[] = [];
 
-  private _revision = 0;
-  private _shape = 0;
   private _sequence = 0;
-  private _depth = 0;
-  private _changes = 0;
-  private _settling = false;
-  /** 本轮派发里各 handler 抛出的错误，见 {@link Graph.signal}。 */
-  private readonly _failures: unknown[] = [];
-  /** 待派发事件，`[类型, 载荷, 类型, 载荷, ...]` 交错存放，免去每条事件一个闭包。 */
-  private readonly _queue: unknown[] = [];
 
   public constructor(public readonly id: GraphId) {}
 
+  /** 变更事件总线。载荷在事务边界统一派发，错误彼此隔离；细节见 {@link Journal}。 */
+  public get signal(): Signal<Events<N, E>> {
+    return this._journal.signal;
+  }
+
   /** 任意变更（结构或权重）都会推进；{@link Snapshot} 据此判断自己是否已过期。 */
   public get revision(): number {
-    return this._revision;
+    return this._journal.revision;
   }
 
   /**
@@ -114,7 +109,7 @@ export class Graph<N = unknown, E = unknown> {
    * {@link Snapshot.of} 据此决定能否复用上一份快照的 CSR。
    */
   public get shape(): number {
-    return this._shape;
+    return this._journal.shape;
   }
 
   public get order(): number {
@@ -178,10 +173,10 @@ export class Graph<N = unknown, E = unknown> {
     this._parent[u] = NONE;
     this._children[u] = undefined;
     this._childAt[u] = NONE;
-    if (this._mark("nodeAdded", true)) {
-      this._queue.push("nodeAdded", { node: spec.id, slot: u });
+    if (this._journal.mark("nodeAdded", true)) {
+      this._journal.push("nodeAdded", { node: spec.id, slot: u });
     }
-    this._commit();
+    this._journal.commit();
     return spec.id;
   }
 
@@ -238,8 +233,8 @@ export class Graph<N = unknown, E = unknown> {
       this._inputs[u] = {};
       this._outputs[u] = {};
       this._nodes.remove(node);
-      if (this._mark("nodeDropped", true)) {
-        this._queue.push("nodeDropped", { node, slot: u, weight });
+      if (this._journal.mark("nodeDropped", true)) {
+        this._journal.push("nodeDropped", { node, slot: u, weight });
       }
     });
   }
@@ -296,20 +291,20 @@ export class Graph<N = unknown, E = unknown> {
 
     // 收边槽位而不是 id：断边全程留在整数空间，不为每条边付一次哈希往返。
     const stale = new Set<number>();
-    this._prune(this._out[u]!, outputs, true, stale);
-    this._prune(this._in[u]!, inputs, false, stale);
+    this._prune(this._out[u]!, outputs, OUT, stale);
+    this._prune(this._in[u]!, inputs, IN, stale);
 
     this.batch(() => {
       for (const e of stale) this._sever(e);
-      if (this._mark("nodeReshaped", true)) {
-        this._queue.push("nodeReshaped", { node, slot: u, inputs, outputs });
+      if (this._journal.mark("nodeReshaped", true)) {
+        this._journal.push("nodeReshaped", { node, slot: u, inputs, outputs });
       }
     });
     return this;
   }
 
-  /** 零分配地读节点权重。 */
-  public weightOf(node: NodeId): N | undefined {
+  /** 零分配地读节点权重；与 {@link Graph.edgeWeight} 对称。 */
+  public nodeWeight(node: NodeId): N | undefined {
     const u = this._nodes.indexOf(node);
     return u < 0 ? undefined : this._weight[u];
   }
@@ -329,10 +324,10 @@ export class Graph<N = unknown, E = unknown> {
     const before = this._weight[u];
     const after = update(before);
     this._weight[u] = after;
-    if (this._mark("nodeUpdated", false)) {
-      this._queue.push("nodeUpdated", { node, slot: u, before, after });
+    if (this._journal.mark("nodeUpdated", false)) {
+      this._journal.push("nodeUpdated", { node, slot: u, before, after });
     }
-    this._commit();
+    this._journal.commit();
     return this;
   }
 
@@ -395,15 +390,15 @@ export class Graph<N = unknown, E = unknown> {
     this._edgeWeight[e] = options.weight;
     this._outAt[e] = this._out[u]!.push(e) - 1;
     this._inAt[e] = this._in[v]!.push(e) - 1;
-    if (this._mark("edgeAdded", true)) {
-      this._queue.push("edgeAdded", {
+    if (this._journal.mark("edgeAdded", true)) {
+      this._journal.push("edgeAdded", {
         edge: id,
         slot: e,
         source: sourceId,
         target: targetId,
       });
     }
-    this._commit();
+    this._journal.commit();
     return id;
   }
 
@@ -411,7 +406,7 @@ export class Graph<N = unknown, E = unknown> {
     const e = this._edges.indexOf(edge);
     if (e < 0) return false;
     this._sever(e);
-    this._commit();
+    this._journal.commit();
     return true;
   }
 
@@ -440,6 +435,21 @@ export class Graph<N = unknown, E = unknown> {
     return this._edgeWeight[slot];
   }
 
+  /**
+   * 按槽位读边两端的端口名，跳过 id 查表，也不物化一条 {@link EdgeRecord}。
+   *
+   * @remarks 快照编译端口层走这条路：整份端口标签是一遍纯下标扫描，而
+   *   {@link Graph.edgeAt} 会为每条边分配一个记录再丢掉。
+   */
+  public sourcePortAt(slot: number): string | undefined {
+    return this._fromPort[slot];
+  }
+
+  /** 边槽位 → 目标端口名，语义同 {@link Graph.sourcePortAt}。 */
+  public targetPortAt(slot: number): string | undefined {
+    return this._toPort[slot];
+  }
+
   /** @throws {@link Missing} 边不存在 */
   public setEdgeWeight(edge: EdgeId, weight: E | undefined): this {
     return this.updateEdge(edge, () => weight);
@@ -455,10 +465,10 @@ export class Graph<N = unknown, E = unknown> {
     const before = this._edgeWeight[e];
     const after = update(before);
     this._edgeWeight[e] = after;
-    if (this._mark("edgeUpdated", false)) {
-      this._queue.push("edgeUpdated", { edge, slot: e, before, after });
+    if (this._journal.mark("edgeUpdated", false)) {
+      this._journal.push("edgeUpdated", { edge, slot: e, before, after });
     }
-    this._commit();
+    this._journal.commit();
     return this;
   }
 
@@ -478,11 +488,11 @@ export class Graph<N = unknown, E = unknown> {
   }
 
   public outNeighbors(node: NodeId): NodeId[] {
-    return this._project(node, true);
+    return this._project(node, OUT);
   }
 
   public inNeighbors(node: NodeId): NodeId[] {
-    return this._project(node, false);
+    return this._project(node, IN);
   }
 
   /** 入边邻居在前、出边邻居在后；平行边与自环按重数各出现一次。 */
@@ -503,11 +513,11 @@ export class Graph<N = unknown, E = unknown> {
   }
 
   public outEdges(node: NodeId): EdgeId[] {
-    return this._labels(node, true);
+    return this._labels(node, OUT);
   }
 
   public inEdges(node: NodeId): EdgeId[] {
-    return this._labels(node, false);
+    return this._labels(node, IN);
   }
 
   /**
@@ -564,7 +574,7 @@ export class Graph<N = unknown, E = unknown> {
     node: NodeId,
     visit: (target: NodeId, edge: EdgeId, port: string) => boolean | void,
   ): void {
-    this._walk(node, true, visit);
+    this._walk(node, OUT, visit);
   }
 
   /** 零分配地枚举入边；`port` 是本端（目标侧）的端口名。 */
@@ -572,7 +582,7 @@ export class Graph<N = unknown, E = unknown> {
     node: NodeId,
     visit: (source: NodeId, edge: EdgeId, port: string) => boolean | void,
   ): void {
-    this._walk(node, false, visit);
+    this._walk(node, IN, visit);
   }
 
   /** 纯整数的出边枚举：`(目标槽位, 边槽位)`，`visit` 返回 `false` 提前停止。 */
@@ -580,7 +590,7 @@ export class Graph<N = unknown, E = unknown> {
     slot: number,
     visit: (target: number, edge: number) => boolean | void,
   ): void {
-    this._crawl(slot, true, visit);
+    this._crawl(slot, OUT, visit);
   }
 
   /** 纯整数的入边枚举：`(来源槽位, 边槽位)`。 */
@@ -588,7 +598,7 @@ export class Graph<N = unknown, E = unknown> {
     slot: number,
     visit: (source: number, edge: number) => boolean | void,
   ): void {
-    this._crawl(slot, false, visit);
+    this._crawl(slot, IN, visit);
   }
 
   /**
@@ -597,14 +607,15 @@ export class Graph<N = unknown, E = unknown> {
    * {@link Graph.forEachOut} 按 `port` 过滤。
    *
    * @remarks 编排执行器的最内层查询——"这个引脚接到哪"。直读平行数组，无中间数组与对象。
+   *   索引空间里的同一个查询走快照的端口层，见 {@link CompileOptions.ports}。
    */
-  public linkedTo(node: NodeId, port: string): NodeId | undefined {
-    return this._peer(node, port, true);
+  public target(node: NodeId, port: string): NodeId | undefined {
+    return this._peer(node, port, OUT);
   }
 
-  /** 某个输入端口的来源，语义同 {@link Graph.linkedTo}。 */
-  public linkedFrom(node: NodeId, port: string): NodeId | undefined {
-    return this._peer(node, port, false);
+  /** 某个输入端口的来源，语义同 {@link Graph.target}。 */
+  public source(node: NodeId, port: string): NodeId | undefined {
+    return this._peer(node, port, IN);
   }
 
   /** 全部 `source → target` 的平行边。 */
@@ -645,7 +656,7 @@ export class Graph<N = unknown, E = unknown> {
       if (cursor === u) throw new Nested(node, parent);
     }
     this._reparent(u, p);
-    this._commit();
+    this._journal.commit();
     return this;
   }
 
@@ -653,7 +664,7 @@ export class Graph<N = unknown, E = unknown> {
     const u = this._nodes.indexOf(node);
     if (u >= 0) {
       this._reparent(u, NONE);
-      this._commit();
+      this._journal.commit();
     }
     return this;
   }
@@ -682,13 +693,7 @@ export class Graph<N = unknown, E = unknown> {
    * 已积累的事件。
    */
   public batch<T>(work: () => T): T {
-    this._depth++;
-    try {
-      return work();
-    } finally {
-      this._depth--;
-      if (this._depth === 0) this._settle();
-    }
+    return this._journal.batch(work);
   }
 
   /** 按槽位扫，不物化 id 数组也不为每条边付一次哈希。 */
@@ -754,10 +759,10 @@ export class Graph<N = unknown, E = unknown> {
       const children = this._children[u];
       if (children) remap(children, nodes);
     }
-    if (this._mark("compacted", true)) {
-      this._queue.push("compacted", { nodes, edges });
+    if (this._journal.mark("compacted", true)) {
+      this._journal.push("compacted", { nodes, edges });
     }
-    this._commit();
+    this._journal.commit();
   }
 
   /** 深拷贝，含层级。 */
@@ -836,7 +841,7 @@ export class Graph<N = unknown, E = unknown> {
 
     const edge = this._edges.key(e);
     // 载荷要在释放之前取：`_mark` 之后端点与权重就该视作已失效。
-    const payload = this._mark("edgeDropped", true)
+    const payload = this._journal.mark("edgeDropped", true)
       ? {
           edge,
           slot: e,
@@ -847,7 +852,7 @@ export class Graph<N = unknown, E = unknown> {
       : undefined;
     this._edgeWeight[e] = undefined;
     this._edges.remove(edge);
-    if (payload) this._queue.push("edgeDropped", payload);
+    if (payload) this._journal.push("edgeDropped", payload);
   }
 
   /** 某一侧的关联边下标；未知节点返回空。 */
@@ -975,8 +980,8 @@ export class Graph<N = unknown, E = unknown> {
     if (parent !== NONE) {
       this._childAt[u] = (this._children[parent] ??= []).push(u) - 1;
     }
-    if (this._mark("parentChanged", true)) {
-      this._queue.push("parentChanged", {
+    if (this._journal.mark("parentChanged", true)) {
+      this._journal.push("parentChanged", {
         node: this._nodes.key(u),
         slot: u,
         before: before === NONE ? undefined : this._nodes.at(before),
@@ -1012,87 +1017,6 @@ export class Graph<N = unknown, E = unknown> {
     const seen = Number(id.slice(1));
     if (Number.isInteger(seen) && seen >= this._sequence) {
       this._sequence = seen + 1;
-    }
-  }
-
-  /**
-   * 登记一次变更：推进版本号。每个变更点恰好调一次。
-   *
-   * @remarks 漏调不会报错，但 `shape` 停在旧值，{@link Snapshot.of} 的复用检查会据此
-   *   判定"结构没变"并原样交还上一份 CSR——一份静默过期的结构。
-   */
-  private _touch(shape: boolean): void {
-    this._revision++;
-    if (shape) this._shape++;
-    this._changes++;
-  }
-
-  /** 这个事件有人听吗。 */
-  private _heard<K extends keyof Events<N, E>>(type: K): boolean {
-    // 一个订阅者都没有是批量导入的常态，先用两次属性读挡掉，别去查按键分桶的表。
-    const signal = this.signal;
-    if (!signal.has()) return false;
-    return signal.has(type) || signal.has("*");
-  }
-
-  /**
-   * 登记变更，并回答「这个事件有人听吗」。
-   *
-   * @remarks 返回 `false` 时调用方连载荷对象都不构造，于是无人订阅的变更热路径零分配。
-   *   批量导入几万条变更时，这决定了事务里是空的还是堆着几万个载荷。
-   */
-  private _mark<K extends keyof Events<N, E>>(
-    type: K,
-    shape: boolean,
-  ): boolean {
-    this._touch(shape);
-    return this._heard(type);
-  }
-
-  private _commit(): void {
-    if (this._depth === 0) this._settle();
-  }
-
-  /**
-   * 事务收尾：按序放出缓冲的事件，再放一次 `flushed`。
-   *
-   * @remarks handler 里继续改图是常态（比如布局据此插节点）。那些变更会照常排进同一个
-   *   队列，由这里接着收——重入的 `_settle` 直接返回，不另起一轮。否则内层会把外层的
-   *   计数抢走并提前放出 `flushed`，外层剩下的事件反而排在事务边界之后。
-   *
-   *   handler 抛错不打断派发（`rescue` 兜住），但错误会在队列排空后上抛：订阅者之间
-   *   互不牵连，调用方也不会以为一切正常。
-   */
-  private _settle(): void {
-    if (this._settling) return;
-    this._settling = true;
-    try {
-      const queue = this._queue;
-      const signal = this.signal;
-      while (queue.length > 0 || this._changes > 0) {
-        while (queue.length > 0) {
-          // 先摘下来再派发：handler 改图时不会与本轮迭代抢同一个数组。
-          const queued = queue.splice(0, queue.length);
-          for (let i = 0; i < queued.length; i += 2) {
-            signal.emit(
-              queued[i] as keyof Events<N, E>,
-              queued[i + 1] as never,
-            );
-          }
-        }
-        const changes = this._changes;
-        this._changes = 0;
-        if (changes > 0 && this._heard("flushed")) {
-          signal.emit("flushed", { changes });
-        }
-      }
-    } finally {
-      this._settling = false;
-    }
-    if (this._failures.length > 0) {
-      const failures = this._failures.splice(0, this._failures.length);
-      if (failures.length === 1) throw failures[0];
-      throw new AggregateError(failures, `${failures.length} handlers failed`);
     }
   }
 }

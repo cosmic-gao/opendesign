@@ -8,8 +8,8 @@ import {
   Invalid,
   isolated,
   kruskal,
-  neighborhood,
   Oneway,
+  predecessors,
   prim,
   reversed,
   scc,
@@ -19,6 +19,7 @@ import {
   sinks,
   Snapshot,
   sources,
+  successors,
   toposort,
   type Structure,
 } from "../../index";
@@ -81,18 +82,17 @@ describe("Structure 是算法的唯一契约", () => {
   });
 
   /**
-   * `neighborhood` 承诺"切 CSR 视图、不复制"——真复制了一份也照样能通过取值断言，
-   * 因此这里连"视图落在同一段底层内存上"一并钉住。
+   * `successors` / `predecessors` 承诺"切 CSR 视图、不复制"——真复制了一份也照样能通过
+   * 取值断言，因此这里连"视图落在同一段底层内存上"一并钉住。
    */
-  it("neighborhood 两个方向都给出底层数组的视图而非副本", () => {
-    const view = neighborhood(handmade);
-    expect([...view.successors(0)]).toEqual([1]);
-    expect([...view.successors(1)]).toEqual([2]);
-    expect([...view.successors(2)]).toEqual([]);
-    expect([...view.predecessors(2)]).toEqual([1]);
-    expect([...view.predecessors(0)]).toEqual([]);
+  it("邻居查询给出底层数组的视图而非副本", () => {
+    expect([...successors(handmade, 0)]).toEqual([1]);
+    expect([...successors(handmade, 1)]).toEqual([2]);
+    expect([...successors(handmade, 2)]).toEqual([]);
+    expect([...predecessors(handmade, 2)]).toEqual([1]);
+    expect([...predecessors(handmade, 0)]).toEqual([]);
 
-    const slice = view.successors(0) as Int32Array;
+    const slice = successors(handmade, 0) as Int32Array;
     expect(slice.buffer).toBe((handmade.outbound.other as Int32Array).buffer);
   });
 
@@ -135,7 +135,7 @@ describe("缺入向邻接时明确报错", () => {
     ["prim", (s: Snapshot) => settle(prim(s))],
     ["reversed", (s: Snapshot) => reversed(s)],
     ["Snapshot.reverse", (s: Snapshot) => s.reverse()],
-    ["predecessors", (s: Snapshot) => neighborhood(s).predecessors(0)],
+    ["predecessors", (s: Snapshot) => predecessors(s, 0)],
   ] as const;
 
   it.each(needy)("%s 抛 Oneway 而不是静默降级", (_label, run) => {

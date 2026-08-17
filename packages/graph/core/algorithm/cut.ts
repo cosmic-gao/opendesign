@@ -1,7 +1,7 @@
-import { nextRoot } from "../array";
+import { seek } from "../array";
 import {
-  crossing,
   inboundOf,
+  mirror,
   type Adjacency,
   type Structure,
 } from "../structure";
@@ -46,7 +46,7 @@ class Cut extends Stepwise<Cuts> {
 
   public constructor(private readonly _structure: Structure) {
     super();
-    this._inbound = crossing(_structure, "cuts");
+    this._inbound = mirror(_structure, "cuts");
     const n = _structure.order;
     this._discovered = new Int32Array(n).fill(NONE);
     this._low = new Int32Array(n);
@@ -64,7 +64,7 @@ class Cut extends Stepwise<Cuts> {
 
   protected step(): boolean {
     if (this._depth === NONE) {
-      this._root = nextRoot(this._discovered, this._root, NONE);
+      this._root = seek(this._discovered, this._root, NONE);
       if (this._root >= this._structure.order) return false;
       this._enter(this._root, NONE);
       return true;

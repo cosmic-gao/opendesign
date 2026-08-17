@@ -192,8 +192,8 @@ export function diff<N, E>(
       changes.push({ kind: "addNode", node: shapeNode(after, id) });
       continue;
     }
-    const from = before.weightOf(id);
-    const to = after.weightOf(id);
+    const from = before.nodeWeight(id);
+    const to = after.nodeWeight(id);
     if (!equal(from, to))
       changes.push({ kind: "weighNode", node: id, from, to });
   }

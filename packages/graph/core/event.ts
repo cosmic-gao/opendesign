@@ -1,4 +1,5 @@
 import type { EdgeId, NodeId } from "./ident";
+import type { Flushed } from "./journal";
 import type { Ports } from "./vertex";
 
 /**
@@ -51,5 +52,5 @@ export interface Events<N = unknown, E = unknown> {
    * 事务边界：本次事务的变更事件都已派发完毕，`changes` 是其中的变更条数。
    * 下游（布局、增量拓扑序、渲染）据此把一整段编辑合并成一次重算。
    */
-  flushed: { changes: number };
+  flushed: Flushed;
 }

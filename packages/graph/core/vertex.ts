@@ -34,22 +34,20 @@ export class Port<S extends Socket = Socket> {
 export type Ports = Readonly<Record<string, Port | undefined>>;
 
 /**
- * 按 Socket 集合定型的端口声明，{@link Ports} 的带类型版本：端口名取自 `S` 的键，
- * 每个端口的 Socket 类型也随之定死。{@link Vertex.inputs} / {@link Vertex.outputs} 即此形态。
- */
-export type Declared<S extends Sockets> = { [K in keyof S]?: Port<S[K]> };
-
-/**
  * 节点模板：命名端口集合加权重。加入图时按值拷入，因此同一模板可用于多张图、
  * 也可在加入后继续复用。
+ *
+ * @remarks {@link Vertex.inputs} / {@link Vertex.outputs} 是 {@link Ports} 的带类型版本：
+ *   端口名取自 Socket 集合的键，每个端口的 Socket 类型也随之定死。类型就地写开而不另起
+ *   一个名字——它只在这两处出现，单独命名等于让读者多记一个词。
  */
 export class Vertex<
   I extends Sockets = Sockets,
   O extends Sockets = Sockets,
   W = unknown,
 > {
-  public readonly inputs: Declared<I> = {};
-  public readonly outputs: Declared<O> = {};
+  public readonly inputs: { [K in keyof I]?: Port<I[K]> } = {};
+  public readonly outputs: { [K in keyof O]?: Port<O[K]> } = {};
 
   public constructor(
     public readonly id: NodeId,

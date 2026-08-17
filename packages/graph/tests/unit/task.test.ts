@@ -6,12 +6,14 @@ import {
   chain,
   closure,
   floydWarshall,
+  Future,
   Incomplete,
   Interrupted,
   kruskal,
   nodeId,
   ready,
   reduction,
+  run,
   scc,
   schedule,
   settle,
@@ -251,5 +253,95 @@ describe("组合器", () => {
 
     expect(marks.length).toBeGreaterThan(2);
     expect(marks[marks.length - 1]!).toBeGreaterThan(marks[0]!);
+  });
+});
+
+/**
+ * 异步任务。
+ *
+ * 图算法全是同步的，但建立在图上的编排执行器不是——节点要发网络请求。`Future` 与
+ * `Task` 的差别只有"每一步可以 await"，其余语义（预算、进度、可中断、可续跑、
+ * 未跑完不给结果）必须逐条对齐，否则两套调度会在同一个 UI 里表现不一致。
+ */
+class Countdown extends Future<number[]> {
+  public readonly seen: number[] = [];
+  private _left: number;
+
+  public constructor(private readonly _total: number) {
+    super();
+    this._left = _total;
+  }
+
+  protected measure(): number {
+    return this.ratio(this._total - this._left, this._total);
+  }
+
+  protected async step(): Promise<boolean> {
+    if (this._left === 0) return false;
+    await Promise.resolve();
+    this.seen.push(--this._left);
+    return this._left > 0;
+  }
+
+  public result(): number[] {
+    this.ensure();
+    return this.seen;
+  }
+}
+
+describe("异步任务", () => {
+  it("run 跑完并给出结果", async () => {
+    const task = new Countdown(5);
+    expect(await run(task)).toEqual([4, 3, 2, 1, 0]);
+    expect(task.settled).toBe(true);
+    expect(task.progress).toBe(1);
+  });
+
+  it("advance 受预算约束，可分多次续跑", async () => {
+    const task = new Countdown(6);
+    expect(await task.advance(2)).toBe(true);
+    expect(task.seen).toEqual([5, 4]);
+    expect(task.progress).toBeCloseTo(2 / 6, 9);
+
+    expect(await task.advance(2)).toBe(true);
+    expect(task.seen).toEqual([5, 4, 3, 2]);
+    expect(await task.advance(10)).toBe(false);
+    expect(task.seen).toEqual([5, 4, 3, 2, 1, 0]);
+  });
+
+  it("没跑完就取结果要报错，不给中间态", async () => {
+    const task = new Countdown(4);
+    await task.advance(1);
+    expect(() => task.result()).toThrow(Incomplete);
+  });
+
+  it("中断后现场保留，可以接着跑", async () => {
+    const task = new Countdown(4);
+    const abort = new AbortController();
+    await task.advance(1);
+    abort.abort();
+
+    await expect(run(task, abort.signal)).rejects.toThrow(Interrupted);
+    expect(task.seen).toEqual([3]);
+    expect(await run(task)).toEqual([3, 2, 1, 0]);
+  });
+
+  it("schedule 同时收同步与异步任务", async () => {
+    const reported: number[] = [];
+    const sync = await schedule(
+      shortestPaths(Snapshot.of(randomGraph(9, { order: 20 })), 0),
+      { budget: 4, onProgress: (p) => void reported.push(p) },
+    );
+    expect(sync.distance.length).toBe(20);
+    expect(reported.at(-1)).toBe(1);
+
+    const async = await schedule(new Countdown(9), { budget: 2 });
+    expect(async).toEqual([8, 7, 6, 5, 4, 3, 2, 1, 0]);
+  });
+
+  it("空任务立刻收敛，进度不是 NaN", async () => {
+    const task = new Countdown(0);
+    expect(await run(task)).toEqual([]);
+    expect(task.progress).toBe(1);
   });
 });

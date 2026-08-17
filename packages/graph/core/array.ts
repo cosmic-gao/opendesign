@@ -31,7 +31,7 @@ export interface Reals extends Iterable<number> {
  *
  * @remarks 游标只增不减，因此整趟扫描摊销 O(V)——每轮从 0 重找就是 O(V²)。
  */
-export function nextRoot(
+export function seek(
   marks: Int32Array | Uint8Array,
   from: number,
   blank: number,

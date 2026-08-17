@@ -1,4 +1,3 @@
-import type { Ints } from "../array";
 import { inboundOf, type Adjacency, type Structure } from "../structure";
 
 /** 全图度数，下标即节点索引。 */
@@ -56,25 +55,3 @@ function select(
   }
   return found.subarray(0, at);
 }
-
-/**
- * 邻居查询：直接切 CSR，返回底层数组的**视图**——不复制、不给每个节点分配数组。
- * 物化一份的话就是 V 个对象加 2V 个数组，而绝大多数调用只会看其中几个节点。
- */
-export class Neighborhood {
-  public constructor(private readonly _structure: Structure) {}
-
-  public successors(u: number): Ints {
-    const { offset, other } = this._structure.outbound;
-    return other.subarray(offset[u]!, offset[u + 1]!);
-  }
-
-  /** @throws {@link Oneway} 结构只编了出向——给空数组就等于谎报"没有前驱" */
-  public predecessors(u: number): Ints {
-    const back = inboundOf(this._structure, "Neighborhood.predecessors");
-    return back.other.subarray(back.offset[u]!, back.offset[u + 1]!);
-  }
-}
-
-export const neighborhood = (structure: Structure): Neighborhood =>
-  new Neighborhood(structure);

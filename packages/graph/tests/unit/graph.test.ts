@@ -28,11 +28,11 @@ describe("节点与边", () => {
     expect(graph.addNode(vertex("a", "A"))).toBe(a);
     expect(graph.order).toBe(1);
     expect(graph.node(a)?.weight).toBe("A");
-    expect(graph.weightOf(a)).toBe("A");
+    expect(graph.nodeWeight(a)).toBe("A");
     expect(() => graph.addNode(vertex("a", "again"))).toThrow(Duplicate);
 
     expect(graph.mergeNode(vertex("a", "B"))).toBe(false);
-    expect(graph.weightOf(a)).toBe("B");
+    expect(graph.nodeWeight(a)).toBe("B");
     expect(graph.mergeNode(vertex("b", "C"))).toBe(true);
 
     expect(graph.dropNode(a)).toBe(true);
@@ -47,11 +47,11 @@ describe("节点与边", () => {
 
     // "确保存在"的常见写法。省略 weight 若当成清空，这里就会静默抹掉 "A"。
     expect(graph.mergeNode({ id: a })).toBe(false);
-    expect(graph.weightOf(a)).toBe("A");
+    expect(graph.nodeWeight(a)).toBe("A");
     expect(Object.keys(graph.node(a)!.outputs)).toEqual(["out"]);
 
     expect(graph.mergeNode({ id: a, weight: "B" })).toBe(false);
-    expect(graph.weightOf(a)).toBe("B");
+    expect(graph.nodeWeight(a)).toBe("B");
 
     // 给了端口就采纳——Vertex 满足 NodeSpec，搬一个模板过来不该把它声明的端口丢掉。
     graph.mergeNode(
@@ -59,7 +59,7 @@ describe("节点与边", () => {
     );
     expect(Object.keys(graph.node(a)!.outputs)).toEqual(["emit"]);
     expect(Object.keys(graph.node(a)!.inputs)).toEqual([]);
-    expect(graph.weightOf(a)).toBe("B");
+    expect(graph.nodeWeight(a)).toBe("B");
   });
 
   it("删节点级联清掉它的边", () => {
@@ -127,7 +127,7 @@ describe("节点与边", () => {
     const edge = graph.connect([a, "out"], [b, "in"], { weight: 1 });
 
     graph.updateNode(a, (weight) => `${weight ?? ""}!`);
-    expect(graph.weightOf(a)).toBe("A!");
+    expect(graph.nodeWeight(a)).toBe("A!");
     graph.updateEdge(edge, (weight) => (weight ?? 0) + 4);
     expect(graph.edgeWeight(edge)).toBe(5);
     expect(() => graph.setWeight(c, "x")).toThrow(Missing);
@@ -232,7 +232,7 @@ describe("稳定索引", () => {
 
     const before = graph.nodes().map((node) => ({
       node,
-      weight: graph.weightOf(node),
+      weight: graph.nodeWeight(node),
       out: graph.outNeighbors(node).slice().sort(),
       parent: graph.parent(node),
     }));
@@ -240,7 +240,7 @@ describe("稳定索引", () => {
 
     expect(graph.bound).toBe(graph.order);
     for (const record of before) {
-      expect(graph.weightOf(record.node)).toBe(record.weight);
+      expect(graph.nodeWeight(record.node)).toBe(record.weight);
       expect(graph.outNeighbors(record.node).slice().sort()).toEqual(
         record.out,
       );
@@ -278,7 +278,7 @@ describe("稳定索引", () => {
     expect(graph.bound).toBeGreaterThan(graph.order);
 
     const before = {
-      weight: graph.weightOf(c),
+      weight: graph.nodeWeight(c),
       inputs: Object.keys(graph.node(c)!.inputs),
       outputs: Object.keys(graph.node(c)!.outputs),
       out: graph.outNeighbors(c),
@@ -291,7 +291,7 @@ describe("稳定索引", () => {
     graph.compact();
     expect(graph.bound).toBe(graph.order);
 
-    expect(graph.weightOf(c)).toBe(before.weight);
+    expect(graph.nodeWeight(c)).toBe(before.weight);
     expect(Object.keys(graph.node(c)!.inputs)).toEqual(before.inputs);
     expect(Object.keys(graph.node(c)!.outputs)).toEqual(before.outputs);
     expect(graph.outNeighbors(c)).toEqual(before.out);
@@ -457,7 +457,7 @@ describe("派生图", () => {
     right.addNode(vertex("b", "only-right"));
 
     const merged = left.union(right);
-    expect(merged.weightOf(a)).toBe("left");
-    expect(merged.weightOf(b)).toBe("only-right");
+    expect(merged.nodeWeight(a)).toBe("left");
+    expect(merged.nodeWeight(b)).toBe("only-right");
   });
 });

@@ -75,11 +75,66 @@ export abstract class Stepwise<T> extends Task<T> {
   protected abstract step(): boolean;
 }
 
+/**
+ * 每一步可以 await 的运算——{@link Task} 的异步孪生，其余语义完全一致：中间状态都在实例上，
+ * 因此随时可停、可续、可做检查点。
+ *
+ * @remarks 单独立一个基类而不是放宽 {@link Task.advance} 的返回值。后者看着更省，实则会
+ *   在每个同步驱动点埋雷：`while (task.advance(Infinity));` 遇到 Promise 是恒真，
+ *   直接变成死循环，而类型上毫无异样。两套各自内部一致，比一个半吊子的联合类型可靠。
+ *
+ *   契约与骨架合在一处（不像 `Task` / {@link Stepwise} 分两层），因为异步侧目前没有
+ *   {@link ready} / {@link chain} 那样不走单步推进的实现。真需要时再拆。
+ */
+export abstract class Future<T> {
+  #settled = false;
+
+  /** 推进至多 `budget` 个基本步；返回 `false` 表示已跑完。 */
+  public async advance(budget: number): Promise<boolean> {
+    for (let i = 0; i < budget && !this.#settled; i++) {
+      if (!(await this.step())) this.#settled = true;
+    }
+    return !this.#settled;
+  }
+
+  public get settled(): boolean {
+    return this.#settled;
+  }
+
+  /** 完成度 0..1；跑完即为 1。归一理由见 {@link Stepwise.progress}。 */
+  public get progress(): number {
+    return this.#settled ? 1 : this.measure();
+  }
+
+  /**
+   * 取结果。
+   *
+   * @throws {@link Incomplete} 任务尚未跑完
+   */
+  public abstract result(): T;
+
+  /** 未跑完时的完成度估算，0..1；单调不减。 */
+  protected abstract measure(): number;
+
+  /** 推进一个基本单位；返回 `false` 表示全部工作已完成。 */
+  protected abstract step(): Promise<boolean>;
+
+  /** 见 {@link Stepwise.ratio}。 */
+  protected ratio(done: number, total: number): number {
+    return total === 0 ? 1 : done / total;
+  }
+
+  /** 供 `result()` 开头调用。@throws {@link Incomplete} 尚未跑完 */
+  protected ensure(): void {
+    if (!this.#settled) throw new Incomplete(this.progress);
+  }
+}
+
 /** 检查中断的步长：足够大以摊薄检查成本，足够小以保证响应及时。 */
 const CHUNK = 4096;
 
 /**
- * 同步跑完。
+ * 同步跑完。异步任务用 {@link run}。
  *
  * @throws {@link Interrupted} `signal` 已中断；任务现场保留，可再次 settle 续跑
  */
@@ -94,6 +149,24 @@ export function settle<T>(task: Task<T>, signal?: AbortSignal): T {
   return task.result();
 }
 
+/**
+ * 一口气跑完，中途不让出事件循环；同步与异步任务都收。
+ *
+ * @remarks 异步侧的 {@link settle}。名字不叫 `settleAsync` 是因为它与 settle 有实质差别：
+ *   异步任务每一步都可能挂起，"跑完"本身就是一个 `await`。
+ *
+ * @throws {@link Interrupted} `signal` 已中断；任务现场保留，可再次 run 续跑
+ */
+export async function run<T>(
+  task: Task<T> | Future<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  do {
+    if (signal?.aborted) throw new Interrupted(task.progress);
+  } while (await task.advance(CHUNK));
+  return task.result();
+}
+
 export interface ScheduleOptions {
   /** 每帧推进的步数。 */
   budget?: number;
@@ -102,20 +175,23 @@ export interface ScheduleOptions {
 }
 
 /**
- * 分帧推进，帧间让出事件循环，长跑算法不再冻结 UI。
+ * 分帧推进，帧间让出事件循环，长跑算法不再冻结 UI。同步与异步任务都收。
  *
  * @remarks 每帧让出都要经过一轮宏任务，浏览器对嵌套 `setTimeout` 有约 4ms 的下限，
  *   因此 `budget` 定得过小会让让出成本盖过计算本身。要换别的让出原语（`MessageChannel`、
- *   `scheduler.yield`）就自己驱动 {@link Task.advance}——它正是为此而公开的。
+ *   `scheduler.yield`）就自己驱动 `advance`——它正是为此而公开的。
+ *
+ *   `await` 同时吃两种：同步任务返回的裸 `boolean` 经它原样通过，只多一轮微任务，
+ *   而这里每帧本来就要付一轮宏任务，那点开销淹没在里面。因此不必为两种任务各写一个驱动。
  */
 export async function schedule<T>(
-  task: Task<T>,
+  task: Task<T> | Future<T>,
   options: ScheduleOptions = {},
 ): Promise<T> {
   const { budget = CHUNK, signal, onProgress } = options;
   for (;;) {
     if (signal?.aborted) throw new Interrupted(task.progress);
-    const running = task.advance(budget);
+    const running = await task.advance(budget);
     // 报告放在推进之后、跳出之前，最后一帧才会报出 1——否则进度条永远差一口。
     onProgress?.(task.progress);
     if (!running) break;

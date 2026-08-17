@@ -102,8 +102,8 @@ describe("紧凑格式", () => {
     const restored = unpack<number | null, number | null>(wire);
 
     expect(restored.hasNode(nodeId("bare"))).toBe(true);
-    expect(restored.weightOf(nodeId("bare"))).toBeUndefined();
-    expect(restored.weightOf(nodeId("nil"))).toBeNull();
+    expect(restored.nodeWeight(nodeId("bare"))).toBeUndefined();
+    expect(restored.nodeWeight(nodeId("nil"))).toBeNull();
     expect(restored.edgeWeight(restored.edges()[0]!)).toBeUndefined();
   });
 

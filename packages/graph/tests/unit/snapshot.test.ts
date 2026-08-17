@@ -15,11 +15,43 @@ import {
   settle,
   shortestPath,
   Snapshot,
+  Socket,
   Stale,
   toposort,
+  Vertex,
   type NodeId,
+  type Sockets,
 } from "../../index";
 import { cost, outOf, randomGraph, vertex, weighted } from "../support";
+
+/** 一个带命名分支的节点：`in` 进，`yes` / `no` 两个引脚出。 */
+const branching = (name: string): Vertex<Sockets, Sockets, number> =>
+  new Vertex<Sockets, Sockets, number>(nodeId(name), 0)
+    .addInput("in", Socket.exec)
+    .addOutput("yes", Socket.exec, { multiple: false })
+    .addOutput("no", Socket.exec, { multiple: false });
+
+function router(): Graph<number, number> {
+  const graph = new Graph<number, number>(graphId("router"));
+  for (const name of ["a", "b", "c"]) graph.addNode(branching(name));
+  graph.connect([nodeId("a"), "yes"], [nodeId("b"), "in"]);
+  graph.connect([nodeId("a"), "no"], [nodeId("c"), "in"]);
+  return graph;
+}
+
+/** 从 `u` 沿指定引脚走出去的全部目标，全程在索引空间。 */
+function branch(snapshot: Snapshot, node: NodeId, port: string): NodeId[] {
+  const u = snapshot.indexOf(node);
+  const pin = snapshot.portOf(port);
+  const { offset, other, edge } = snapshot.outbound;
+  const found: NodeId[] = [];
+  for (let k = offset[u]!; k < offset[u + 1]!; k++) {
+    if (snapshot.sourcePort![edge[k]!] === pin) {
+      found.push(snapshot.label(other[k]!));
+    }
+  }
+  return found.sort();
+}
 
 describe("编译", () => {
   it("邻接与源图一致", () => {
@@ -602,5 +634,169 @@ describe("对源图的弱引用", () => {
     const next = Snapshot.of(keep, { weight: cost, reuse: orphan });
     expect(next.order).toBe(keep.order);
     expect(next.outbound).not.toBe(orphan.outbound);
+  });
+});
+
+describe("端口层", () => {
+  it("默认不编译——不付这份代价的人不该看见它", () => {
+    const snapshot = Snapshot.of(router());
+    expect(snapshot.sourcePort).toBeUndefined();
+    expect(snapshot.ports).toEqual([]);
+    // 静默给空会让"这条边没接在任何引脚上"和"你没编译端口"分不开。
+    expect(() => snapshot.sourcePortAt(0)).toThrow(/ports: true/);
+  });
+
+  it("编译后能在索引空间按引脚分派分支", () => {
+    const snapshot = Snapshot.of(router(), { ports: true });
+    expect(branch(snapshot, nodeId("a"), "yes")).toEqual([nodeId("b")]);
+    expect(branch(snapshot, nodeId("a"), "no")).toEqual([nodeId("c")]);
+    expect(branch(snapshot, nodeId("b"), "yes")).toEqual([]);
+  });
+
+  it("名字表按种类去重，不随边数增长", () => {
+    const graph = new Graph<number, number>(graphId("fan"));
+    graph.addNode(branching("hub"));
+    for (let i = 0; i < 50; i++) {
+      graph.addNode(branching(`n${i}`));
+      // `yes` 是 multiple:false，扇出走 `no` 之外的一条：这里让每个目标各连一次 in。
+      graph.connect([nodeId(`n${i}`), "yes"], [nodeId("hub"), "in"]);
+    }
+    const snapshot = Snapshot.of(graph, { ports: true });
+    expect(snapshot.size).toBe(50);
+    // 50 条边，只用到 `yes` 与 `in` 两个名字。
+    expect([...snapshot.ports].sort()).toEqual(["in", "yes"]);
+    expect(snapshot.portOf("nope")).toBe(-1);
+  });
+
+  it("每条边的两端各记各的", () => {
+    const snapshot = Snapshot.of(router(), { ports: true });
+    for (let e = 0; e < snapshot.size; e++) {
+      const record = router().edge(snapshot.edges[e]!)!;
+      expect(snapshot.sourcePortAt(e)).toBe(record.sourcePort);
+      expect(snapshot.targetPortAt(e)).toBe(record.targetPort);
+    }
+  });
+
+  it("端口层跟着 core 走，Worker 侧拿得到引脚名", () => {
+    const snapshot = Snapshot.of(router(), { ports: true });
+    // core 刻意不带 O(V)/O(E) 的 id 标签，但端口层要留下：编号是 typed-array，
+    // 名字表的长度是引脚种类数。
+    const revived = Snapshot.from(structuredClone(snapshot.core));
+    expect(revived.labels).toEqual([]);
+    expect(revived.sourcePortAt(0)).toBe("yes");
+    expect(revived.portOf("no")).toBe(snapshot.portOf("no"));
+  });
+
+  it("翻转方向不动端口——端口属于边，不属于方向", () => {
+    const snapshot = Snapshot.of(router(), { ports: true });
+    const back = snapshot.reverse();
+    for (let e = 0; e < snapshot.size; e++) {
+      expect(back.sourcePortAt(e)).toBe(snapshot.sourcePortAt(e));
+      expect(back.targetPortAt(e)).toBe(snapshot.targetPortAt(e));
+    }
+  });
+
+  it("合并平行边时端口取首条，与边 id 同一口径", () => {
+    const graph = new Graph<number, number>(graphId("parallel"));
+    for (const name of ["a", "b"]) graph.addNode(branching(name));
+    const first = graph.connect([nodeId("a"), "yes"], [nodeId("b"), "in"], {
+      weight: 5,
+    });
+    graph.connect([nodeId("a"), "no"], [nodeId("b"), "in"], { weight: 2 });
+
+    const snapshot = Snapshot.of(graph, {
+      ports: true,
+      weight: (w) => w ?? 1,
+      merge: Math.min,
+    });
+    expect(snapshot.size).toBe(1);
+    expect(snapshot.edges[0]).toBe(first);
+    expect(snapshot.sourcePortAt(0)).toBe("yes");
+    expect(snapshot.weight![0]).toBe(2);
+  });
+
+  it("折叠分组后跨组边保留原来的引脚", () => {
+    const graph = router();
+    graph.addNode(branching("box"));
+    graph.setParent(nodeId("b"), nodeId("box"));
+
+    const snapshot = Snapshot.of(graph, {
+      ports: true,
+      collapse: [nodeId("box")],
+    });
+    // a --yes--> b 被抬到 box 上，引脚名不变。
+    expect(branch(snapshot, nodeId("a"), "yes")).toEqual([nodeId("box")]);
+  });
+
+  it("增量重编译复用端口层，只重算权重", () => {
+    const graph = router();
+    graph.setEdgeWeight(graph.edges()[0]!, 3);
+    const first = Snapshot.of(graph, { ports: true, weight: (w) => w ?? 1 });
+    graph.setEdgeWeight(graph.edges()[0]!, 9);
+    const second = Snapshot.of(graph, {
+      ports: true,
+      weight: (w) => w ?? 1,
+      reuse: first,
+    });
+
+    expect(second).not.toBe(first);
+    expect(second.outbound).toBe(first.outbound);
+    expect(second.sourcePort).toBe(first.sourcePort);
+    expect(second.ports).toBe(first.ports);
+    expect(second.weight![0]).toBe(9);
+  });
+
+  it("配方不一致时不复用——否则会拿到一份没有端口的快照", () => {
+    const graph = router();
+    const bare = Snapshot.of(graph);
+    const withPorts = Snapshot.of(graph, { ports: true, reuse: bare });
+    expect(withPorts.sourcePort).toBeDefined();
+  });
+});
+
+describe("搬运数据的校验", () => {
+  const sample = (): Snapshot => Snapshot.of(router(), { ports: true });
+
+  it("端口编号越出名字表时报错", () => {
+    const data = sample().core;
+    const broken = Int32Array.from(data.sourcePort!);
+    broken[0] = 99;
+    expect(() => Snapshot.from({ ...data, sourcePort: broken })).toThrow(
+      Schema,
+    );
+  });
+
+  it("端口编号数组长度与边数对不上时报错", () => {
+    const data = sample().core;
+    expect(() =>
+      Snapshot.from({ ...data, sourcePort: Int32Array.of(0) }),
+    ).toThrow(Schema);
+  });
+
+  it("邻接里的节点下标越界时报错，而不是静默算出错答案", () => {
+    const data = sample().core;
+    const other = Int32Array.from(data.outbound.other);
+    other[0] = data.order + 5;
+    expect(() =>
+      Snapshot.from({ ...data, outbound: { ...data.outbound, other } }),
+    ).toThrow(Schema);
+  });
+
+  it("邻接里的边序号越界时报错", () => {
+    const data = sample().core;
+    const edge = Int32Array.from(data.outbound.edge);
+    edge[0] = data.size + 5;
+    expect(() =>
+      Snapshot.from({ ...data, outbound: { ...data.outbound, edge } }),
+    ).toThrow(Schema);
+  });
+
+  it("offset 非单调时报错", () => {
+    const data = sample().core;
+    const offset = Int32Array.from(data.outbound.offset);
+    offset[1] = -1;
+    expect(() =>
+      Snapshot.from({ ...data, outbound: { ...data.outbound, offset } }),
+    ).toThrow(Schema);
   });
 });

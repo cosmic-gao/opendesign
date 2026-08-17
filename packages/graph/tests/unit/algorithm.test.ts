@@ -6,6 +6,7 @@ import {
   ancestry,
   astar,
   bellmanFord,
+  bfs,
   bidirectional,
   bottleneck,
   closure,
@@ -15,6 +16,7 @@ import {
   cuts,
   Cycle,
   descendants,
+  dfs,
   dominators,
   floydWarshall,
   generations,
@@ -24,6 +26,7 @@ import {
   kruskal,
   levels,
   nodeId,
+  postorder,
   prim,
   ranks,
   reachable,
@@ -38,6 +41,7 @@ import {
   subtree,
   topology,
   toposort,
+  visit,
   type NodeId,
   type Structure,
   type Task,
@@ -322,7 +326,7 @@ describe("可达性", () => {
 
     const reduced = new Graph<number, number>(graphId("reduced"));
     for (const node of graph.nodes()) {
-      reduced.addNode(vertex(String(node), graph.weightOf(node)));
+      reduced.addNode(vertex(String(node), graph.nodeWeight(node)));
     }
     for (const [from, to] of kept) {
       reduced.connect(
@@ -726,5 +730,42 @@ describe("复合层级查询", () => {
 
     expect(subtree(graph, nodeId("group"))).toHaveLength(20001);
     expect(ancestry(graph, nodeId("k19999"))).toEqual([nodeId("group")]);
+  });
+});
+
+/**
+ * 五个遍历入口共用同一个起点形状。
+ *
+ * 此前它们各写各的——`dfs` 收不定参数、`levels` 要 `Iterable`、`visit` 要
+ * `Iterable | null` 且夹在中间、`postorder` 收可选 `Iterable`。换一个入口就得改一次
+ * 调用写法，而这四种写法之间没有任何语义差别。
+ */
+describe("遍历起点的统一形状", () => {
+  const chain = (): Snapshot => Snapshot.of(randomGraph(11, { order: 12 }));
+
+  it("单个索引、一组索引、省略，三种写法在每个入口上都成立", () => {
+    const s = chain();
+    for (const walk of [dfs, bfs]) {
+      expect([...walk(s, 0)]).toEqual([...walk(s, [0])]);
+      // 省略即全图：每个节点恰好产出一次。
+      expect([...walk(s)].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: s.order }, (_, i) => i),
+      );
+    }
+    expect([...levels(s, 0)]).toEqual([...levels(s, [0])]);
+    expect([...postorder(s, 0)]).toEqual([...postorder(s, [0])]);
+    expect(postorder(s).length).toBe(s.order);
+  });
+
+  it("visit 的起点是可选尾参，访问者不必再为它让位", () => {
+    const s = chain();
+    const all: number[] = [];
+    visit(s, { discover: (u) => void all.push(u) });
+    expect(all.length).toBe(s.order);
+
+    const one: number[] = [];
+    visit(s, { discover: (u) => void one.push(u) }, 0);
+    expect(one[0]).toBe(0);
+    expect(one.length).toBeLessThanOrEqual(s.order);
   });
 });

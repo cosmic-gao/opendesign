@@ -5,6 +5,7 @@ export * from "./event";
 export * from "./graph";
 export * from "./hierarchy";
 export * from "./ident";
+export * from "./journal";
 export * from "./ordering";
 export * from "./serialize";
 export * from "./snapshot";

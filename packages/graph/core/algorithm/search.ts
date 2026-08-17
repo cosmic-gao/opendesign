@@ -3,20 +3,36 @@ import { inboundOf, outDegree, type Structure } from "../structure";
 /** 访问者的返回值：继续、剪掉该子树、整体中止。 */
 export type Control = "continue" | "prune" | "break";
 
+/**
+ * 遍历起点：单个节点索引，或一组索引。
+ *
+ * @remarks 五个遍历入口共用这一个形状，省略处一律表示"全图逐个分量铺开"。此前它们各写各的
+ *   （不定参数 / 必填 `Iterable` / `Iterable | null`），换一个入口就得改一次调用写法。
+ */
+export type Seeds = number | Iterable<number>;
+
+/** 起点归一：省略给全图，单个索引给一元序列。 */
+function* spread(seeds: Seeds | undefined, order: number): Generator<number> {
+  if (seeds === undefined) {
+    for (let u = 0; u < order; u++) yield u;
+  } else if (typeof seeds === "number") {
+    yield seeds;
+  } else {
+    yield* seeds;
+  }
+}
+
 const WHITE = 0;
 const GRAY = 1;
 const BLACK = 2;
 
 /** 深度优先，按发现顺序产出节点索引；多起点依次展开，已访问的不重复产出。 */
-export function* dfs(
-  structure: Structure,
-  ...starts: number[]
-): Generator<number> {
+export function* dfs(structure: Structure, starts?: Seeds): Generator<number> {
   const { offset, other } = structure.outbound;
   const seen = new Uint8Array(structure.order);
   const stack: number[] = [];
 
-  for (const s of starts) {
+  for (const s of spread(starts, structure.order)) {
     if (s < 0 || s >= structure.order) continue;
     stack.push(s);
     while (stack.length > 0) {
@@ -33,15 +49,12 @@ export function* dfs(
 }
 
 /** 广度优先，按层级顺序产出节点索引。 */
-export function* bfs(
-  structure: Structure,
-  ...starts: number[]
-): Generator<number> {
+export function* bfs(structure: Structure, starts?: Seeds): Generator<number> {
   const { offset, other } = structure.outbound;
   const seen = new Uint8Array(structure.order);
   const queue: number[] = [];
 
-  for (const s of starts) {
+  for (const s of spread(starts, structure.order)) {
     if (s >= 0 && s < structure.order && seen[s] === 0) {
       seen[s] = 1;
       queue.push(s);
@@ -174,12 +187,9 @@ class Frontier {
  * @remarks 扩张方向自适应（见文件内 `Frontier`）：前沿小走正向，前沿大且有入向邻接时走反向。
  *   低直径图上实测 4×；缺入向时始终正向，行为与朴素分层 BFS 一致。
  */
-export function levels(
-  structure: Structure,
-  starts: Iterable<number>,
-): Int32Array {
+export function levels(structure: Structure, starts: Seeds): Int32Array {
   const frontier = new Frontier(structure);
-  for (const s of starts) frontier.seed(s);
+  for (const s of spread(starts, structure.order)) frontier.seed(s);
   while (frontier.active) {
     if (frontier.dense) frontier.pull();
     else frontier.push();
@@ -199,11 +209,11 @@ export interface Visitor {
   cross?(from: number, to: number): Control | void;
 }
 
-/** `starts` 为 `null` 时扫描全图。 */
+/** 省略 `starts` 时扫描全图。 */
 export function visit(
   structure: Structure,
-  starts: Iterable<number> | null,
   visitor: Visitor,
+  starts?: Seeds,
 ): Control {
   const { order } = structure;
   const { offset, other } = structure.outbound;
@@ -226,7 +236,7 @@ export function visit(
     return "continue";
   };
 
-  for (const r of starts ?? everything(order)) {
+  for (const r of spread(starts, order)) {
     if (r < 0 || r >= order || color[r] !== WHITE) continue;
     if (enter(r) === "break") return "break";
 
@@ -260,21 +270,18 @@ export function visit(
   return "continue";
 }
 
-function* everything(order: number): Generator<number> {
-  for (let u = 0; u < order; u++) yield u;
-}
-
 /** 后序（DFS 完成序）的节点索引。 */
-export function postorder(
-  structure: Structure,
-  starts?: Iterable<number>,
-): Int32Array {
+export function postorder(structure: Structure, starts?: Seeds): Int32Array {
   const finished = new Int32Array(structure.order);
   let at = 0;
-  visit(structure, starts ?? null, {
-    finish(node) {
-      finished[at++] = node;
+  visit(
+    structure,
+    {
+      finish(node) {
+        finished[at++] = node;
+      },
     },
-  });
+    starts,
+  );
   return finished.subarray(0, at);
 }

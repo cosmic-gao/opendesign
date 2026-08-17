@@ -1,5 +1,5 @@
-import { bucket, nextRoot, type Ints } from "../array";
-import { crossing, type Adjacency, type Structure } from "../structure";
+import { bucket, seek, type Ints } from "../array";
+import { mirror, type Adjacency, type Structure } from "../structure";
 import { chain, Stepwise, transform, type Task } from "../task";
 
 const NONE = -1;
@@ -34,7 +34,7 @@ class Weak extends Stepwise<Partition> {
     this._stack = new Int32Array(_structure.order);
     // 弱连通要忽略方向：缺入向就只能沿出边走，得到的是按可达性的分组而非弱连通分量
     // （`0→2, 1→2` 会报成两个分量）。
-    this._inbound = crossing(_structure, "components");
+    this._inbound = mirror(_structure, "components");
   }
 
   protected measure(): number {
@@ -43,7 +43,7 @@ class Weak extends Stepwise<Partition> {
 
   protected step(): boolean {
     if (this._top === 0) {
-      this._root = nextRoot(this._component, this._root, NONE);
+      this._root = seek(this._component, this._root, NONE);
       if (this._root >= this._structure.order) return false;
       this._claim(this._root, this._count++);
       return true;
@@ -115,7 +115,7 @@ class Strong extends Stepwise<Partition> {
 
   protected step(): boolean {
     if (this._depth === NONE) {
-      this._root = nextRoot(this._rindex, this._root, 0);
+      this._root = seek(this._rindex, this._root, 0);
       if (this._root >= this._structure.order) return false;
       this._enter(this._root);
       return true;

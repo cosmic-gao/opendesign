@@ -1,7 +1,7 @@
 import { LazyQueue } from "@openconsole/queue";
 
-import { nextRoot, type Reals } from "../array";
-import { costs, crossing, type Adjacency, type Structure } from "../structure";
+import { seek, type Reals } from "../array";
+import { costs, mirror, type Adjacency, type Structure } from "../structure";
 import { Stepwise, type Task } from "../task";
 
 const NONE = -1;
@@ -41,7 +41,7 @@ class Prim extends Stepwise<Link[]> {
     this._slot = new Int32Array(n).fill(NONE);
     this._inTree = new Uint8Array(n);
     // 生成树是无向概念：缺入向会漏掉整个分支（`0→2, 1→2` 上只给一条边）。
-    this._inbound = crossing(_structure, "prim");
+    this._inbound = mirror(_structure, "prim");
     this._weight = costs(_structure);
   }
 
@@ -52,7 +52,7 @@ class Prim extends Stepwise<Link[]> {
   protected step(): boolean {
     const u = this._queue.poll();
     if (u === NONE) {
-      this._root = nextRoot(this._inTree, this._root, 0);
+      this._root = seek(this._inTree, this._root, 0);
       if (this._root >= this._structure.order) return false;
       this._reach[this._root] = 0;
       this._queue.push(this._root, 0);

@@ -90,22 +90,20 @@ describe("引脚容量", () => {
 });
 
 describe("按引脚查边", () => {
-  it("linkedTo / linkedFrom 取指定引脚的对端", () => {
+  it("target / source 取指定引脚的对端", () => {
     const graph = blueprint();
-    expect(graph.linkedTo(nodeId("start"), "then")).toBe(nodeId("branch"));
-    expect(graph.linkedTo(nodeId("branch"), "true")).toBe(nodeId("yes"));
-    expect(graph.linkedTo(nodeId("branch"), "false")).toBe(nodeId("no"));
-    expect(graph.linkedFrom(nodeId("branch"), "condition")).toBe(
-      nodeId("compare"),
-    );
-    expect(graph.linkedFrom(nodeId("branch"), "exec")).toBe(nodeId("start"));
+    expect(graph.target(nodeId("start"), "then")).toBe(nodeId("branch"));
+    expect(graph.target(nodeId("branch"), "true")).toBe(nodeId("yes"));
+    expect(graph.target(nodeId("branch"), "false")).toBe(nodeId("no"));
+    expect(graph.source(nodeId("branch"), "condition")).toBe(nodeId("compare"));
+    expect(graph.source(nodeId("branch"), "exec")).toBe(nodeId("start"));
   });
 
   it("未连接的引脚、未知端口、未知节点都返回 undefined", () => {
     const graph = blueprint();
-    expect(graph.linkedFrom(nodeId("compare"), "a")).toBeUndefined();
-    expect(graph.linkedTo(nodeId("start"), "missing")).toBeUndefined();
-    expect(graph.linkedTo(nodeId("ghost"), "then")).toBeUndefined();
+    expect(graph.source(nodeId("compare"), "a")).toBeUndefined();
+    expect(graph.target(nodeId("start"), "missing")).toBeUndefined();
+    expect(graph.target(nodeId("ghost"), "then")).toBeUndefined();
   });
 
   it("多连接引脚上 linkedTo 给其中一条，forEachOut 给全部", () => {
@@ -116,7 +114,7 @@ describe("按引脚查边", () => {
     });
     graph.connect([nodeId("compare"), "result"], [nodeId("also"), "flag"]);
 
-    expect(graph.linkedTo(nodeId("compare"), "result")).toBe(nodeId("branch"));
+    expect(graph.target(nodeId("compare"), "result")).toBe(nodeId("branch"));
     const targets: NodeId[] = [];
     graph.forEachOut(nodeId("compare"), (target, _edge, port) => {
       if (port === "result") targets.push(target);
@@ -156,15 +154,15 @@ describe("reshape", () => {
 
     expect(graph.size).toBe(before);
     expect(graph.node(branch)!.inputs["fallthrough"]).toBeDefined();
-    expect(graph.linkedFrom(branch, "condition")).toBe(nodeId("compare"));
+    expect(graph.source(branch, "condition")).toBe(nodeId("compare"));
   });
 
   it("删引脚只断该引脚上的边", () => {
     const graph = blueprint();
     graph.reshape(branch, { outputs: { true: exec(false) } });
 
-    expect(graph.linkedTo(branch, "true")).toBe(nodeId("yes"));
-    expect(graph.linkedTo(branch, "false")).toBeUndefined();
+    expect(graph.target(branch, "true")).toBe(nodeId("yes"));
+    expect(graph.target(branch, "false")).toBeUndefined();
     expect(graph.inDegree(nodeId("no"))).toBe(0);
   });
 
@@ -173,13 +171,13 @@ describe("reshape", () => {
     broken.reshape(nodeId("compare"), {
       outputs: { result: data(Socket.string, true) },
     });
-    expect(broken.linkedTo(nodeId("compare"), "result")).toBeUndefined();
+    expect(broken.target(nodeId("compare"), "result")).toBeUndefined();
 
     const kept = blueprint();
     kept.reshape(nodeId("compare"), {
       outputs: { result: data(Socket.any, true) },
     });
-    expect(kept.linkedTo(nodeId("compare"), "result")).toBe(branch);
+    expect(kept.target(nodeId("compare"), "result")).toBe(branch);
   });
 
   it("容量收紧为单连接时保留最早那条", () => {
@@ -200,7 +198,7 @@ describe("reshape", () => {
       outputs: { out: data(Socket.number, false) },
     });
     expect(graph.outDegree(nodeId("hub"))).toBe(1);
-    expect(graph.linkedTo(nodeId("hub"), "out")).toBe(nodeId("a"));
+    expect(graph.target(nodeId("hub"), "out")).toBe(nodeId("a"));
   });
 
   it("省略的一侧保持不变", () => {
@@ -211,7 +209,7 @@ describe("reshape", () => {
       "condition",
       "exec",
     ]);
-    expect(graph.linkedFrom(branch, "exec")).toBe(nodeId("start"));
+    expect(graph.source(branch, "exec")).toBe(nodeId("start"));
   });
 
   it("派发 nodeReshaped 与被断边的 edgeDropped，事务里推迟到末尾", () => {
@@ -245,7 +243,7 @@ describe("reshape", () => {
 
     graph.reshape(branch, { outputs: { always: exec(false) } });
     graph.connect([branch, "always"], [nodeId("yes"), "exec"]);
-    expect(graph.linkedTo(branch, "always")).toBe(nodeId("yes"));
+    expect(graph.target(branch, "always")).toBe(nodeId("yes"));
   });
 
   it("节点不存在时抛 Missing", () => {
@@ -277,7 +275,7 @@ describe("reshape", () => {
    */
   it("模板上摘掉引脚，reshape 后该引脚的连线随之断开", () => {
     const graph = blueprint();
-    expect(graph.linkedTo(branch, "false")).toBeDefined();
+    expect(graph.target(branch, "false")).toBeDefined();
 
     const template = new Vertex<Sockets, Sockets, string>(branch)
       .addOutput("true", Socket.exec)
@@ -289,7 +287,7 @@ describe("reshape", () => {
     expect(Object.keys(template.outputs)).toEqual(["true"]);
     graph.reshape(branch, template);
     expect(Object.keys(graph.node(branch)!.outputs)).toEqual(["true"]);
-    expect(graph.linkedTo(branch, "false")).toBeUndefined();
+    expect(graph.target(branch, "false")).toBeUndefined();
   });
 
   it("removeInput 同理，摘掉之后还能加回来", () => {
@@ -317,10 +315,10 @@ describe("上层编排形态", () => {
     let pin = "then";
     while (cursor !== undefined) {
       trail.push(cursor);
-      const next: NodeId | undefined = graph.linkedTo(cursor, pin);
+      const next: NodeId | undefined = graph.target(cursor, pin);
       if (next === undefined) break;
       cursor = next;
-      pin = graph.weightOf(cursor) === "Branch" ? "true" : "then";
+      pin = graph.nodeWeight(cursor) === "Branch" ? "true" : "then";
     }
 
     expect(trail).toEqual(["start", "branch", "yes", "end"].map(nodeId));
@@ -336,7 +334,7 @@ describe("上层编排形态", () => {
     graph.connect([nodeId("five"), "value"], [nodeId("compare"), "a"]);
 
     const pull = (node: NodeId, port: string): NodeId[] => {
-      const source = graph.linkedFrom(node, port);
+      const source = graph.source(node, port);
       if (source === undefined) return [];
       const upstream: NodeId[] = [source];
       graph.forEachIn(source, (from) => void upstream.push(from));
@@ -368,7 +366,7 @@ describe("上层编排形态", () => {
     graph.connect([nodeId("fn"), "0"], [nodeId("debug"), "0"]);
     graph.connect([nodeId("fn"), "1"], [nodeId("fn"), "0"]);
 
-    expect(graph.linkedTo(nodeId("fn"), "1")).toBe(nodeId("fn"));
+    expect(graph.target(nodeId("fn"), "1")).toBe(nodeId("fn"));
     expect(graph.size).toBe(3);
   });
 
