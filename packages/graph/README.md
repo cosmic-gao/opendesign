@@ -4,12 +4,12 @@
 
 ## 四层职责
 
-| 层          | 负责       | 形态                                              |
-| ----------- | ---------- | ------------------------------------------------- |
-| `Graph`     | 编辑       | 整数索引 + 平行数组，邻接是纯数组读取，变更走事件 |
-| `Snapshot`  | 计算的输入 | 不可变 CSR，全部数据在 typed-array 里             |
-| `Structure` | 算法的契约 | 五个只读字段，谁都能实现                          |
-| `Task`      | 调度       | 分步推进，可中断、可续跑、可分帧                  |
+| 层                | 负责         | 形态                                               |
+| ----------------- | ------------ | -------------------------------------------------- |
+| `Graph`           | 编辑         | 整数索引 + 平行数组，邻接是纯数组读取，变更走事件  |
+| `Structure`       | 算法的契约   | 五个只读字段，谁都能实现，**不认识 `Graph`**       |
+| `Snapshot`        | 两者的编译器 | 可变图 → 不可变 CSR，全部数据在 typed-array 里     |
+| `Task` / `Future` | 调度         | 分步推进，可中断、可续跑、可分帧，同步与异步各一套 |
 
 算法只吃 `Structure`，不吃图。输入不可变带来三件事：长跑任务中断后恢复不会读到半改的图；
 快照能整份搬进 Worker；过滤 / 折叠 / 无向化 / 合并在编译期一次做完，运行期没有谓词回调或
@@ -71,8 +71,9 @@ settle(shortestPath(chain, 0, 2)); // { distance: 7, path: [0, 1, 2] }
 SharedArrayBuffer 背书的数组、WASM 导出的内存视图、按需生成的惰性代理都能直接顶上。
 `Snapshot` 只是这个接口的默认实现，额外提供索引 ↔ id 的标签层。
 
-配套自由函数对任何实现都成立：`reversed`（O(1) 翻转，共享底层数组）、`merged`、
-`outDegree` / `inDegree`、`costOf`、`inboundOf`。
+配套自由函数对任何实现都成立：`reversed`（O(1) 翻转，共享底层数组）、`merged` / `mirror`、
+`outDegree` / `inDegree`、`successors` / `predecessors`（切 CSR 视图，零分配）、`costOf`、
+`inboundOf`、`profileOf` / `costs`（边权画像，记忆化）。
 
 ### 只编出向时，需要入向的算法明确报错
 
@@ -94,8 +95,7 @@ half.reverse(); // 抛 Oneway
 ```
 
 受此约束的是 `degrees` / `sources` / `isolated` / `components` / `cuts` / `dominators` /
-`prim` / `ancestors` / `bidirectional` / `reversed` / `Snapshot.reverse` /
-`Neighborhood.predecessors`。
+`prim` / `ancestors` / `bidirectional` / `reversed` / `Snapshot.reverse` / `predecessors`。
 
 ## Graph：编辑层
 
@@ -109,7 +109,7 @@ graph.dropNode(id); // 级联删边、子节点提升到祖父
 graph.connect(from, to, options); // 返回 EdgeId
 graph.disconnect(edge);
 
-graph.weightOf(id); // 零分配读权重
+graph.nodeWeight(id); // 零分配读权重，与 edgeWeight 对称
 graph.updateNode(id, (weight) => next);
 graph.setEdgeWeight(edge, weight);
 
@@ -121,8 +121,9 @@ graph.forEachNode((id, weight, slot) => {}); // 按存储顺序，不经 id 查�
 graph.forEachLink((edge, source, target) => {}); // 纯整数，连字符串都不碰
 graph.forEachOutAt(slot, (target, edge) => {}); // 索引空间的邻接遍历
 
-graph.linkedTo(id, "then"); // 某个输出端口的对端，零分配
-graph.linkedFrom(id, "value"); // 某个输入端口的来源
+graph.target(id, "then"); // 某个输出端口的对端，零分配
+graph.source(id, "value"); // 某个输入端口的来源
+graph.sourcePortAt(slot); // 按槽位读端口名，不物化 EdgeRecord
 graph.reshape(id, { outputs }); // 换端口集合，保住仍然合法的连线
 
 graph.setParent(child, group); // 复合层级，内建环检测（抛 Nested）
@@ -196,6 +197,30 @@ snapshot.names(indices); // 索引 → NodeId；边序号换 id 直接读 snapsh
 把它烘进 `E` 里。回调给出 `NaN` 时编译就抛 `Invalid` 并报出是哪条边：`NaN` 与任何值比较都是
 `false`，放过去只会让最短路把明明连通的节点静默报成不可达。
 
+### 端口层
+
+CSR 只有拓扑。编译时可以额外带上「每条边挂在哪个引脚上」——没有它，「这条分支接到哪」在索引
+空间是问不到的，只能拿边序号回 `Graph` 查一次字符串：
+
+```ts
+const s = Snapshot.of(graph, { ports: true });
+
+const yes = s.portOf("yes"); // 循环外换一次编号
+const { offset, other, edge } = s.outbound;
+for (let k = offset[u]; k < offset[u + 1]; k++) {
+  if (s.sourcePort[edge[k]] === yes) visit(other[k]); // 循环内只剩整数比较
+}
+s.sourcePortAt(e); // 要名字时再换回来
+```
+
+端口名 **intern 成整数**：`sourcePort` / `targetPort` 是 `Int32Array`，名字表 `ports` 的长度是
+引脚**种类数**而非边数。因此端口层整体跟着 `core` 走——不像 O(V) / O(E) 的 id 标签那样必须裁掉，
+Worker 侧照样拿得到引脚名。
+
+默认不编译（要付 2·E 个整数），与 `weight` 同一口径。没编译时 `sourcePortAt` 明确报错而不是给空，
+否则「这条边没接在引脚上」与「你没编译端口层」分不开。合并平行边取首条、折叠分组保留原引脚，
+都与边 id 同一口径；增量重编译整份复用——端口只会被 `reshape` 改动，而那会推进 `shape`。
+
 ### 增量重编译
 
 编辑器改的多半是参数而不是连线。传上一份快照进去，结构没变就复用整套 CSR：
@@ -261,8 +286,10 @@ const snapshot = Snapshot.from(data);
 settle(scc(snapshot));
 ```
 
-`Snapshot.from` 会做一遍 O(1) 的形状校验（offset 长度、槽位总数、权重与标签的条数），
-截断或错位的搬运数据抛 `Schema`，而不是还原出一个行为怪异的快照。
+`Snapshot.from` 会校验搬运数据：长度（offset 条数、槽位总数、权重与标签的条数）之外还查**值域**
+——`offset` 从 0 起且单调、`other[k]` 与 `edge[k]` 不越界、端口编号在名字表内。长度对不代表内容对：
+错位的数据完全可能长度全中而下标越界，而越界读出来是 `undefined`，一路静默算到底会得到一个形状
+正常的错答案。这一遍是 O(E)，只在跨线程还原时跑，`Snapshot.of` 自编的结构不必付。
 
 要在多个 Worker 之间**零拷贝**共享，用 `shared: true` 把 CSR 与权重直接编译到
 `SharedArrayBuffer` 上（浏览器侧需要 cross-origin isolation）。不要对快照的底层数组用
@@ -322,6 +349,29 @@ try {
 ```
 
 组合器：`ready(value)` / `chain(first, next)` / `transform(task, convert)`，中断点贯穿组合后的全程。
+阶段交接处 `advance` 就返回，不在同一次调用里接着推进第二段——否则一次 `advance(budget)` 最坏
+花掉 2×budget，分帧时正好卡在换阶段那一帧。
+
+### 异步
+
+图算法全是同步的，但建在图上的编排执行器不是——节点要发网络请求。异步侧是平行的 `Future`，
+语义与 `Task` 逐条对齐（预算、进度、可中断、可续跑、未跑完不给结果），只是每一步可以 `await`：
+
+```ts
+class Pregel extends Future<State> {
+  protected async step(): Promise<boolean> {} // 一步 = 一个超步
+  protected measure(): number {}
+  public result(): State {} // 开头调 this.ensure()
+}
+
+await run(job); // 一口气跑完，不让出事件循环
+await schedule(job, { budget: 8, signal, onProgress }); // 分帧推进；同步与异步任务都收
+```
+
+**没有**把 `Task.advance` 的返回值放宽成 `boolean | Promise<boolean>`。那样看着更省，实则在每个
+同步驱动点埋雷：`while (task.advance(Infinity));` 遇到 Promise 是恒真，直接死循环，而类型上毫无
+异样。`schedule` 靠一个 `await` 同时吃两种——同步任务返回的裸 `boolean` 原样通过，只多一轮微任务，
+而它每帧本来就要付一轮宏任务。
 
 ## 算法
 
@@ -336,9 +386,14 @@ try {
 - **生成森林**：`prim` / `kruskal`
 - **遍历**：`dfs` / `bfs`（生成器）/ `postorder` / `levels`（方向自适应，见下）/
   `visit`（事件式，带边分类）
-- **查询**：`degrees` / `sources` / `sinks` / `isolated` / `neighborhood`（切 CSR 视图，零分配）/
-  `roots` / `subtree` / `ancestry`
-- **增量**：`Ordering`（Pearce-Kelly 增量拓扑序）
+- **查询**：`degrees` / `sources` / `sinks` / `isolated` / `successors` / `predecessors`
+- **层级**：`roots` / `subtree` / `ancestry`（层级只存在于活图上，因此收 `Graph`）
+- **增量**：`Ordering`（Pearce-Kelly 增量拓扑序；订阅图事件，故在编辑层一侧，不在
+  `/algorithm` 子路径里）
+
+遍历的起点形状统一为 `number | Iterable<number>`，省略即全图：`dfs(s)` / `dfs(s, 0)` /
+`dfs(s, [0, 3])` 在 `dfs` / `bfs` / `levels` / `postorder` / `visit` 上是同一种写法
+（`visit` 的起点是可选尾参，访问者在前）。
 
 产出一律在索引空间：`toposort` 给 `Int32Array`，`ranks` 给按索引下标的 `Int32Array`，
 `dominators` 给 `idom[u]`（入口指向自身，不可达为 -1），`cuts` 给索引对与 `Int32Array`。
@@ -466,7 +521,7 @@ graph.signal.watch((type, payload) => {});
 | ----------------------- | ----------------------- | ------------------------------------------ |
 | `Duplicate` / `Missing` | `duplicate` / `missing` | id 已存在 / 节点、边、端口、socket 不存在  |
 | `Mismatch` / `Capacity` | `socket` / `capacity`   | Socket 不兼容 / 单连接端口已占用           |
-| `Cycle` / `Nested`      | `cycle`                 | 算法撞上环 / 层级会成环                    |
+| `Cycle` / `Nested`      | `cycle` / `nested`      | 算法撞上环 / 层级会成环                    |
 | `Oneway`                | `oneway`                | 算法需要入向邻接，但结构只编了出向         |
 | `Negative` / `Invalid`  | `negative` / `invalid`  | 负权（点名改用 `bellmanFord`）/ `NaN` 权   |
 | `Oversized`             | `oversized`             | 稠密结构（全源矩阵、可达位图）超过内存上限 |
@@ -482,21 +537,38 @@ graph.signal.watch((type, payload) => {});
 
 ```
 core/
-├── ident / error / event      品牌 id、错误体系、事件类型
-├── socket / vertex            Socket 类型系统、节点模板与端口声明（无状态）
-├── slots                      稳定索引分配器，节点与边共用
-├── graph                      编辑层：存储 + CRUD + 层级 + 事务 + 事件
-├── snapshot                   Structure 契约 + 不可变 CSR + 编译期视图 + 增量重编译
-├── task                       Task / settle / schedule / 组合器
-├── algorithm/                 只吃 Structure，每个算法一套实现
-└── serialize/                 紧凑格式与结构化差异
+├── array                 只读数组类型与索引空间算子     ┐
+├── ident                 品牌 id                        │ 零依赖叶子
+├── slots                 稳定索引分配器，节点与边共用   │
+├── socket                Socket 类型系统                ┘
+├── error / event         错误体系、事件类型
+├── vertex                节点模板与端口声明（无状态）
+├── journal               事务化事件总线：版本计数、缓冲、嵌套事务、派发隔离
+├── structure             算法契约与派生量——不认识 Graph
+├── task                  Task / Future / settle / run / schedule / 组合器
+├── graph                 编辑层：存储 + CRUD + 层级
+├── snapshot              编译器：可变图 → 不可变 CSR，含增量重编译    ┐ 桥接
+├── ordering              增量拓扑序（订阅图事件）                     ┘
+├── hierarchy             复合层级的派生查询
+├── algorithm/            只吃 Structure
+└── serialize/            紧凑格式与结构化差异
 ```
 
-依赖单向收敛：`algorithm/` 只认 `Structure` 与 `Task`，**运行期完全不依赖 `graph`**（只有
-`Ordering` 需要活图，且只作类型导入）；`serialize/` 是唯一同时依赖 `Graph` 与格式定义的层；
-`slots` 谁都不认。
+分层不是靠约定，而是由 `tests/unit/layering.test.ts` 机检——它直接读源码里的 import 语句：
 
-子路径导出据此切分，Worker 侧可以只引算法层：
+- `algorithm/**` 只依赖 `array` / `structure` / `task` / `error`，**一个文件都不 import
+  `graph` 或 `snapshot`**；
+- `structure` 的依赖恰好是 `array` 与 `error`；
+- `array` / `ident` / `slots` / `socket` 的 import 列表为空；
+- 算法之间的相互依赖**恰好只有一条**：`reach → {component, search}`（闭包必须先缩点、
+  可达集要走 dfs）。
+
+第四条是关键：它不是「不许有」，而是「只许有这一条」。往某个算法模块里塞一段公共代码、再从另一个
+模块 import 它，测试立刻红——这类边界从来不是被大重构破坏的，而是被某次「就加一行 import」顺手
+拆掉的，那一行单看永远无可指摘。同时站在两侧的只有 `snapshot` 与 `ordering`，都是显式的桥接。
+
+子路径导出据此切分：`@openconsole/graph/algorithm` 拉进 14 个模块、**零编辑层代码**，Worker 里
+只跑算法时不必打包 `Graph`、事件总线与序列化。
 
 ```ts
 import { scc, settle } from "@openconsole/graph/algorithm";
@@ -507,20 +579,19 @@ import { pack } from "@openconsole/graph/serialize";
 
 - **可变与不可变分家**：编辑走 `Graph`，计算走 `Structure`。算法因此只有一套实现，不存在
   「通用版 + 编译版」两条需要同步维护的代码路径。
-- **算法对接口编程**：`Structure` 是五个只读字段，不是一个类。自定义存储、跨语言内存、
-  惰性生成的图都能直接跑算法，不必先物化成 `Graph`。
+- **算法对接口编程**：`Structure` 是五个只读字段，不是一个类，且暴露的是只读的 `Ints` / `Reals`
+  ——不可变在编译期就成立。自定义存储、跨语言内存、惰性生成的图都能直接跑算法。
+- **依赖方向就是架构**：「算法不认识 Graph」写成断言而不是注释，连算法之间的相互依赖也逐条钉住。
 - **索引是公开的一等公民**：算法在索引空间进出，事件载荷带槽位，图同时提供 id / 槽位 / 纯整数
-  三套访问口径。字符串哈希只在人机边界上付。
-- **视图是编译选项，不是运行期包装**：过滤 / 折叠 / 无向化 / 合并一次做完，运行期零开销；
+  三套访问口径。字符串哈希只在人机边界上付。访问契约收在一处——`at()` 供外部查询（越界给
+  `undefined`），`label()` / `key()` 供内部遍历（越界即程序错误），因此算法里没有一处非空断言。
+- **视图是编译选项，不是运行期包装**：过滤 / 折叠 / 无向化 / 合并 / 端口层一次做完，运行期零开销；
   结构没变时连编译都能省掉大半。
-- **删除后索引稳定**：自由表复用空位，已发出的下标永不改指；要回收空位就显式 `compact()`，
-  并且会发事件告诉订阅者索引怎么变了。
-- **不可变在类型层面成立**：快照暴露的是只读的 `Ints` / `Reals`，不是可写的 typed-array。
-- **索引访问契约收在一处**：`at()` 供外部查询（越界返回 `undefined`），`label()` / `key()`
-  供内部遍历（越界即程序错误），因此算法里没有一处非空断言。
-- **中间态不对外**：`result()` 在跑完之前抛 `Incomplete`，提前终止的接口不返回全量结构。
-- **可疑输入不静默通过**：负权抛 `Negative`、`NaN` 权抛 `Invalid`、源图变更后 `verify()` 抛
-  `Stale`、缺入向抛 `Oneway`、没搬标签就问名字明确报错。宁可报错，也不给一个看起来正常的答案。
+- **删除后索引稳定**：自由表复用空位，已发出的下标永不改指；要回收就显式 `compact()`，并且会发
+  事件告诉订阅者索引怎么变了。
+- **中间态与可疑输入都不静默通过**：`result()` 在跑完前抛 `Incomplete`，提前终止的接口不返回全量
+  结构；负权抛 `Negative`、`NaN` 权抛 `Invalid`、源图变更后 `verify()` 抛 `Stale`、缺入向抛
+  `Oneway`、没搬标签就问名字明确报错。宁可报错，也不给一个看起来正常的答案。
 - **端口是声明**：`Vertex` / `Port` 无状态，可复用、可跨图，没有「节点被图独占」这类限制。
 - **不预设编排形态**：`Socket.exec` 只是个预置常量名，图本身不认识它的含义；`N` / `E` 完全
   不透明；连线可以成环（只有层级禁环）。执行语义留给上层，n8n 式数据流、Node-RED 式消息流、
@@ -541,7 +612,7 @@ pnpm --filter @openconsole/graph doc               # typedoc，输出到 docs/�
 tests/
 ├── support.ts        构建器与断言助手
 ├── naive.ts          各算法的独立参照实现，只用公开查询、照定义直写
-├── unit/             逐模块：图、事件、端口、快照、契约、任务、序列化、增量序、算法、上限
+├── unit/             逐模块：图、事件、端口、快照、契约、任务、序列化、增量序、算法、上限、分层
 ├── integration/      跨层：编辑器全链路、计算侧端到端、复杂度闸门
 └── bench/            量级参考，不作闸门
 ```
