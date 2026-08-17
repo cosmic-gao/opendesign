@@ -41,6 +41,27 @@ describe("节点与边", () => {
     expect(graph.order).toBe(1);
   });
 
+  it("mergeNode 只更新 spec 里给出的字段", () => {
+    const graph = blank();
+    graph.addNode(vertex("a", "A"));
+
+    // "确保存在"的常见写法。省略 weight 若当成清空，这里就会静默抹掉 "A"。
+    expect(graph.mergeNode({ id: a })).toBe(false);
+    expect(graph.weightOf(a)).toBe("A");
+    expect(Object.keys(graph.node(a)!.outputs)).toEqual(["out"]);
+
+    expect(graph.mergeNode({ id: a, weight: "B" })).toBe(false);
+    expect(graph.weightOf(a)).toBe("B");
+
+    // 给了端口就采纳——Vertex 满足 NodeSpec，搬一个模板过来不该把它声明的端口丢掉。
+    graph.mergeNode(
+      new Vertex<Sockets, Sockets, string>(a).addOutput("emit", Socket.number),
+    );
+    expect(Object.keys(graph.node(a)!.outputs)).toEqual(["emit"]);
+    expect(Object.keys(graph.node(a)!.inputs)).toEqual([]);
+    expect(graph.weightOf(a)).toBe("B");
+  });
+
   it("删节点级联清掉它的边", () => {
     const graph = blank();
     graph.addNode(vertex("a"));
@@ -185,7 +206,7 @@ describe("稳定索引", () => {
     for (const [node, index] of before) {
       if (node === b) continue;
       expect(graph.indexOf(node as NodeId)).toBe(index);
-      expect(graph.at(index as number)).toBe(node);
+      expect(graph.nodeIdAt(index as number)).toBe(node);
     }
     expect(graph.indexOf(b)).toBe(-1);
   });
@@ -225,6 +246,68 @@ describe("稳定索引", () => {
       );
       expect(graph.parent(record.node)).toBe(record.parent);
     }
+  });
+
+  it("compact 搬运全部平行数组，不只是常用的那几条", () => {
+    // compact 要逐条搬运节点侧 8 条、边侧 7 条平行数组。漏搬哪条都不报错，只是那一列
+    // 数据从此静默错位。要让漏搬**可观测**，每个节点的端口形状、每条边的两侧端口名与
+    // 权重都得各不相同——全都一样的话，读到邻居槽位的值和读对了没有区别。
+    const graph = blank();
+    const d = nodeId("d");
+    const e = nodeId("e");
+    graph.addNode(vertex("a", "A"));
+    graph.addNode(vertex("b", "B"));
+    graph.addNode(
+      new Vertex<Sockets, Sockets, string>(c, "C")
+        .addInput("in", Socket.any)
+        .addInput("extra", Socket.number)
+        .addOutput("out", Socket.any)
+        .addOutput("alt", Socket.number),
+    );
+    graph.addNode(vertex("d", "D"));
+    graph.addNode(vertex("e", "E"));
+    graph.setParent(e, c);
+
+    // 先建后删，让边侧也留下空洞：边槽位不动的话，边侧七条漏搬同样测不出来。
+    const doomed = graph.connect([a, "out"], [d, "in"]);
+    const ac = graph.connect([a, "out"], [c, "in"], { weight: 10 });
+    const cd = graph.connect([c, "alt"], [d, "in"], { weight: 20 });
+    const dc = graph.connect([d, "out"], [c, "extra"], { weight: 30 });
+    graph.disconnect(doomed);
+    graph.dropNode(b);
+    expect(graph.bound).toBeGreaterThan(graph.order);
+
+    const before = {
+      weight: graph.weightOf(c),
+      inputs: Object.keys(graph.node(c)!.inputs),
+      outputs: Object.keys(graph.node(c)!.outputs),
+      out: graph.outNeighbors(c),
+      in: graph.inNeighbors(c),
+      children: graph.children(c),
+      parent: graph.parent(e),
+      edges: [ac, cd, dc].map((id) => graph.edge(id)!),
+    };
+
+    graph.compact();
+    expect(graph.bound).toBe(graph.order);
+
+    expect(graph.weightOf(c)).toBe(before.weight);
+    expect(Object.keys(graph.node(c)!.inputs)).toEqual(before.inputs);
+    expect(Object.keys(graph.node(c)!.outputs)).toEqual(before.outputs);
+    expect(graph.outNeighbors(c)).toEqual(before.out);
+    expect(graph.inNeighbors(c)).toEqual(before.in);
+    expect(graph.children(c)).toEqual(before.children);
+    expect(graph.parent(e)).toBe(before.parent);
+    // 端点、两侧端口名与边权都在边记录里，一次深比较全覆盖。
+    for (const was of before.edges) expect(graph.edge(was.id)).toEqual(was);
+
+    // 位置索引（边在邻接表里的下标、子节点在子表里的下标）错位不会立刻显形，
+    // 要等下一次摘链才把列表拆坏，故在 compact 之后再删一轮。
+    graph.disconnect(cd);
+    graph.unparent(e);
+    expect(graph.outNeighbors(c)).toEqual([]);
+    expect([...graph.inNeighbors(c)].sort()).toEqual([a, d].sort());
+    expect(graph.children(c)).toEqual([]);
   });
 
   it("随机增删与 compact 之后，两侧邻接表始终与边表一致", () => {
@@ -293,6 +376,9 @@ describe("复合层级", () => {
     expect(() => graph.setParent(a, c)).toThrow(Nested);
     expect(() => graph.setParent(a, a)).toThrow(Nested);
     expect(() => graph.setParent(a, nodeId("zz"))).toThrow(Missing);
+    // 层级环与算法层的 Cycle 载荷不同（一对 id vs 索引数组），故各占一个 code：
+    // 共用的话按 code 分类捕获后还得再 instanceof 才知道能读哪些字段。
+    expect(new Nested(a, c).code).toBe("nested");
 
     graph.unparent(b);
     expect(graph.parent(b)).toBeUndefined();

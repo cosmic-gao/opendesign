@@ -56,6 +56,16 @@ export abstract class Stepwise<T> extends Task<T> {
   /** 未跑完时的完成度估算，0..1；单调不减。 */
   protected abstract measure(): number;
 
+  /**
+   * {@link Stepwise.measure} 的惯用分式：`total` 为 0 时算作已完成。
+   *
+   * @remarks 空图、空分量、无边——这些边界在每个算法里都要挡一次，漏挡就是 `0/0` 得到
+   *   `NaN`，进度条与 `onProgress` 拿到的都是它。收在这里比各算法各写一遍三元表达式可靠。
+   */
+  protected ratio(done: number, total: number): number {
+    return total === 0 ? 1 : done / total;
+  }
+
   /** 供 `result()` 开头调用。@throws {@link Incomplete} 尚未跑完 */
   protected ensure(): void {
     if (!this.#settled) throw new Incomplete(this.progress);
@@ -151,10 +161,16 @@ class Sequence<A, B> extends Task<B> {
     super();
   }
 
+  /**
+   * @remarks 阶段交接处就返回，不在同一次调用里接着推进第二段——否则一次
+   *   `advance(budget)` 最坏会花掉 2×budget，分帧时正好卡在换阶段那一帧。
+   *   {@link transform} 的第二段是 {@link Ready}，交接即完成，因此不会多让出一帧。
+   */
   public advance(budget: number): boolean {
     if (this._second === undefined) {
       if (this._first.advance(budget)) return true;
       this._second = this._next(this._first.result());
+      return !this._second.settled;
     }
     return this._second.advance(budget);
   }

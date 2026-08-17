@@ -77,14 +77,14 @@ export class Ordering<N = unknown, E = unknown> {
     return left === undefined || right === undefined ? 0 : left - right;
   }
 
+  /** 未跟踪的（位次 0）自然排在最前，与"尚未纳入约束"的语义一致。 */
   public sorted(): NodeId[] {
-    const listed: Array<{ id: NodeId; rank: number }> = [];
-    this._graph.forEachNode((id, _weight, slot) => {
-      listed.push({ id, rank: this._rank[slot] ?? 0 });
-    });
-    // 未跟踪的（rank 0）自然排在最前，与"尚未纳入约束"的语义一致。
-    listed.sort((a, b) => a.rank - b.rank);
-    return listed.map((entry) => entry.id);
+    // 排的是槽位而不是 `{ id, rank }` 对：整数数组的比较器不解引用对象，也不为每个
+    // 节点分配一个临时对象——V 大时那批对象本身就够触发一次 GC。
+    const slots: number[] = [];
+    this._graph.forEachNode((_id, _weight, slot) => void slots.push(slot));
+    slots.sort((a, b) => (this._rank[a] ?? 0) - (this._rank[b] ?? 0));
+    return slots.map((slot) => this._graph.nodeIdAt(slot)!);
   }
 
   /** 是否存在被排除的成环边。O(1)。 */

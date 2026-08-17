@@ -80,6 +80,18 @@ export function inboundOf(structure: Structure, caller: string): Adjacency {
 }
 
 /**
+ * 无向视角下需要额外扫的反向邻接；无向编译时两侧同源，返回 `undefined` 表示"不必再扫一遍"。
+ *
+ * @throws {@link Oneway} 结构只编了出向——生成树、弱连通、割点都是无向概念，
+ *   缺入向不会报错而是静默漏掉整个分支
+ */
+export const crossing = (
+  structure: Structure,
+  caller: string,
+): Adjacency | undefined =>
+  merged(structure) ? undefined : inboundOf(structure, caller);
+
+/**
  * 方向翻转的视图，O(1)：底层数组全部共享，只是把出向与入向对调。
  *
  * @throws {@link Oneway} 没有入向邻接
@@ -120,6 +132,76 @@ export const inDegree = (structure: Structure, u: number): number => {
   const inbound = structure.inbound;
   return inbound ? inbound.offset[u + 1]! - inbound.offset[u]! : 0;
 };
+
+/** 边权画像：一遍 O(E) 扫描能得出的全部结论。 */
+export interface Profile {
+  /** 全部边权都是非负整数——桶队列的前提。 */
+  readonly integral: boolean;
+  readonly max: number;
+  /** 首条负权边的序号；没有负权为 -1。 */
+  readonly negative: number;
+}
+
+const UNWEIGHTED: Profile = { integral: true, max: 1, negative: -1 };
+
+/**
+ * 边权画像的记忆表。
+ *
+ * @remarks 画像是**不可变结构**的属性，只该算一次：不缓存的话，在 V=5000 / E=40000 上
+ *   这一遍扫描要占单次 Dijkstra 的 17%，多源场景更是白付一个 O(V·E)。记在 `WeakMap` 上
+ *   而不是 {@link Snapshot} 字段上，是为了让自定义 {@link Structure} 实现同样享受到。
+ *
+ *   键取**权重数组**而不是结构：{@link reversed} / {@link Snapshot.reverse} 每次都产出新的
+ *   结构对象却共享同一份权重，以结构为键的话反向搜索每跑一次就要重扫一遍全部边权。
+ *
+ *   前提是权重数组不被就地改写——{@link Reals} 在类型上只读，{@link Snapshot} 也从不复用它：
+ *   增量重编译产出的是新数组、新实例，因此不会读到过期画像。
+ */
+const profiles = new WeakMap<Reals | Structure, Profile>();
+
+/**
+ * 边权画像，按权重数组记忆化。
+ *
+ * @throws {@link Invalid} 存在 `NaN` 权边——这一遍本来就要走完，顺手拦下是零成本；
+ *   放过去就是一个查不出的"不可达"
+ */
+export function profileOf(structure: Structure): Profile {
+  const weight = structure.weight;
+  // 无权结构没有可共享的数组，退回以结构本身为键。
+  const key = weight ?? structure;
+  const known = profiles.get(key);
+  if (known) return known;
+  if (weight === undefined) return UNWEIGHTED;
+
+  let integral = true;
+  let max = 0;
+  let negative = -1;
+  for (let e = 0; e < weight.length; e++) {
+    const cost = weight[e]!;
+    if (Number.isNaN(cost)) throw new Invalid(e);
+    if (cost < 0 && negative < 0) negative = e;
+    if (integral && !Number.isInteger(cost)) integral = false;
+    if (cost > max) max = cost;
+  }
+  const found: Profile = { integral, max, negative };
+  profiles.set(key, found);
+  return found;
+}
+
+/**
+ * 校验过的边权数组；`undefined` 表示无权，全部边按 1 计。
+ *
+ * @remarks 跑遍全图的算法用它在**入口处一次性**验掉 `NaN`，内层循环因此不必逐边再判——
+ *   Bellman-Ford 会把每条边看 V 遍，那个分支省下来是实打实的。提前终止型的搜索
+ *   （A\*、双向）刻意不走这条路：它们的卖点就是只探索一小片图，预扫全部边权往往比
+ *   实际访问到的边还多。
+ *
+ * @throws {@link Invalid} 存在 `NaN` 权边
+ */
+export function costs(structure: Structure): Reals | undefined {
+  profileOf(structure);
+  return structure.weight;
+}
 
 export interface CompileOptions<N = unknown, E = unknown> {
   /** 只保留满足谓词的节点。 */

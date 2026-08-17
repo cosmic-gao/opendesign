@@ -141,9 +141,14 @@ export function diff<N, E>(
 ): Array<Change<N, E>> {
   const equal = options.equal ?? structural;
   const changes: Array<Change<N, E>> = [];
+  // 每份 id 清单都是一次 O(V) / O(E) 的字符串数组分配，下面要来回走好几趟，先各取一次。
+  const wasNodes = before.nodes();
+  const nowNodes = after.nodes();
+  const wasEdges = before.edges();
+  const nowEdges = after.edges();
 
   const reshaped = new Set<NodeId>();
-  for (const id of after.nodes()) {
+  for (const id of nowNodes) {
     const was = before.node(id);
     if (was === undefined) continue;
     const now = after.node(id)!;
@@ -156,18 +161,18 @@ export function diff<N, E>(
   }
 
   const removed = new Set<NodeId>();
-  for (const id of before.nodes()) {
+  for (const id of wasNodes) {
     if (!after.hasNode(id) || reshaped.has(id)) removed.add(id);
   }
 
   const relinked = new Set<EdgeId>();
-  for (const id of after.edges()) {
+  for (const id of nowEdges) {
     const was = before.edge(id);
     if (was === undefined) continue;
     if (!sameEnds(was, after.edge(id)!)) relinked.add(id);
   }
 
-  for (const id of before.edges()) {
+  for (const id of wasEdges) {
     const edge = shapeEdge(before, id);
     if (
       !after.hasEdge(id) ||
@@ -182,7 +187,7 @@ export function diff<N, E>(
     changes.push({ kind: "dropNode", node: shapeNode(before, id) });
   }
 
-  for (const id of after.nodes()) {
+  for (const id of nowNodes) {
     if (!before.hasNode(id) || reshaped.has(id)) {
       changes.push({ kind: "addNode", node: shapeNode(after, id) });
       continue;
@@ -193,7 +198,7 @@ export function diff<N, E>(
       changes.push({ kind: "weighNode", node: id, from, to });
   }
 
-  for (const id of after.edges()) {
+  for (const id of nowEdges) {
     const edge = shapeEdge(after, id);
     if (
       !before.hasEdge(id) ||
@@ -210,7 +215,7 @@ export function diff<N, E>(
     }
   }
 
-  for (const id of after.nodes()) {
+  for (const id of nowNodes) {
     const to = after.parent(id);
     const from = before.parent(id);
     // 节点自身或其父被重建时，`dropNode` 已经把这条父子边拆掉了（子节点被提升到祖父），

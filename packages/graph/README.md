@@ -104,7 +104,7 @@ half.reverse(); // 抛 Oneway
 
 ```ts
 graph.addNode(spec); // 返回 NodeId，重复抛 Duplicate
-graph.mergeNode(spec); // upsert，新增返回 true
+graph.mergeNode(spec); // upsert，只更新 spec 给出的字段；新增返回 true
 graph.dropNode(id); // 级联删边、子节点提升到祖父
 graph.connect(from, to, options); // 返回 EdgeId
 graph.disconnect(edge);
@@ -142,6 +142,9 @@ graph.copy() / graph.subgraph(keep) / graph.union(other);
 | 按槽位（无哈希，给整数） | `forEachLink` / `forEachOutAt`  | 编译与增量 |
 
 编译快照、打包、增量拓扑序全走第三种，因此这些路径上一次字符串哈希都不做。
+
+命名上 `At` 后缀一律表示「收槽位、不查 id 表」——`nodeIdAt` / `nodeAt` / `edgeIdAt` /
+`edgeAt` / `parentAt` / `forEach*At`；不带后缀的同名方法收 id，内部先过一次哈希。
 
 ### 节点与端口是声明，不是状态
 

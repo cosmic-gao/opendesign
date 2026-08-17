@@ -1,5 +1,11 @@
-import { inboundOf, merged, type Adjacency, type Structure } from "../snapshot";
+import {
+  crossing,
+  inboundOf,
+  type Adjacency,
+  type Structure,
+} from "../snapshot";
 import { Stepwise, type Task } from "../task";
+import { nextRoot } from "./search";
 
 const NONE = -1;
 
@@ -29,8 +35,8 @@ class Cut extends Stepwise<Cuts> {
   private readonly _cursors: Int32Array;
   private readonly _children: Int32Array;
   private readonly _pending: Int32Array;
-  private readonly _inbound: Adjacency;
-  private readonly _merged: boolean;
+  /** 无向视角要额外扫的反向邻接；无向编译时两侧同源，留空即可。 */
+  private readonly _inbound: Adjacency | undefined;
   private readonly _bridges: Bridge[] = [];
   private _depth = NONE;
   private _root = 0;
@@ -40,7 +46,7 @@ class Cut extends Stepwise<Cuts> {
 
   public constructor(private readonly _structure: Structure) {
     super();
-    this._inbound = inboundOf(_structure, "cuts");
+    this._inbound = crossing(_structure, "cuts");
     const n = _structure.order;
     this._discovered = new Int32Array(n).fill(NONE);
     this._low = new Int32Array(n);
@@ -50,23 +56,15 @@ class Cut extends Stepwise<Cuts> {
     this._cursors = new Int32Array(n);
     this._children = new Int32Array(n);
     this._pending = new Int32Array(n);
-    this._merged = merged(_structure);
   }
 
   protected measure(): number {
-    return this._structure.order === 0
-      ? 1
-      : this._clock / this._structure.order;
+    return this.ratio(this._clock, this._structure.order);
   }
 
   protected step(): boolean {
     if (this._depth === NONE) {
-      while (
-        this._root < this._structure.order &&
-        this._discovered[this._root] !== NONE
-      ) {
-        this._root++;
-      }
+      this._root = nextRoot(this._discovered, this._root, NONE);
       if (this._root >= this._structure.order) return false;
       this._enter(this._root, NONE);
       return true;
@@ -121,8 +119,8 @@ class Cut extends Stepwise<Cuts> {
       return true;
     }
     // 无向编译时两侧同源，再扫一遍入向就是把每条边数两次。
-    if (this._merged) return false;
     const back = this._inbound;
+    if (back === undefined) return false;
     const rest = index - outgoing;
     if (rest >= back.offset[u + 1]! - back.offset[u]!) return false;
     const slot = back.offset[u]! + rest;

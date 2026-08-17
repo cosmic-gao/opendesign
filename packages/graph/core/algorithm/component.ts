@@ -1,13 +1,35 @@
 import {
-  inboundOf,
-  merged,
+  crossing,
   type Adjacency,
   type Ints,
   type Structure,
 } from "../snapshot";
 import { chain, Stepwise, transform, type Task } from "../task";
+import { nextRoot } from "./search";
 
 const NONE = -1;
+
+/**
+ * 按标签把索引分桶：`label[u]` 是索引 `u` 的桶号，取值 `0 .. count-1`。
+ *
+ * @remarks 计数排序，O(V + count)，一次分配到位。分量、拓扑分层都是同一个形状——
+ *   标签数组加桶数，因此共用这一个实现。
+ */
+export function bucket(label: Ints, count: number): Int32Array[] {
+  const width = new Int32Array(count);
+  for (let u = 0; u < label.length; u++) {
+    const c = label[u]!;
+    width[c] = width[c]! + 1;
+  }
+  const grouped: Int32Array[] = new Array(count);
+  for (let c = 0; c < count; c++) grouped[c] = new Int32Array(width[c]!);
+  const cursor = new Int32Array(count);
+  for (let u = 0; u < label.length; u++) {
+    const c = label[u]!;
+    grouped[c]![cursor[c]!++] = u;
+  }
+  return grouped;
+}
 
 /** 分量划分：`component[u]` 是节点索引 `u` 所属分量的编号。 */
 export class Partition {
@@ -18,21 +40,7 @@ export class Partition {
 
   /** 按分量编号分组的节点索引。 */
   public groups(): Int32Array[] {
-    const width = new Int32Array(this.count);
-    for (let u = 0; u < this.component.length; u++) {
-      const c = this.component[u]!;
-      width[c] = width[c]! + 1;
-    }
-    const grouped: Int32Array[] = new Array(this.count);
-    for (let c = 0; c < this.count; c++) grouped[c] = new Int32Array(width[c]!);
-    const cursor = new Int32Array(this.count);
-    for (let u = 0; u < this.component.length; u++) {
-      const c = this.component[u]!;
-      const at = cursor[c]!;
-      cursor[c] = at + 1;
-      grouped[c]![at] = u;
-    }
-    return grouped;
+    return bucket(this.component, this.count);
   }
 }
 
@@ -53,23 +61,16 @@ class Weak extends Stepwise<Partition> {
     this._stack = new Int32Array(_structure.order);
     // 弱连通要忽略方向：缺入向就只能沿出边走，得到的是按可达性的分组而非弱连通分量
     // （`0→2, 1→2` 会报成两个分量）。
-    this._inbound = merged(_structure)
-      ? undefined
-      : inboundOf(_structure, "components");
+    this._inbound = crossing(_structure, "components");
   }
 
   protected measure(): number {
-    return this._structure.order === 0 ? 1 : this._seen / this._structure.order;
+    return this.ratio(this._seen, this._structure.order);
   }
 
   protected step(): boolean {
     if (this._top === 0) {
-      while (
-        this._root < this._structure.order &&
-        this._component[this._root] !== NONE
-      ) {
-        this._root++;
-      }
+      this._root = nextRoot(this._component, this._root, NONE);
       if (this._root >= this._structure.order) return false;
       this._claim(this._root, this._count++);
       return true;
@@ -136,19 +137,12 @@ class Strong extends Stepwise<Partition> {
   }
 
   protected measure(): number {
-    return this._structure.order === 0
-      ? 1
-      : this._settledNodes / this._structure.order;
+    return this.ratio(this._settledNodes, this._structure.order);
   }
 
   protected step(): boolean {
     if (this._depth === NONE) {
-      while (
-        this._root < this._structure.order &&
-        this._rindex[this._root] !== 0
-      ) {
-        this._root++;
-      }
+      this._root = nextRoot(this._rindex, this._root, 0);
       if (this._root >= this._structure.order) return false;
       this._enter(this._root);
       return true;
@@ -250,13 +244,14 @@ export const condensation = (structure: Structure): Task<Condensed> =>
  *
  * @remarks 搜索限制在起点所属的强连通分量内——环不可能跨分量，DAG 上因此只剩
  *   一遍 O(V+E) 的跳过。B 列表是 `Set`：Johnson 的 unblock 要反复判成员，
- *   用数组线性查找会把发布的复杂度界打破。
+ *   用数组线性查找会把发布的复杂度界打破；但按需才建，否则 DAG 上会白分配 V 个 `Set`。
  */
 class Cycles extends Stepwise<number[][]> {
   private readonly _component: Ints;
   private readonly _groups: Int32Array[];
   private readonly _blocked: Uint8Array;
-  private readonly _noEntry: Array<Set<number>>;
+  /** B 列表：`_noEntry[v]` 是"v 解封后要跟着解封"的节点，缺省即空。 */
+  private readonly _noEntry: Array<Set<number> | undefined>;
   private readonly _path: number[] = [];
   private readonly _frames: number[] = [];
   private readonly _cursors: number[] = [];
@@ -272,16 +267,11 @@ class Cycles extends Stepwise<number[][]> {
     this._component = partition.component;
     this._groups = partition.groups();
     this._blocked = new Uint8Array(_structure.order);
-    this._noEntry = Array.from(
-      { length: _structure.order },
-      () => new Set<number>(),
-    );
+    this._noEntry = new Array(_structure.order);
   }
 
   protected measure(): number {
-    return this._structure.order === 0
-      ? 1
-      : this._start / this._structure.order;
+    return this.ratio(this._start, this._structure.order);
   }
 
   protected step(): boolean {
@@ -293,7 +283,7 @@ class Cycles extends Stepwise<number[][]> {
       }
       for (const member of this._groups[this._component[this._start]!]!) {
         this._blocked[member] = 0;
-        this._noEntry[member]!.clear();
+        this._noEntry[member] = undefined;
       }
       this._enter(this._start);
       return true;
@@ -323,7 +313,7 @@ class Cycles extends Stepwise<number[][]> {
       for (let k = offset[u]!; k < end; k++) {
         const v = other[k]!;
         if (v >= this._start && this._component[v] === this._component[u]) {
-          this._noEntry[v]!.add(u);
+          (this._noEntry[v] ??= new Set()).add(u);
         }
       }
     }
@@ -361,11 +351,12 @@ class Cycles extends Stepwise<number[][]> {
     while (waiting.length > 0) {
       const u = waiting.pop()!;
       this._blocked[u] = 0;
-      const dependents = this._noEntry[u]!;
+      const dependents = this._noEntry[u];
+      if (dependents === undefined) continue;
+      this._noEntry[u] = undefined;
       for (const blocked of dependents) {
         if (this._blocked[blocked] === 1) waiting.push(blocked);
       }
-      dependents.clear();
     }
   }
 

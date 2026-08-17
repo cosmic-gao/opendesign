@@ -173,9 +173,7 @@ class Propagate extends Stepwise<Closure> {
   }
 
   protected measure(): number {
-    return this._partition.count === 0
-      ? 1
-      : this._component / this._partition.count;
+    return this.ratio(this._component, this._partition.count);
   }
 
   /**
@@ -258,6 +256,8 @@ export const closure = (
  */
 class Reduce extends Stepwise<Array<readonly [number, number]>> {
   private readonly _kept: Array<readonly [number, number]> = [];
+  /** 最近一次把某个后继登记进来的节点，用于 O(1) 识别平行边。 */
+  private readonly _stamp: Int32Array;
   private _node = 0;
   private _slot = 0;
 
@@ -266,12 +266,13 @@ class Reduce extends Stepwise<Array<readonly [number, number]>> {
     private readonly _closure: Closure,
   ) {
     super();
+    this._stamp = new Int32Array(_structure.order).fill(-1);
   }
 
   protected measure(): number {
     const { order } = this._structure;
     const total = order + this._structure.outbound.offset[order]!;
-    return total === 0 ? 1 : (this._node + this._slot) / total;
+    return this.ratio(this._node + this._slot, total);
   }
 
   protected step(): boolean {
@@ -285,20 +286,23 @@ class Reduce extends Stepwise<Array<readonly [number, number]>> {
     }
 
     const u = this._node;
-    const slot = this._slot++;
-    const v = other[slot]!;
-    if (!this._repeated(u, slot, v) && !this._bypassed(u, v)) {
+    const v = other[this._slot++]!;
+    if (!this._repeated(u, v) && !this._bypassed(u, v)) {
       this._kept.push([u, v]);
     }
     return true;
   }
 
-  /** 平行边只留一条：同一个 `v` 在本节点更早的槽位上已经判过。 */
-  private _repeated(u: number, slot: number, v: number): boolean {
-    const { offset, other } = this._structure.outbound;
-    for (let k = offset[u]!; k < slot; k++) {
-      if (other[k] === v) return true;
-    }
+  /**
+   * 平行边只留一条：同一个 `v` 在本节点更早的槽位上已经判过。
+   *
+   * @remarks 用一条按后继索引的戳记数组，而不是回扫本节点先前的槽位——后者每条边
+   *   O(deg)、每个节点合计 O(deg²)，扇出 4000 的中心点单是去重就要 1600 万次比较。
+   *   戳记记的是"上一个登记它的节点"，因此换节点时不必清零。
+   */
+  private _repeated(u: number, v: number): boolean {
+    if (this._stamp[v] === u) return true;
+    this._stamp[v] = u;
     return false;
   }
 

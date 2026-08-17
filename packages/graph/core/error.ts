@@ -4,6 +4,7 @@ export type Code =
   | "duplicate"
   | "missing"
   | "cycle"
+  | "nested"
   | "oneway"
   | "socket"
   | "capacity"
@@ -55,14 +56,20 @@ export class Cycle extends GraphError {
   }
 }
 
-/** 层级会成环：把节点挂到自己的后代下面。层级是编辑层概念，故用 id 而非索引。 */
+/**
+ * 层级会成环：把节点挂到自己的后代下面。层级是编辑层概念，故用 id 而非索引。
+ *
+ * @remarks 自成一个 `code` 而不与 {@link Cycle} 共用 `"cycle"`：两者载荷不同
+ *   （这里是一对 id，那边是节点索引数组），共用的话按 `code` 分类捕获后还得再
+ *   `instanceof` 一次才知道能读哪些字段，`code` 就白设了。
+ */
 export class Nested extends GraphError {
   public constructor(
     public readonly node: NodeId,
     public readonly parent: NodeId,
   ) {
     super(
-      "cycle",
+      "nested",
       `"${node}" cannot be nested under its descendant "${parent}"`,
     );
   }

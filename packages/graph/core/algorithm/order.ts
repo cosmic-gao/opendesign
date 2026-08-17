@@ -1,6 +1,8 @@
-import { Cycle, Invalid } from "../error";
-import type { Structure } from "../snapshot";
+import { Cycle } from "../error";
+import { costs, type Structure } from "../snapshot";
 import { Stepwise, transform, type Task } from "../task";
+import { bucket } from "./component";
+import { backtrack } from "./path";
 
 export interface Topology {
   /** 拓扑序的节点索引，不含环上节点。 */
@@ -33,7 +35,7 @@ class Kahn extends Stepwise<Topology> {
   }
 
   protected measure(): number {
-    return this._structure.order === 0 ? 1 : this._head / this._structure.order;
+    return this.ratio(this._head, this._structure.order);
   }
 
   private _open(): Int32Array {
@@ -135,22 +137,8 @@ export const generations = (structure: Structure): Task<Int32Array[]> =>
       }
     }
 
-    const width = new Int32Array(deepest + 1);
-    for (let i = 0; i < order.length; i++) {
-      const d = level[order[i]!]!;
-      width[d] = width[d]! + 1;
-    }
-    const layers: Int32Array[] = new Array(deepest + 1);
-    for (let d = 0; d <= deepest; d++) layers[d] = new Int32Array(width[d]!);
-    const cursor = new Int32Array(deepest + 1);
-    for (let i = 0; i < order.length; i++) {
-      const u = order[i]!;
-      const d = level[u]!;
-      const at = cursor[d]!;
-      cursor[d] = at + 1;
-      layers[d]![at] = u;
-    }
-    return layers;
+    // 无环才走到这里，因此 `order` 覆盖全部节点，`level` 就是一份完整的层号标签。
+    return bucket(level, deepest + 1);
   });
 
 /**
@@ -162,7 +150,7 @@ export const generations = (structure: Structure): Task<Int32Array[]> =>
 export const criticalPath = (structure: Structure): Task<Critical> =>
   transform(toposort(structure), (order) => {
     const { offset, other, edge } = structure.outbound;
-    const weight = structure.weight;
+    const weight = costs(structure);
     const dist = new Float64Array(structure.order);
     const prev = new Int32Array(structure.order).fill(-1);
     let end = order.length > 0 ? order[0]! : -1;
@@ -172,21 +160,16 @@ export const criticalPath = (structure: Structure): Task<Critical> =>
       if (dist[u]! > dist[end]!) end = u;
       for (let k = offset[u]!; k < offset[u + 1]!; k++) {
         const v = other[k]!;
-        const cost = weight === undefined ? 1 : weight[edge[k]!]!;
-        if (Number.isNaN(cost)) throw new Invalid(edge[k]!);
-        const candidate = dist[u]! + cost;
+        const candidate =
+          dist[u]! + (weight === undefined ? 1 : weight[edge[k]!]!);
         if (candidate > dist[v]!) {
           dist[v] = candidate;
           prev[v] = u;
         }
       }
     }
-
-    let depth = 0;
-    for (let cursor = end; cursor !== -1; cursor = prev[cursor]!) depth++;
-    const path = new Int32Array(depth);
-    for (let cursor = end; cursor !== -1; cursor = prev[cursor]!) {
-      path[--depth] = cursor;
-    }
-    return { path, length: end === -1 ? 0 : dist[end]! };
+    return {
+      path: backtrack(prev, end),
+      length: end === -1 ? 0 : dist[end]!,
+    };
   });

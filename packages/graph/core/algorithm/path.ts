@@ -4,8 +4,11 @@ import { Cycle, Invalid, Negative } from "../error";
 import {
   afford,
   CEILING,
+  costs,
+  profileOf,
   reversed,
   type DenseOptions,
+  type Ints,
   type Reals,
   type Structure,
 } from "../snapshot";
@@ -45,64 +48,46 @@ export interface PathOptions {
 /** 桶队列的最大边权上限：路径总长随它增长，空桶扫描是 O(总长) 的实打实开销。 */
 const BUCKETS = 1 << 8;
 
-/** 边权画像：是否全为非负整数，以及最大值。 */
-interface Profile {
-  readonly integral: boolean;
-  readonly max: number;
+/**
+ * 逐边现取边权并校验。提前终止型的搜索走这条路而不是 {@link costs} 的一次性预扫——
+ * 它们只探索一小片图，预扫全部边权往往比实际访问到的边还多。
+ *
+ * @throws {@link Invalid} `NaN` 权边
+ * @throws {@link Negative} 负权边
+ */
+function verified(weight: Reals | undefined, e: number): number {
+  const cost = weight === undefined ? 1 : weight[e]!;
+  if (Number.isNaN(cost)) throw new Invalid(e);
+  if (cost < 0) throw new Negative(cost, e);
+  return cost;
 }
 
 /**
- * 边权画像的记忆表。
+ * 沿前驱链回溯出完整路径，末端落在 `from`；`parent` 里 -1 表示链头。
  *
- * @remarks 画像是**不可变结构**的属性，只该算一次：不缓存的话，在 V=5000 / E=40000 上
- *   这一遍扫描要占单次 Dijkstra 的 17%，多源场景更是白付一个 O(V·E)。记在 `WeakMap` 上
- *   而不是 `Snapshot` 字段上，是为了让自定义 {@link Structure} 实现同样享受到。
- *
- *   键取**权重数组**而不是结构：`reversed()` / {@link Snapshot.reverse} 每次都产出新的
- *   结构对象却共享同一份权重，以结构为键的话反向搜索每跑一次就要重扫一遍全部边权。
- *
- *   前提是权重数组不被就地改写——`Reals` 在类型上只读，{@link Snapshot} 也从不复用它：
- *   增量重编译产出的是新数组、新实例，因此不会读到过期画像。
+ * @remarks 先数长度再倒着填，一次分配到位——链长事先未知，边走边 `push` 要付数组扩容。
  */
-const profiles = new WeakMap<Reals | Structure, Profile>();
-
-/**
- * @throws {@link Negative} 存在负权边
- * @throws {@link Invalid} 存在 `NaN` 权边
- */
-function profileOf(structure: Structure): Profile {
-  const weight = structure.weight;
-  // 无权结构没有可共享的数组，退回以结构本身为键。
-  const key = weight ?? structure;
-  const known = profiles.get(key);
-  if (known) return known;
-
-  let found: Profile;
-  if (weight === undefined) {
-    found = { integral: true, max: 1 };
-  } else {
-    let integral = true;
-    let max = 0;
-    for (let e = 0; e < weight.length; e++) {
-      const cost = weight[e]!;
-      // 这一遍本来就要走完，顺手拦下 NaN 是零成本；放过去就是一个查不出的"不可达"。
-      if (Number.isNaN(cost)) throw new Invalid(e);
-      if (cost < 0) throw new Negative(cost, e);
-      if (integral && !Number.isInteger(cost)) integral = false;
-      if (cost > max) max = cost;
-    }
-    found = { integral, max };
+export function backtrack(parent: Ints, from: number): Int32Array {
+  let depth = 0;
+  for (let cursor = from; cursor !== -1; cursor = parent[cursor]!) depth++;
+  const path = new Int32Array(depth);
+  for (let cursor = from; cursor !== -1; cursor = parent[cursor]!) {
+    path[--depth] = cursor;
   }
-  profiles.set(key, found);
-  return found;
+  return path;
 }
 
 /**
  * 挑选优先队列，顺手校验负权。非负整数权且内置 combine 保证增量有界时用桶队列
  * （O(1) 出入队），否则用惰性堆。两者给出的距离一致，只影响耗时。
+ *
+ * @throws {@link Negative} 存在负权边——Dijkstra 的贪心不成立，改用 {@link bellmanFord}
  */
 function pick(structure: Structure, combine: Combine): IndexQueue {
-  const { integral, max } = profileOf(structure);
+  const { integral, max, negative } = profileOf(structure);
+  if (negative >= 0) {
+    throw new Negative(structure.weight![negative]!, negative);
+  }
   // 自定义 combine 可能把优先级推出桶窗口，只有内置两种才走桶队列。
   const bounded = combine === sum || combine === bottleneck;
   // 空桶扫描要靠出入队的量摊薄，稀疏图摊不动，反而比堆慢。
@@ -144,9 +129,7 @@ class Dijkstra extends Stepwise<Tree> {
   }
 
   protected measure(): number {
-    return this._structure.order === 0
-      ? 1
-      : this._reached / this._structure.order;
+    return this.ratio(this._reached, this._structure.order);
   }
 
   private _open(): IndexQueue {
@@ -227,15 +210,7 @@ export function trace(tree: Tree, target: number): Int32Array {
   // 越界必须在这里挡住：`parent[越界]` 是 undefined，往下走会变成不终止的回溯。
   if (target < 0 || target >= tree.parent.length) return new Int32Array(0);
   if (tree.distance[target] === Infinity) return new Int32Array(0);
-  let depth = 0;
-  for (let cursor = target; cursor !== -1; cursor = tree.parent[cursor]!) {
-    depth++;
-  }
-  const path = new Int32Array(depth);
-  for (let cursor = target; cursor !== -1; cursor = tree.parent[cursor]!) {
-    path[--depth] = cursor;
-  }
-  return path;
+  return backtrack(tree.parent, target);
 }
 
 /** A\*：以 `g + h` 为优先级。`heuristic` 不高估真实剩余代价时结果最优。 */
@@ -243,7 +218,7 @@ class AStar extends Stepwise<Route | undefined> {
   private readonly _score: Float64Array;
   private readonly _parent: Int32Array;
   private readonly _closed: Uint8Array;
-  private readonly _queue = new LazyQueue();
+  private readonly _queue: LazyQueue;
   private readonly _weight: Reals | undefined;
   private readonly _adding: boolean;
   private _reached = 0;
@@ -257,6 +232,7 @@ class AStar extends Stepwise<Route | undefined> {
     private readonly _combine: Combine,
   ) {
     super();
+    this._queue = new LazyQueue(_structure.order);
     this._score = new Float64Array(_structure.order).fill(Infinity);
     this._parent = new Int32Array(_structure.order).fill(-1);
     this._closed = new Uint8Array(_structure.order);
@@ -271,9 +247,7 @@ class AStar extends Stepwise<Route | undefined> {
   }
 
   protected measure(): number {
-    return this._structure.order === 0
-      ? 1
-      : this._reached / this._structure.order;
+    return this.ratio(this._reached, this._structure.order);
   }
 
   protected step(): boolean {
@@ -294,10 +268,7 @@ class AStar extends Stepwise<Route | undefined> {
     for (let k = offset[u]!; k < offset[u + 1]!; k++) {
       const v = other[k]!;
       if (this._closed[v] === 1) continue;
-      const e = edge[k]!;
-      const cost = weight === undefined ? 1 : weight[e]!;
-      if (Number.isNaN(cost)) throw new Invalid(e);
-      if (cost < 0) throw new Negative(cost, e);
+      const cost = verified(weight, edge[k]!);
       const candidate = this._adding ? base + cost : this._combine(base, cost);
       if (candidate >= this._score[v]!) continue;
       this._score[v] = candidate;
@@ -341,7 +312,7 @@ const flank = (order: number, source: number): Side => {
     distance: new Float64Array(order).fill(Infinity),
     parent: new Int32Array(order).fill(-1),
     settled: new Uint8Array(order),
-    queue: new LazyQueue(),
+    queue: new LazyQueue(order),
     frontier: 0,
   };
   if (source >= 0 && source < order) {
@@ -384,9 +355,7 @@ class Bidirectional extends Stepwise<Route | undefined> {
   }
 
   protected measure(): number {
-    return this._structure.order === 0
-      ? 1
-      : this._reached / (2 * this._structure.order);
+    return this.ratio(this._reached, 2 * this._structure.order);
   }
 
   protected step(): boolean {
@@ -418,11 +387,7 @@ class Bidirectional extends Stepwise<Route | undefined> {
     for (let k = offset[u]!; k < offset[u + 1]!; k++) {
       const v = other[k]!;
       if (near.settled[v] === 1) continue;
-      const e = edge[k]!;
-      const cost = weight === undefined ? 1 : weight[e]!;
-      if (Number.isNaN(cost)) throw new Invalid(e);
-      if (cost < 0) throw new Negative(cost, e);
-      const candidate = base + cost;
+      const candidate = base + verified(weight, edge[k]!);
       if (candidate < near.distance[v]!) {
         near.distance[v] = candidate;
         near.parent[v] = u;
@@ -444,40 +409,13 @@ class Bidirectional extends Stepwise<Route | undefined> {
   public result(): Route | undefined {
     this.ensure();
     if (this._meet === -1 || this._best === Infinity) return undefined;
-    let ahead = 0;
-    for (
-      let cursor = this._meet;
-      cursor !== -1;
-      cursor = this._forward.parent[cursor]!
-    ) {
-      ahead++;
-    }
-    let behind = 0;
-    for (
-      let cursor = this._backward.parent[this._meet]!;
-      cursor !== -1;
-      cursor = this._backward.parent[cursor]!
-    ) {
-      behind++;
-    }
-
-    const path = new Int32Array(ahead + behind);
-    let at = ahead;
-    for (
-      let cursor = this._meet;
-      cursor !== -1;
-      cursor = this._forward.parent[cursor]!
-    ) {
-      path[--at] = cursor;
-    }
-    at = ahead;
-    for (
-      let cursor = this._backward.parent[this._meet]!;
-      cursor !== -1;
-      cursor = this._backward.parent[cursor]!
-    ) {
-      path[at++] = cursor;
-    }
+    // 两侧都从相遇点回溯：前半段本就是 起点→相遇点，后半段回溯出 终点→相遇点，
+    // 翻转即得 相遇点→终点，去掉重复的相遇点后拼接。
+    const ahead = backtrack(this._forward.parent, this._meet);
+    const behind = backtrack(this._backward.parent, this._meet).reverse();
+    const path = new Int32Array(ahead.length + behind.length - 1);
+    path.set(ahead);
+    path.set(behind.subarray(1), ahead.length);
     return { distance: this._best, path };
   }
 }
@@ -507,13 +445,13 @@ class BellmanFord extends Stepwise<Tree> {
     super();
     this._distance = new Float64Array(_structure.order).fill(Infinity);
     this._parent = new Int32Array(_structure.order).fill(-1);
-    this._weight = _structure.weight;
+    this._weight = costs(_structure);
     if (source >= 0 && source < _structure.order) this._distance[source] = 0;
   }
 
   protected measure(): number {
     const n = this._structure.order;
-    return n === 0 ? 1 : (this._round * n + this._cursor) / (n * n);
+    return this.ratio(this._round * n + this._cursor, n * n);
   }
 
   /**
@@ -544,9 +482,7 @@ class BellmanFord extends Stepwise<Tree> {
     const weight = this._weight;
     for (let k = offset[u]!; k < offset[u + 1]!; k++) {
       const v = other[k]!;
-      const cost = weight === undefined ? 1 : weight[edge[k]!]!;
-      if (Number.isNaN(cost)) throw new Invalid(edge[k]!);
-      const candidate = base + cost;
+      const candidate = base + (weight === undefined ? 1 : weight[edge[k]!]!);
       if (candidate < this._distance[v]!) {
         this._distance[v] = candidate;
         this._parent[v] = u;
@@ -609,6 +545,7 @@ export class Matrix {
 /** Floyd-Warshall：先逐行铺底（每步一个节点），再每步推进一个中转节点的一行。 */
 class FloydWarshall extends Stepwise<Matrix> {
   private readonly _cells: Float64Array;
+  private readonly _weight: Reals | undefined;
   private _primed = 0;
   private _through = 0;
   private _row = 0;
@@ -621,13 +558,12 @@ class FloydWarshall extends Stepwise<Matrix> {
     const n = _structure.order;
     afford(8 * n * n, limit, `floydWarshall on V=${n}`);
     this._cells = new Float64Array(n * n);
+    this._weight = costs(_structure);
   }
 
   protected measure(): number {
     const n = this._structure.order;
-    return n === 0
-      ? 1
-      : (this._primed + this._through * n + this._row) / (n + n * n);
+    return this.ratio(this._primed + this._through * n + this._row, n + n * n);
   }
 
   private _prime(u: number): void {
@@ -637,11 +573,10 @@ class FloydWarshall extends Stepwise<Matrix> {
     this._cells[row + u] = 0;
 
     const { offset, other, edge } = this._structure.outbound;
-    const weight = this._structure.weight;
+    const weight = this._weight;
     for (let k = offset[u]!; k < offset[u + 1]!; k++) {
       const cell = row + other[k]!;
       const cost = weight === undefined ? 1 : weight[edge[k]!]!;
-      if (Number.isNaN(cost)) throw new Invalid(edge[k]!);
       if (cost < this._cells[cell]!) this._cells[cell] = cost;
     }
   }
